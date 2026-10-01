@@ -1,0 +1,12 @@
+/* Ajustes globales personalizados si los requieres */
+body {
+  font-family: "Inter", sans-serif;
+  scroll-behavior: smooth;
+}
+
+input,
+select,
+textarea,
+button {
+  transition: all 0.2s ease-in-out;
+}

@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ventanilla Única - Gestión Documental</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="public/img/archivo.png" />
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts: Inter -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Tu archivo CSS local para ajustes específicos -->
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="bg-slate-100 min-h-screen flex flex-col justify-between">
+    <!-- HEADER: Cabecera Institucional -->
+    <header class="bg-blue-900 text-white shadow-md">
+      <div
+        class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center"
+      >
+        <div class="flex items-center space-x-3">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-8 w-8 text-amber-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+            />
+          </svg>
+          <div>
+            <h1 class="text-xl font-bold tracking-wide">Alcaldía Municipal</h1>
+            <p class="text-xs text-blue-200">
+              Sistema de Gestión Documental y Ventanilla Única
+            </p>
+          </div>
+        </div>
+        <div
+          class="mt-2 sm:mt-0 text-sm bg-blue-800 px-3 py-1 rounded-full border border-blue-700"
+        >
+          Módulo:
+          <span class="font-semibold text-amber-300"
+            >Recepción / Radicación</span
+          >
+        </div>
+      </div>
+    </header>
+
+    <!-- NAV: Barra de Navegación Principal -->
+    <nav class="bg-blue-800 text-white shadow-inner">
+      <div
+        class="max-w-6xl mx-auto px-4 flex space-x-6 text-sm font-medium py-2.5 overflow-x-auto"
+      >
+        <a href="#" class="text-amber-300 hover:text-white transition"
+          >Radicar Documento</a
+        >
+        <a
+          href="consultar.html"
+          class="text-blue-200 hover:text-white transition"
+          >Consultar Radicado</a
+        >
+        <a href="#" class="text-blue-200 hover:text-white transition"
+          >Reportes</a
+        >
+        <a href="#" class="text-blue-200 hover:text-white transition"
+          >Ayuda / Manual</a
+        >
+      </div>
+    </nav>
+
+    <!-- MAIN: Contenido Principal -->
+    <main class="max-w-4xl mx-auto px-4 py-8 w-full grow">
+      <!-- SECTION: Tarjeta y Formulario de Radicación -->
+      <section
+        class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
+      >
+        <div
+          class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center"
+        >
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">
+              Registro de Nuevo Trámite o Documento
+            </h2>
+            <p class="text-xs text-slate-500">
+              Diligencie todos los campos obligatorios marcados con asterisco
+              (*).
+            </p>
+          </div>
+          <span
+            class="text-xs font-semibold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded"
+          >
+            Radicación en Línea
+          </span>
+        </div>
+
+        <form
+          id="radicadoForm"
+          class="space-y-5 bg-white p-8 rounded-2xl shadow-sm border border-slate-200"
+        >
+          <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">
+            Formulario de Radicación
+          </h2>
+
+          <!-- Tipo de Recepción -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Tipo de Recepción *</label
+            >
+            <select
+              name="tipo_recepcion"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            >
+              <option value="Digital">Digital</option>
+              <option value="Fisico">Físico</option>
+            </select>
+          </div>
+
+          <!-- Tipo de Documento -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Tipo de Documento *</label
+            >
+            <select
+              name="tipo_documento"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            >
+              <option value="Solicitud">Solicitud</option>
+              <option value="Derecho de Peticion">Derecho de Petición</option>
+              <option value="Oficio">Oficio</option>
+            </select>
+          </div>
+
+          <!-- Nombre del Remitente -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Nombre del Remitente *</label
+            >
+            <input
+              type="text"
+              name="remitente_nombre"
+              placeholder="Nombre completo"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            />
+          </div>
+
+          <!-- Cédula -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Cédula *</label
+            >
+            <input
+              type="text"
+              name="remitente_documento"
+              placeholder="Número de identificación"
+              maxlength="10"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            />
+          </div>
+
+          <!-- Entidad / Empresa -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Entidad / Empresa</label
+            >
+            <input
+              type="text"
+              name="remitente_entidad"
+              placeholder="Nombre de la entidad"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+            />
+          </div>
+
+          <!-- NIT de la entidad -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >NIT de la entidad</label
+            >
+            <input
+              type="text"
+              name="remitente_nit"
+              placeholder="NIT sin dígito de verificación"
+              maxlength="12"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+            />
+          </div>
+
+          <!-- Teléfono / Celular -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Teléfono / Celular *</label
+            >
+            <input
+              type="tel"
+              name="remitente_telefono"
+              placeholder="Ej. 3101234567"
+              maxlength="10"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            />
+          </div>
+
+          <!-- Correo Electrónico -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Correo Electrónico</label
+            >
+            <input
+              type="email"
+              name="remitente_email"
+              placeholder="correo@ejemplo.com"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+            />
+          </div>
+
+          <!-- Número de Folios -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Número de Folios *</label
+            >
+            <input
+              type="number"
+              name="numero_folios"
+              value="1"
+              min="1"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            />
+          </div>
+
+          <!-- Dependencia de Destino -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Dependencia de Destino *</label
+            >
+            <select
+              name="dependencia_destino"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            >
+              <option value="Despacho del Alcalde">Despacho del Alcalde</option>
+              <option value="Oficina de Control Interno">
+                Oficina de Control Interno
+              </option>
+              <option value="Secretaria de Planeacion">
+                Secretaría de Planeación
+              </option>
+            </select>
+          </div>
+
+          <!-- Asunto / Resumen del Documento -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Asunto / Resumen del Documento *</label
+            >
+            <textarea
+              name="asunto_documento"
+              rows="4"
+              placeholder="Escriba el asunto detallado..."
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
+            ></textarea>
+          </div>
+
+          <!-- Soporte Documental (PDF) -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
+              >Soporte Documental (PDF) *</label
+            >
+            <div
+              class="relative border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-500 transition bg-slate-50 cursor-pointer group"
+            >
+              <input
+                type="file"
+                id="archivo"
+                accept="application/pdf"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                required
+              />
+              <div class="flex flex-col items-center justify-center space-y-2">
+                <svg
+                  class="w-10 h-10 text-blue-600 group-hover:scale-110 transition transform duration-200"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  ></path>
+                </svg>
+                <p
+                  class="text-sm font-medium text-slate-700"
+                  id="texto-archivo"
+                >
+                  Haz clic aquí o arrastra tu archivo PDF
+                </p>
+                <p class="text-xs text-slate-400">
+                  Formato PDF permitido (Máx. 10MB)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón de Envío -->
+          <button
+            type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 text-base"
+          >
+            Generar Radicado y Registrar
+          </button>
+        </form>
+      </section>
+    </main>
+
+    <!-- FOOTER: Pie de página institucional -->
+    <footer
+      class="bg-white border-t border-slate-200 mt-10 text-center py-4 text-xs text-slate-500"
+    >
+      <p>Sistema de Ventanilla Única - Prácticas ADSO | Alcaldía Municipal</p>
+    </footer>
+
+    <!-- Tu archivo JS local para ajustes específicos -->
+    <script src="js/main.js"></script>
+  </body>
+</html>
