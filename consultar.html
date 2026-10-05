@@ -6,10 +6,11 @@
     <title>Consultar Radicados - Ventanilla Única</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="public/img/archivo.png" />
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./css/style.css" />
   </head>
-  <body class="bg-slate-100 min-h-screen flex flex-col justify-between">
+  <body
+    class="page-consult bg-slate-100 min-h-screen flex flex-col justify-between"
+  >
     <!-- HEADER -->
     <header
       class="bg-blue-900 text-white shadow-md p-4 text-center font-bold text-lg"
@@ -18,7 +19,7 @@
     </header>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <main class="max-w-6xl w-full mx-auto p-6 flex-grow">
+    <main class="max-w-6xl w-full mx-auto p-6 grow">
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800">
           Listado de Documentos Recibidos
@@ -29,6 +30,69 @@
         >
           ← Registrar Nuevo Radicado
         </a>
+      </div>
+
+      <!-- ================= STATS / DASHBOARD CARDS ================= -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Tarjeta 1 -->
+        <div
+          id="card-total"
+          style="cursor: pointer"
+          class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600 flex items-center justify-between hover:shadow-lg transition"
+        >
+          <div>
+            <p
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Total Radicados
+            </p>
+            <h3 id="stat-total" class="text-3xl font-bold text-gray-800 mt-1">
+              0
+            </h3>
+          </div>
+          <div class="p-3 bg-blue-50 rounded-xl text-blue-600">...</div>
+        </div>
+
+        <!-- Tarjeta 2 -->
+        <div
+          id="card-hoy"
+          style="cursor: pointer"
+          class="bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-lg transition"
+        >
+          <div>
+            <p
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Registrados Hoy
+            </p>
+            <h3 id="stat-hoy" class="text-3xl font-bold text-gray-800 mt-1">
+              0
+            </h3>
+          </div>
+          <div class="p-3 bg-emerald-50 rounded-xl text-emerald-600">...</div>
+        </div>
+
+        <!-- Tarjeta 3 -->
+        <div
+          id="card-dependencias"
+          style="cursor: pointer"
+          class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-lg transition"
+        >
+          <div>
+            <p
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Dependencias Destino
+            </p>
+            <h3
+              id="stat-dependencias"
+              class="text-3xl font-bold text-gray-800 mt-1"
+            >
+              0
+            </h3>
+          </div>
+          <div class="p-3 bg-purple-50 rounded-xl text-purple-600">...</div>
+        </div>
       </div>
 
       <!-- Buscador -->
@@ -66,7 +130,7 @@
             >
               <!-- Los datos se inyectarán dinámicamente con JavaScript -->
               <tr>
-                <td colspan="6" class="p-6 text-center text-slate-400">
+                <td colspan="7" class="p-6 text-center text-slate-400">
                   Cargando radicados...
                 </td>
               </tr>
@@ -78,7 +142,7 @@
 
     <!-- FOOTER -->
     <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
-      Sistema de Ventanilla Única - Prácticas ADSO | Alcaldía Municipal
+      Sistema de Ventanilla Única | Alcaldía Municipal
     </footer>
 
     <script src="js/consultar.js"></script>
