@@ -7,27 +7,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modalDetalle = document.getElementById('modal-detalle');
     const btnCerrarModal = document.getElementById('btn-cerrar-modal');
     const btnCerrarFooter = document.getElementById('btn-cerrar-footer');
+    let elementoQueAbreModal = null;
+    let overflowAnterior = '';
 
     function cerrarModalFn() {
         if (modalDetalle) {
             modalDetalle.classList.remove('activo');
+            modalDetalle.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = overflowAnterior;
+            elementoQueAbreModal?.focus();
+            elementoQueAbreModal = null;
         }
     }
 
     function abrirModalFn() {
         if (modalDetalle) {
+            overflowAnterior = document.body.style.overflow;
             modalDetalle.classList.add('activo');
+            modalDetalle.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            btnCerrarModal?.focus();
         }
     }
 
     if (btnCerrarModal) btnCerrarModal.onclick = cerrarModalFn;
     if (btnCerrarFooter) btnCerrarFooter.onclick = cerrarModalFn;
 
-    window.onclick = (e) => {
+    modalDetalle?.addEventListener('click', (e) => {
         if (e.target === modalDetalle) {
             cerrarModalFn();
         }
-    };
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalDetalle?.classList.contains('activo')) {
+            cerrarModalFn();
+        }
+    });
 
     // Función para actualizar las tarjetas del Dashboard con los datos
     function actualizarEstadisticas(radicados) {
@@ -160,6 +176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const item = listaRadicados.find(r => r.numero_radicado === numRadicado);
 
             if (item) {
+                elementoQueAbreModal = btnDetalle;
                 // 1. Rellenar los campos con la información del radicado
                 document.getElementById('modal-num-radicado').textContent = item.numero_radicado;
                 document.getElementById('modal-fecha').textContent = new Date(item.fecha_creacion).toLocaleString();
@@ -176,12 +193,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (item.ruta_archivo) {
                     const urlPdf = `http://localhost:3000/uploads/${item.ruta_archivo}`;
                     contenedorSoporte.innerHTML = `
-                        <a href="${urlPdf}" target="_blank" class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-medium text-xs transition border border-blue-200">
+                        <a href="${urlPdf}" target="_blank" rel="noopener noreferrer">
                             📄 Ver Documento de Soporte (PDF)
                         </a>
                     `;
                 } else {
-                    contenedorSoporte.innerHTML = `<p class="text-xs text-slate-400 italic">No hay archivo adjunto para este radicado.</p>`;
+                    contenedorSoporte.innerHTML = `<p>No hay archivo adjunto para este radicado.</p>`;
                 }
 
                 // 2. ¡ESTO ES LO QUE FALTABA! Llamar a la función para mostrar el modal
