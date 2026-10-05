@@ -524,9 +524,32 @@ footer {
   white-space: nowrap;
 }
 
-.page-consult tbody td:nth-child(6) span {
+.page-consult tbody td:nth-child(7) span {
   background: #fffbeb;
   color: #b45309;
+}
+
+#tabla-radicados .badge-comunicacion {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#tabla-radicados .badge-comunicacion--interna {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+#tabla-radicados .badge-comunicacion--externa {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+#tabla-radicados .badge-comunicacion--sin-tipo {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .page-consult tbody td[colspan] {

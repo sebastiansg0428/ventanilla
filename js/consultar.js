@@ -57,8 +57,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hoyStr = `${anio}-${mes}-${dia}`;
 
         let radicadosHoy = 0;
-        const dependenciasSet = new Set();
-
         radicados.forEach(item => {
             if (item.fecha_creacion) {
                 const fechaItem = item.fecha_creacion.split('T')[0].split(' ')[0];
@@ -66,25 +64,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                     radicadosHoy++;
                 }
             }
-
-            if (item.dependencia_destino) {
-                dependenciasSet.add(item.dependencia_destino);
-            }
         });
 
         const elTotal = document.getElementById('stat-total');
         const elHoy = document.getElementById('stat-hoy');
-        const elDep = document.getElementById('stat-dependencias');
 
         if (elTotal) elTotal.textContent = total;
         if (elHoy) elHoy.textContent = radicadosHoy;
-        if (elDep) elDep.textContent = dependenciasSet.size;
     }
 
     // Función para renderizar la tabla con menú desplegable interactivo y radicado clickeable
     function mostrarDatos(datos) {
         if (datos.length === 0) {
-            tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
             return;
         }
 
@@ -93,6 +85,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
             const estadoActual = item.estado || 'Recibido';
+            const tipoComunicacion = (item.tipo_comunicacion || '').trim();
+            const tipoNormalizado = tipoComunicacion.toLowerCase();
+            const tipoBadgeClass = tipoNormalizado === 'interna'
+                ? 'badge-comunicacion--interna'
+                : tipoNormalizado === 'externa'
+                    ? 'badge-comunicacion--externa'
+                    : 'badge-comunicacion--sin-tipo';
+            const tipoEtiqueta = tipoNormalizado === 'interna'
+                ? 'Interna'
+                : tipoNormalizado === 'externa'
+                    ? 'Externa'
+                    : 'No especificado';
 
             let soporteHtml = 'Sin archivo';
             if (item.ruta_archivo) {
@@ -106,6 +110,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <button data-radicado="${item.numero_radicado}" class="ver-detalle font-semibold text-blue-600 hover:underline text-left cursor-pointer">
                             ${item.numero_radicado}
                         </button>
+                    </td>
+                    <td class="p-4">
+                        <span class="badge-comunicacion ${tipoBadgeClass}">
+                            ${tipoEtiqueta}
+                        </span>
                     </td>
                     <td class="p-4 text-xs text-slate-500">${fechaFormateada}</td>
                     <td class="p-4">${item.remitente_nombre}</td>
@@ -218,11 +227,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             mostrarDatos(listaRadicados);
             actualizarEstadisticas(listaRadicados);
         } else {
-            tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
         }
     } catch (error) {
         console.error("Error de red:", error);
-        tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
+        tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
     }
 
     // Filtrar en tiempo real con el buscador
@@ -287,28 +296,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // --- TARJETA 3: DEPENDENCIAS DESTINO ---
-    const cardDependencias = document.getElementById('card-dependencias');
-    if (cardDependencias) {
-        let depIndex = -1;
-        cardDependencias.onclick = () => {
-            const dependenciasUnicas = [...new Set(listaRadicados.map(item => item.dependencia_destino || item.destino).filter(Boolean))];
+    // --- TARJETA 3: FILTRO POR TIPO DE COMUNICACIÓN ---
+    const cardTipoComunicacion = document.getElementById('card-tipo-comunicacion');
+    const textoFiltroComunicacion = document.getElementById('texto-filtro-comunicacion');
+    if (cardTipoComunicacion && textoFiltroComunicacion) {
+        let tipoIndex = -1;
+        cardTipoComunicacion.addEventListener('click', () => {
+            const tiposComunicacion = [...new Set(
+                listaRadicados
+                    .map(item => item.tipo_comunicacion)
+                    .filter(Boolean)
+            )];
 
-            if (dependenciasUnicas.length === 0) return;
+            if (tiposComunicacion.length === 0) return;
 
-            depIndex++;
+            tipoIndex++;
 
-            if (depIndex < dependenciasUnicas.length) {
-                const depSeleccionada = dependenciasUnicas[depIndex];
-                const radicadosDep = listaRadicados.filter(item => (item.dependencia_destino || item.destino) === depSeleccionada);
-
-                mostrarDatos(radicadosDep);
-                cardDependencias.classList.add('ring-2', 'ring-purple-500', 'bg-purple-50/30');
+            if (tipoIndex < tiposComunicacion.length) {
+                const tipoSeleccionado = tiposComunicacion[tipoIndex];
+                textoFiltroComunicacion.textContent = tipoSeleccionado;
+                mostrarDatos(listaRadicados.filter(
+                    item => item.tipo_comunicacion === tipoSeleccionado
+                ));
+                cardTipoComunicacion.classList.add('ring-2', 'ring-purple-500', 'bg-purple-50/30');
             } else {
-                depIndex = -1;
+                tipoIndex = -1;
+                textoFiltroComunicacion.textContent = 'Todos';
                 mostrarDatos(listaRadicados);
-                cardDependencias.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-50/30');
+                cardTipoComunicacion.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-50/30');
             }
-        };
+        });
     }
 });

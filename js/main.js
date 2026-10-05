@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const datosComprobante = {
                     numero_radicado: soloCuatroDigitos,
+                    tipo_comunicacion: formData.get('tipo_comunicacion') || 'Externa',
                     numero_folios: formData.get('numero_folios') || '1',
                     dependencia_destino: formData.get('dependencia_destino') || 'General',
                     usuario_recibe: formData.get('usuario_recibe') || 'Ventanilla Única',
@@ -152,6 +153,7 @@ function descargarComprobantePDF(datosRadicado) {
     doc.setFont("helvetica", "normal");
 
     const itemsDetalle = [
+        `Tipo de Comunicación: ${datosRadicado.tipo_comunicacion}`,
         `Número de Radicado: ${datosRadicado.numero_radicado}`,
         `Número de Folios: ${datosRadicado.numero_folios || '1'}`,
         `Dependencia Destino: ${datosRadicado.dependencia_destino}`,
