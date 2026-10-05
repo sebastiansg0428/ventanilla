@@ -3,6 +3,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     const buscador = document.getElementById("buscador");
     let listaRadicados = [];
 
+    // --- LÓGICA DEL MODAL DE DETALLE ---
+    const modalDetalle = document.getElementById('modal-detalle');
+    const btnCerrarModal = document.getElementById('btn-cerrar-modal');
+    const btnCerrarFooter = document.getElementById('btn-cerrar-footer');
+
+    function cerrarModalFn() {
+        if (modalDetalle) {
+            modalDetalle.classList.remove('activo');
+        }
+    }
+
+    function abrirModalFn() {
+        if (modalDetalle) {
+            modalDetalle.classList.add('activo');
+        }
+    }
+
+    if (btnCerrarModal) btnCerrarModal.onclick = cerrarModalFn;
+    if (btnCerrarFooter) btnCerrarFooter.onclick = cerrarModalFn;
+
+    window.onclick = (e) => {
+        if (e.target === modalDetalle) {
+            cerrarModalFn();
+        }
+    };
+
     // Función para actualizar las tarjetas del Dashboard con los datos
     function actualizarEstadisticas(radicados) {
         const total = radicados.length;
@@ -39,29 +65,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (elDep) elDep.textContent = dependenciasSet.size;
     }
 
-    // Función para renderizar la tabla con Estados dinámicos
+    // Función para renderizar la tabla con menú desplegable interactivo y radicado clickeable
     function mostrarDatos(datos) {
         if (datos.length === 0) {
             tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
             return;
         }
 
+        const estadosDisponibles = ['Recibido', 'En Trámite', 'Pendiente', 'Respondido'];
+
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
-
-            // --- LÓGICA DE COLORES PARA EL ESTADO ---
-            const estadoTexto = item.estado || 'Recibido';
-            let estiloEstado = 'bg-slate-100 text-slate-700'; // Estilo por defecto
-
-            if (estadoTexto.toLowerCase().includes('recibido')) {
-                estiloEstado = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-            } else if (estadoTexto.toLowerCase().includes('pendiente')) {
-                estiloEstado = 'bg-amber-50 text-amber-700 border border-amber-200';
-            } else if (estadoTexto.toLowerCase().includes('trámite') || estadoTexto.toLowerCase().includes('tramite')) {
-                estiloEstado = 'bg-blue-50 text-blue-700 border border-blue-200';
-            } else if (estadoTexto.toLowerCase().includes('respondido')) {
-                estiloEstado = 'bg-purple-50 text-purple-700 border border-purple-200';
-            }
+            const estadoActual = item.estado || 'Recibido';
 
             let soporteHtml = 'Sin archivo';
             if (item.ruta_archivo) {
@@ -71,7 +86,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             return `
                 <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-                    <td class="p-4 font-semibold text-blue-600">${item.numero_radicado}</td>
+                    <td class="p-4">
+                        <button data-radicado="${item.numero_radicado}" class="ver-detalle font-semibold text-blue-600 hover:underline text-left cursor-pointer">
+                            ${item.numero_radicado}
+                        </button>
+                    </td>
                     <td class="p-4 text-xs text-slate-500">${fechaFormateada}</td>
                     <td class="p-4">${item.remitente_nombre}</td>
                     <td class="p-4">${item.remitente_documento}</td>
@@ -82,9 +101,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                         </span>
                     </td>
                     <td class="p-4">
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${estiloEstado}">
-                            ${estadoTexto}
-                        </span>
+                        <select data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                            ${estadosDisponibles.map(est => `
+                                <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}
+                                </option>
+                            `).join('')}
+                        </select>
                     </td>
                     <td class="p-4">
                         ${soporteHtml}
@@ -93,6 +115,80 @@ document.addEventListener("DOMContentLoaded", async () => {
             `;
         }).join('');
     }
+
+    // Escuchador global en la tabla para detectar cuando cambian un estado (Event Delegation)
+    tablaBody.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('select-estado')) {
+            const numeroRadicado = e.target.getAttribute('data-radicado');
+            const nuevoEstado = e.target.value;
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/radicados/${numeroRadicado}/estado`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    console.log(`Radicado ${numeroRadicado} actualizado a: ${nuevoEstado}`);
+
+                    const radicadoEncontrado = listaRadicados.find(r => r.numero_radicado === numeroRadicado);
+                    if (radicadoEncontrado) {
+                        radicadoEncontrado.estado = nuevoEstado;
+                    }
+                } else {
+                    alert('Error al actualizar el estado en el servidor.');
+                }
+            } catch (error) {
+                console.error('Error de red al actualizar estado:', error);
+                alert('No se pudo conectar con el servidor para guardar el cambio.');
+            }
+        }
+    });
+
+    // Escuchador en la tabla para abrir el modal al hacer clic en un radicado
+    tablaBody.addEventListener('click', (e) => {
+        // Asegúrate de incluir el punto '.' para buscar la clase
+        const btnDetalle = e.target.closest('.ver-detalle');
+
+        if (btnDetalle) {
+            const numRadicado = btnDetalle.getAttribute('data-radicado');
+            const item = listaRadicados.find(r => r.numero_radicado === numRadicado);
+
+            if (item) {
+                // 1. Rellenar los campos con la información del radicado
+                document.getElementById('modal-num-radicado').textContent = item.numero_radicado;
+                document.getElementById('modal-fecha').textContent = new Date(item.fecha_creacion).toLocaleString();
+                document.getElementById('modal-estado').textContent = item.estado || 'Recibido';
+                document.getElementById('modal-remitente').textContent = item.remitente_nombre || 'No registrado';
+                document.getElementById('modal-documento').textContent = item.remitente_documento || 'No registrado';
+                document.getElementById('modal-destino').textContent = item.dependencia_destino || 'No registrado';
+                document.getElementById('modal-tiempo').textContent = item.tiempo_de_respuesta || 'No especificado';
+                document.getElementById('modal-telefono').textContent = item.remitente_telefono || 'No registrado';
+                document.getElementById('modal-email').textContent = item.remitente_email || 'No registrado';
+                document.getElementById('modal-asunto').textContent = item.asunto_documento || 'Sin observaciones.';
+
+                const contenedorSoporte = document.getElementById('modal-contenedor-soporte');
+                if (item.ruta_archivo) {
+                    const urlPdf = `http://localhost:3000/uploads/${item.ruta_archivo}`;
+                    contenedorSoporte.innerHTML = `
+                        <a href="${urlPdf}" target="_blank" class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-medium text-xs transition border border-blue-200">
+                            📄 Ver Documento de Soporte (PDF)
+                        </a>
+                    `;
+                } else {
+                    contenedorSoporte.innerHTML = `<p class="text-xs text-slate-400 italic">No hay archivo adjunto para este radicado.</p>`;
+                }
+
+                // 2. ¡ESTO ES LO QUE FALTABA! Llamar a la función para mostrar el modal
+                abrirModalFn();
+            }
+        }
+    });
 
     // Consumir API del Backend
     try {
@@ -113,23 +209,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Filtrar en tiempo real con el buscador
-    buscador.addEventListener('input', (e) => {
-        const texto = e.target.value.toLowerCase().trim();
+    if (buscador) {
+        buscador.addEventListener('input', (e) => {
+            const texto = e.target.value.toLowerCase().trim();
 
-        const filtrados = listaRadicados.filter(item => {
-            const numRadicado = (item.numero_radicado || '').toLowerCase();
-            const nombreRemitente = (item.remitente_nombre || '').toLowerCase();
-            const docRemitente = (item.remitente_documento || '').toLowerCase();
-            const nitRemitente = (item.remitente_nit || '').toLowerCase();
+            const filtrados = listaRadicados.filter(item => {
+                const numRadicado = (item.numero_radicado || '').toLowerCase();
+                const nombreRemitente = (item.remitente_nombre || '').toLowerCase();
+                const docRemitente = (item.remitente_documento || '').toLowerCase();
+                const nitRemitente = (item.remitente_nit || '').toLowerCase();
 
-            return numRadicado.includes(texto) ||
-                nombreRemitente.includes(texto) ||
-                docRemitente.includes(texto) ||
-                nitRemitente.includes(texto);
+                return numRadicado.includes(texto) ||
+                    nombreRemitente.includes(texto) ||
+                    docRemitente.includes(texto) ||
+                    nitRemitente.includes(texto);
+            });
+
+            mostrarDatos(filtrados);
         });
-
-        mostrarDatos(filtrados);
-    });
+    }
 
     // --- TARJETA 1: TOTAL RADICADOS ---
     const cardTotal = document.getElementById('card-total');
@@ -172,19 +270,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // --- TARJETA 3: DEPENDENCIAS DESTINO (Con ciclo seguro) ---
+    // --- TARJETA 3: DEPENDENCIAS DESTINO ---
     const cardDependencias = document.getElementById('card-dependencias');
     if (cardDependencias) {
-        let depIndex = -1; // -1 significa sin filtro activo
-
-        // Usamos .onclick para evitar que se acumulen eventos repetidos
+        let depIndex = -1;
         cardDependencias.onclick = () => {
-            // Obtenemos las dependencias únicas (respalda tanto dependencia_destino como destino)
             const dependenciasUnicas = [...new Set(listaRadicados.map(item => item.dependencia_destino || item.destino).filter(Boolean))];
 
             if (dependenciasUnicas.length === 0) return;
 
-            // Incrementamos el índice para pasar a la siguiente dependencia
             depIndex++;
 
             if (depIndex < dependenciasUnicas.length) {
@@ -192,20 +286,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const radicadosDep = listaRadicados.filter(item => (item.dependencia_destino || item.destino) === depSeleccionada);
 
                 mostrarDatos(radicadosDep);
-
-                // Efecto visual de tarjeta activa
                 cardDependencias.classList.add('ring-2', 'ring-purple-500', 'bg-purple-50/30');
-
-                console.log(`Filtrando por dependencia [${depIndex + 1} de ${dependenciasUnicas.length}]: ${depSeleccionada}`);
             } else {
-                // Si ya recorrimos todas, reiniciamos y mostramos todo el listado
                 depIndex = -1;
                 mostrarDatos(listaRadicados);
-
-                // Quitamos el efecto visual
                 cardDependencias.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-50/30');
-
-                console.log("Filtro de dependencias desactivado. Mostrando todos los radicados.");
             }
         };
     }

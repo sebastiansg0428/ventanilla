@@ -141,6 +141,166 @@
       </div>
     </main>
 
+    <!-- MODAL DE DETALLE Y TRAZABILIDAD -->
+    <div id="modal-detalle">
+      <div
+        class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative border border-slate-100"
+      >
+        >
+        <!-- Encabezado del Modal -->
+        <div
+          class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center"
+        >
+          <h3 class="text-base font-semibold flex items-center gap-2">
+            📄 Detalle del Radicado:
+            <span
+              id="modal-num-radicado"
+              class="text-blue-400 font-mono"
+            ></span>
+          </h3>
+          <button
+            id="btn-cerrar-modal"
+            class="text-slate-400 hover:text-white text-2xl font-bold leading-none cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+
+        <!-- Contenido del Modal -->
+        <div
+          class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-slate-700 text-sm"
+        >
+          <!-- Tarjeta Principal: Estado y Fecha -->
+          <div
+            class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200"
+          >
+            <div>
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Fecha de Radicación
+              </p>
+              <p id="modal-fecha" class="font-medium text-slate-800 mt-0.5"></p>
+            </div>
+            <div>
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Estado Actual
+              </p>
+              <p
+                id="modal-estado"
+                class="inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+              ></p>
+            </div>
+          </div>
+
+          <!-- Datos del Remitente -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Remitente
+              </p>
+              <p
+                id="modal-remitente"
+                class="font-medium text-slate-800 mt-0.5"
+              ></p>
+            </div>
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Cédula / NIT
+              </p>
+              <p
+                id="modal-documento"
+                class="font-medium text-slate-800 mt-0.5"
+              ></p>
+            </div>
+          </div>
+
+          <!-- Destino y Tiempos -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Dependencia Destino
+              </p>
+              <p
+                id="modal-destino"
+                class="font-medium text-slate-800 mt-0.5"
+              ></p>
+            </div>
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Tiempo de Respuesta
+              </p>
+              <p
+                id="modal-tiempo"
+                class="font-medium text-slate-800 mt-0.5"
+              ></p>
+            </div>
+          </div>
+
+          <!-- Contacto -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Teléfono de Contacto
+              </p>
+              <p
+                id="modal-telefono"
+                class="font-medium text-slate-800 mt-0.5"
+              ></p>
+            </div>
+            <div class="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+              <p
+                class="text-[11px] text-slate-400 uppercase tracking-wider font-bold"
+              >
+                Correo Electrónico
+              </p>
+              <p id="modal-email" class="font-medium text-slate-800 mt-0.5"></p>
+            </div>
+          </div>
+
+          <!-- Asunto / Observaciones -->
+          <div>
+            <p
+              class="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1"
+            >
+              Asunto / Observaciones del Documento
+            </p>
+            <div
+              id="modal-asunto"
+              class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed min-h-[60px]"
+            ></div>
+          </div>
+
+          <!-- Enlace de Soporte PDF -->
+          <div id="modal-contenedor-soporte" class="pt-1"></div>
+        </div>
+
+        <!-- Pie del Modal -->
+        <div
+          class="bg-slate-50 px-6 py-3 flex justify-end border-t border-slate-200"
+        >
+          <button
+            id="btn-cerrar-footer"
+            class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl font-medium transition text-xs cursor-pointer"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- FOOTER -->
     <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
       Sistema de Ventanilla Única | Alcaldía Municipal

@@ -39,8 +39,12 @@ input,
 select,
 textarea,
 a {
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 a {
@@ -570,4 +574,25 @@ footer {
   a {
     transition: none;
   }
+}
+
+/* --- ESTILOS DEFINITIVOS PARA EL MODAL DE DETALLE --- */
+#modal-detalle {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(15, 23, 42, 0.7) !important;
+    backdrop-filter: blur(4px) !important;
+    display: none !important; /* Oculto por defecto con máxima prioridad */
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+    padding: 1rem !important;
+    margin: 0 !important;
+}
+
+#modal-detalle.activo {
+    display: flex !important; /* Fuerza la visualización centrada cuando tenga la clase 'activo' */
 }
