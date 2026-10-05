@@ -39,15 +39,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (elDep) elDep.textContent = dependenciasSet.size;
     }
 
-    // Función para renderizar la tabla
+    // Función para renderizar la tabla con Estados dinámicos
     function mostrarDatos(datos) {
         if (datos.length === 0) {
-            tablaBody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
             return;
         }
 
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
+
+            // --- LÓGICA DE COLORES PARA EL ESTADO ---
+            const estadoTexto = item.estado || 'Recibido';
+            let estiloEstado = 'bg-slate-100 text-slate-700'; // Estilo por defecto
+
+            if (estadoTexto.toLowerCase().includes('recibido')) {
+                estiloEstado = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+            } else if (estadoTexto.toLowerCase().includes('pendiente')) {
+                estiloEstado = 'bg-amber-50 text-amber-700 border border-amber-200';
+            } else if (estadoTexto.toLowerCase().includes('trámite') || estadoTexto.toLowerCase().includes('tramite')) {
+                estiloEstado = 'bg-blue-50 text-blue-700 border border-blue-200';
+            } else if (estadoTexto.toLowerCase().includes('respondido')) {
+                estiloEstado = 'bg-purple-50 text-purple-700 border border-purple-200';
+            }
 
             let soporteHtml = 'Sin archivo';
             if (item.ruta_archivo) {
@@ -65,6 +79,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <td class="p-4">
                         <span class="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium">
                             ${item.tiempo_de_respuesta || 'No especificado'}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${estiloEstado}">
+                            ${estadoTexto}
                         </span>
                     </td>
                     <td class="p-4">
@@ -86,11 +105,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             mostrarDatos(listaRadicados);
             actualizarEstadisticas(listaRadicados);
         } else {
-            tablaBody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
         }
     } catch (error) {
         console.error("Error de red:", error);
-        tablaBody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
+        tablaBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
     }
 
     // Filtrar en tiempo real con el buscador
@@ -153,24 +172,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // --- TARJETA 3: DEPENDENCIAS DESTINO ---
+    // --- TARJETA 3: DEPENDENCIAS DESTINO (Con ciclo seguro) ---
     const cardDependencias = document.getElementById('card-dependencias');
     if (cardDependencias) {
-        let filtradoDepActivo = false;
-        cardDependencias.addEventListener('click', () => {
-            const dependenciasUnicas = [...new Set(listaRadicados.map(item => item.dependencia_destino).filter(Boolean))];
+        let depIndex = -1; // -1 significa sin filtro activo
+
+        // Usamos .onclick para evitar que se acumulen eventos repetidos
+        cardDependencias.onclick = () => {
+            // Obtenemos las dependencias únicas (respalda tanto dependencia_destino como destino)
+            const dependenciasUnicas = [...new Set(listaRadicados.map(item => item.dependencia_destino || item.destino).filter(Boolean))];
+
             if (dependenciasUnicas.length === 0) return;
 
-            filtradoDepActivo = !filtradoDepActivo;
-            if (filtradoDepActivo) {
-                const depSeleccionada = dependenciasUnicas[0];
-                const radicadosDep = listaRadicados.filter(item => item.dependencia_destino === depSeleccionada);
+            // Incrementamos el índice para pasar a la siguiente dependencia
+            depIndex++;
+
+            if (depIndex < dependenciasUnicas.length) {
+                const depSeleccionada = dependenciasUnicas[depIndex];
+                const radicadosDep = listaRadicados.filter(item => (item.dependencia_destino || item.destino) === depSeleccionada);
+
                 mostrarDatos(radicadosDep);
+
+                // Efecto visual de tarjeta activa
                 cardDependencias.classList.add('ring-2', 'ring-purple-500', 'bg-purple-50/30');
+
+                console.log(`Filtrando por dependencia [${depIndex + 1} de ${dependenciasUnicas.length}]: ${depSeleccionada}`);
             } else {
+                // Si ya recorrimos todas, reiniciamos y mostramos todo el listado
+                depIndex = -1;
                 mostrarDatos(listaRadicados);
+
+                // Quitamos el efecto visual
                 cardDependencias.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-50/30');
+
+                console.log("Filtro de dependencias desactivado. Mostrando todos los radicados.");
             }
-        });
+        };
     }
 });
