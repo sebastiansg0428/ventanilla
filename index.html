@@ -110,33 +110,74 @@
           </h2>
 
           <!-- Tipo de Recepción -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Tipo de Recepción *</label
+          <div class="mb-4">
+            <label
+              for="tipo_recepcion"
+              class="block text-sm font-semibold text-slate-700 mb-1"
             >
+              Tipo de Recepción *
+            </label>
             <select
+              id="tipo_recepcion"
               name="tipo_recepcion"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
               required
             >
+              <option
+                value="Seleccione el tipo de recepción..."
+                disabled
+                selected
+              >
+                Seleccione el tipo de recepción...
+              </option>
               <option value="Digital">Digital</option>
               <option value="Fisico">Físico</option>
             </select>
           </div>
 
           <!-- Tipo de Documento -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Tipo de Documento *</label
+          <div class="mb-4">
+            <label
+              for="tipo_documento"
+              class="block text-sm font-semibold text-slate-700 mb-1"
             >
+              Tipo de Documento *
+            </label>
             <select
+              id="tipo_documento"
               name="tipo_documento"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
               required
             >
+              <option
+                value="Seleccione el tipo de documento..."
+                disabled
+                selected
+              >
+                Seleccione el tipo de documento...
+              </option>
+              <option value="Informativo">Informativo</option>
               <option value="Solicitud">Solicitud</option>
-              <option value="Derecho de Peticion">Derecho de Petición</option>
-              <option value="Oficio">Oficio</option>
+              <option value="Derecho de peticion">Derecho de Petición</option>
+              <option value="Denuncia">Denuncia</option>
+              <option value="Queja">Queja</option>
+              <option value="Reclamo">Reclamo</option>
+              <option value="Notificacion Juridica">
+                Notificación Jurídica
+              </option>
+              <option value="Restablecimiento de Derechos">
+                Restablecimiento de Derechos
+              </option>
+              <option value="Cuotas Partes">Cuotas Partes</option>
+              <option value="Accion de Tutela">Acción de Tutela</option>
+              <option value="Desacato de Tutela">Desacato de Tutela</option>
+              <option value="Licencia de  construcción">
+                Licencia de Construcción
+              </option>
+              <option value="Notificacion">Notificación</option>
+              <option value="Invitacion">Invitación</option>
+              <option value="Licencia Urbanistica">Licencia Urbanística</option>
+              <option value="Solicitud SIMIT-RUT">Solicitud SIMIT-RUT</option>
             </select>
           </div>
 
@@ -146,7 +187,7 @@
               for="tipo_comunicacion"
               class="block text-sm font-semibold text-slate-700 mb-1"
             >
-              Tipo de Comunicación <span class="text-rose-500">*</span>
+              Tipo de Comunicación *<span class="text-rose-500"></span>
             </label>
             <div>
               <select
@@ -196,13 +237,14 @@
           <!-- Entidad / Empresa -->
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Entidad / Empresa</label
+              >Entidad / Empresa *</label
             >
             <input
               type="text"
               name="remitente_entidad"
               placeholder="Nombre de la entidad"
               class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
+              required
             />
           </div>
 
@@ -238,7 +280,7 @@
           <!-- Correo Electrónico -->
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Correo Electrónico</label
+              >Correo Electrónico *</label
             >
             <input
               type="email"
@@ -273,12 +315,55 @@
               class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
               required
             >
+              <option value="" disabled selected>
+                Seleccione la dependencia de destino...
+              </option>
+              <option value="Comisaria">Comisaria</option>
+              <option value="Inspeccion urbana">Inspeccion urbana</option>
+              <option value="Inspeccion rural">Inspeccion rural</option>
+              <option value="Talento Humano">Talento Humano</option>
+              <option value=" Secretaría de Desarrollo social">
+                Secretaría de Desarrollo social
+              </option>
+              <option value=" Secretaría de Gobierno">
+                Secretaría de Gobierno
+              </option>
+              <option value="Oficina de Planeacion">
+                Oficina de Planeacion
+              </option>
+              <option value="Oficina asesora Juridica y Contrato">
+                Oficina asesora Juridica y Contrato
+              </option>
+              <option value=" Secretaría Financiera">
+                Secretaría Financiera
+              </option>
+              <option value="SEDAM">SEDAM</option>
+              <option value=" Secretaría de Salud">Secretaría de Salud</option>
+              <option value=" Secretaría de  Educación">
+                Secretaría de Educación
+              </option>
+              <option value=" Secretaría de Infraestructura">
+                Secretaría de Infraestructura
+              </option>
+              <option value=" Secretaría de  Tránsito">
+                Secretaría de Tránsito
+              </option>
               <option value="Despacho del Alcalde">Despacho del Alcalde</option>
-              <option value="Oficina de Control Interno">
+              <option value="Oficina Control Interno">
                 Oficina de Control Interno
               </option>
-              <option value="Secretaria de Planeacion">
-                Secretaría de Planeación
+              <option value="Sisbén">Sisbén</option>
+              <option value="Gestion de Riesgos">Gestion de Riesgos</option>
+              <option value="Equidad de Género">Equidad de Género</option>
+              <option value="Victimas">Víctimas</option>
+              <option value="Almacen Municipal">Almacén Municipal</option>
+              <option value="Promotoria">Promotoria</option>
+              <option value="Control Disciplinario">
+                Control Disciplinario
+              </option>
+              <option value="Juventudes">Juventudes</option>
+              <option value="Todas las dependencias">
+                Todas las dependencias
               </option>
             </select>
           </div>
