@@ -2,6 +2,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     const tablaBody = document.getElementById("tabla-radicados");
     const buscador = document.getElementById("buscador");
     let listaRadicados = [];
+    let datosCargados = false;
+    const filtros = { criticos: false, hoy: false, tipo: '', texto: '' };
+    const cardTotal = document.getElementById('card-total');
+    const cardHoy = document.getElementById('card-hoy');
+    const cardTipoComunicacion = document.getElementById('card-tipo-comunicacion');
+    const filtroComunicacion = document.getElementById('filtro-comunicacion');
+    const resumenFiltros = document.getElementById('resumen-filtros');
+    const btnLimpiarFiltros = document.getElementById('limpiar-filtros');
+
+    function normalizarTexto(valor) {
+        return String(valor ?? '').trim().toLowerCase();
+    }
+
+    function obtenerTipo(item) {
+        const tipo = normalizarTexto(item.tipo_comunicacion);
+        return tipo === 'interna' || tipo === 'externa' ? tipo : 'sin-tipo';
+    }
+
+    function esCritico(item) {
+        return ['vencido', 'alerta'].includes(normalizarTexto(item.semaforo?.nivel));
+    }
+
+    function fechaLocal(fecha) {
+        return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+    }
+
+    function fechaRegistroLocal(valor) {
+        if (!valor) return null;
+        const texto = String(valor).trim();
+        // Las fechas SQL sin zona horaria representan la fecha local del registro.
+        const fecha = new Date(/^\d{4}-\d{2}-\d{2}$/.test(texto) ? `${texto}T00:00:00` : texto.replace(' ', 'T'));
+        if (Number.isNaN(fecha.getTime())) {
+            console.warn('Fecha de creación no válida para el filtro de hoy:', valor);
+            return null;
+        }
+        return fechaLocal(fecha);
+    }
 
     // --- LÓGICA DEL MODAL DE DETALLE ---
     const modalDetalle = document.getElementById('modal-detalle');
@@ -46,37 +83,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     // Función para actualizar las tarjetas del Dashboard con los datos
-    function actualizarEstadisticas(radicados) {
-        const total = radicados.length;
-
-        // Fecha de hoy local en formato YYYY-MM-DD
-        const hoy = new Date();
-        const anio = hoy.getFullYear();
-        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-        const dia = String(hoy.getDate()).padStart(2, '0');
-        const hoyStr = `${anio}-${mes}-${dia}`;
-
-        let radicadosHoy = 0;
-        radicados.forEach(item => {
-            if (item.fecha_creacion) {
-                const fechaItem = item.fecha_creacion.split('T')[0].split(' ')[0];
-                if (fechaItem === hoyStr) {
-                    radicadosHoy++;
-                }
-            }
-        });
-
+    function actualizarEstadisticas(hoyStr) {
         const elTotal = document.getElementById('stat-total');
         const elHoy = document.getElementById('stat-hoy');
+        const elCriticos = document.getElementById('stat-criticos');
 
-        if (elTotal) elTotal.textContent = total;
-        if (elHoy) elHoy.textContent = radicadosHoy;
+        if (elTotal) elTotal.textContent = listaRadicados.length;
+        if (elHoy) elHoy.textContent = listaRadicados.filter(item => fechaRegistroLocal(item.fecha_creacion) === hoyStr).length;
+        if (elCriticos) elCriticos.textContent = listaRadicados.filter(esCritico).length;
     }
 
-    // Función para renderizar la tabla con menú desplegable interactivo y radicado clickeable
+    function aplicarFiltros() {
+        if (!datosCargados) return;
+        const hoyStr = fechaLocal(new Date());
+        const filtrados = listaRadicados.filter(item => {
+            const coincideBusqueda = ['numero_radicado', 'remitente_nombre', 'remitente_documento', 'remitente_nit']
+                .some(campo => normalizarTexto(item[campo]).includes(filtros.texto));
+            return coincideBusqueda
+                && (!filtros.criticos || esCritico(item))
+                && (!filtros.hoy || fechaRegistroLocal(item.fecha_creacion) === hoyStr)
+                && (!filtros.tipo || obtenerTipo(item) === filtros.tipo);
+        });
+
+        mostrarDatos(filtrados);
+        actualizarEstadisticas(hoyStr);
+        cardTotal?.classList.toggle('filtro-activo', filtros.criticos);
+        cardTotal?.setAttribute('aria-pressed', String(filtros.criticos));
+        cardHoy?.classList.toggle('filtro-activo', filtros.hoy);
+        cardHoy?.setAttribute('aria-pressed', String(filtros.hoy));
+        cardTipoComunicacion?.classList.toggle('filtro-activo', Boolean(filtros.tipo));
+
+        const activos = [];
+        if (filtros.criticos) activos.push('Críticos (alerta o vencidos)');
+        if (filtros.hoy) activos.push('Registrados hoy');
+        if (filtros.tipo) activos.push(filtroComunicacion.options[filtroComunicacion.selectedIndex].text);
+        if (filtros.texto) activos.push(`Búsqueda: "${buscador.value.trim()}"`);
+        if (resumenFiltros) {
+            resumenFiltros.textContent = `Mostrando ${filtrados.length} de ${listaRadicados.length} radicados. ${activos.length ? `Filtros: ${activos.join(' · ')}.` : 'Sin filtros activos.'}`;
+        }
+        if (btnLimpiarFiltros) btnLimpiarFiltros.disabled = activos.length === 0;
+    }
+
+    // Función para renderizar la tabla de forma limpia y profesional
     function mostrarDatos(datos) {
         if (datos.length === 0) {
-            tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
             return;
         }
 
@@ -91,8 +142,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
             const estadoActual = item.estado || 'Recibido';
-            const tipoComunicacion = (item.tipo_comunicacion || '').trim();
-            const tipoNormalizado = tipoComunicacion.toLowerCase();
+            const tipoNormalizado = obtenerTipo(item);
             const tipoBadgeClass = tipoNormalizado === 'interna'
                 ? 'badge-comunicacion--interna'
                 : tipoNormalizado === 'externa'
@@ -103,52 +153,62 @@ document.addEventListener("DOMContentLoaded", async () => {
                 : tipoNormalizado === 'externa'
                     ? 'Externa'
                     : 'No especificado';
-            const semaforo = item.semaforo || {};
-            const estiloSemaforo = estilosSemaforo[semaforo.nivel] || 'sin-calcular';
 
-            let soporteHtml = 'Sin archivo';
-            if (item.ruta_archivo) {
-                const urlPdf = `http://localhost:3000/uploads/${item.ruta_archivo}`;
-                soporteHtml = `<a href="${urlPdf}" target="_blank" class="text-blue-600 hover:underline font-medium text-xs flex items-center gap-1">📄 Ver PDF</a>`;
-            }
+            const semaforo = item.semaforo || {};
+            const estiloSemaforo = estilosSemaforo[normalizarTexto(semaforo.nivel)] || 'sin-calcular';
 
             return `
-                <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                    <!-- 1. RADICADO -->
+                <td class="px-4 py-3 whitespace-nowrap">
+    <button data-radicado="${item.numero_radicado}" class="ver-detalle font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1.5 cursor-pointer" style="border: none; background: transparent; padding: 0; outline: none; box-shadow: none;">
+        <svg style="width: 16px; height: 16px;" class="text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+        </svg>
+        <span>${item.numero_radicado}</span>
+    </button>
+</td>
+
+                    <!-- 2. TIPO Y FECHA -->
                     <td class="p-4">
-                        <button data-radicado="${item.numero_radicado}" class="ver-detalle font-semibold text-blue-600 hover:underline text-left cursor-pointer">
-                            ${item.numero_radicado}
-                        </button>
-                    </td>
-                    <td class="p-4">
-                        <span class="badge-comunicacion ${tipoBadgeClass}">
+                        <span class="badge-comunicacion ${tipoBadgeClass} mb-1 inline-block">
                             ${tipoEtiqueta}
                         </span>
+                        <div class="text-xs text-slate-500">${fechaFormateada}</div>
                     </td>
-                    <td class="p-4 text-xs text-slate-500">${fechaFormateada}</td>
-                    <td class="p-4">${item.remitente_nombre}</td>
-                    <td class="p-4">${item.remitente_documento}</td>
-                    <td class="p-4"><span class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-medium">${item.dependencia_destino}</span></td>
+
+                    <!-- 3. REMITENTE -->
                     <td class="p-4">
-                        <span class="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium">
-                            ${item.tiempo_de_respuesta || 'No especificado'}
-                        </span>
+                        <div class="font-medium text-slate-800 text-sm">${item.remitente_nombre || 'No registrado'}</div>
+                        <div class="text-xs text-slate-400">CC/NIT: ${item.remitente_documento || item.remitente_nit || 'N/A'}</div>
                     </td>
+
+                    <!-- 4. SEMÁFORO -->
                     <td class="p-4">
                         <span class="semaforo semaforo--${estiloSemaforo}">
                             <span class="semaforo__dot"></span>
                             ${semaforo.texto || 'Sin calcular'}
                         </span>
                     </td>
+
+                    <!-- 5. ESTADO -->
                     <td class="p-4">
-                        <select data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                        <select id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${item.numero_radicado}" data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
                             ${estadosDisponibles.map(est => `
-                                <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}
-                                </option>
+                                <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}</option>
                             `).join('')}
                         </select>
                     </td>
-                    <td class="p-4">
-                        ${soporteHtml}
+
+                    <!-- 6. ACCIÓN PDF -->
+                    <td class="p-4 text-center">
+                        ${item.ruta_archivo ? `
+                            <a href="http://localhost:3000/uploads/${item.ruta_archivo}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg text-xs font-medium transition-colors">
+                                <svg class="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                                PDF
+                            </a>
+                        ` : '<span class="text-xs text-slate-400">Sin archivo</span>'}
                     </td>
                 </tr>
             `;
@@ -179,7 +239,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     if (radicadoEncontrado) {
                         radicadoEncontrado.estado = nuevoEstado;
                         radicadoEncontrado.semaforo = resultado.semaforo;
-                        mostrarDatos(listaRadicados);
+                        aplicarFiltros();
                     }
                 } else {
                     alert('Error al actualizar el estado en el servidor.');
@@ -202,12 +262,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (item) {
                 elementoQueAbreModal = btnDetalle;
+
                 // 1. Rellenar los campos con la información del radicado
                 document.getElementById('modal-num-radicado').textContent = item.numero_radicado;
                 document.getElementById('modal-fecha').textContent = new Date(item.fecha_creacion).toLocaleString();
                 document.getElementById('modal-estado').textContent = item.estado || 'Recibido';
+
                 document.getElementById('modal-remitente').textContent = item.remitente_nombre || 'No registrado';
-                document.getElementById('modal-documento').textContent = item.remitente_documento || 'No registrado';
+                document.getElementById('modal-documento').textContent = item.remitente_documento || item.remitente_nit || 'No registrado';
                 document.getElementById('modal-destino').textContent = item.dependencia_destino || 'No registrado';
                 document.getElementById('modal-tiempo').textContent = item.tiempo_de_respuesta || 'No especificado';
                 document.getElementById('modal-telefono').textContent = item.remitente_telefono || 'No registrado';
@@ -218,18 +280,51 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (item.ruta_archivo) {
                     const urlPdf = `http://localhost:3000/uploads/${item.ruta_archivo}`;
                     contenedorSoporte.innerHTML = `
-                        <a href="${urlPdf}" target="_blank" rel="noopener noreferrer">
+                        <a href="${urlPdf}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium text-sm flex items-center gap-1.5">
                             📄 Ver Documento de Soporte (PDF)
                         </a>
                     `;
                 } else {
-                    contenedorSoporte.innerHTML = `<p>No hay archivo adjunto para este radicado.</p>`;
+                    contenedorSoporte.innerHTML = `<p class="text-sm text-slate-400">No hay archivo adjunto para este radicado.</p>`;
                 }
 
-                // 2. ¡ESTO ES LO QUE FALTABA! Llamar a la función para mostrar el modal
+                // 2. Llamar a la función para mostrar el modal
                 abrirModalFn();
             }
         }
+    });
+
+    function conectarTarjeta(tarjeta, criterio) {
+        if (!tarjeta) return;
+        tarjeta.addEventListener('click', () => {
+            if (!datosCargados) return;
+            filtros[criterio] = !filtros[criterio];
+            aplicarFiltros();
+        });
+        tarjeta.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                tarjeta.click();
+            }
+        });
+    }
+
+    conectarTarjeta(cardTotal, 'criticos');
+    conectarTarjeta(cardHoy, 'hoy');
+    buscador?.addEventListener('input', () => {
+        filtros.texto = normalizarTexto(buscador.value);
+        aplicarFiltros();
+    });
+    filtroComunicacion?.addEventListener('change', () => {
+        filtros.tipo = filtroComunicacion.value;
+        aplicarFiltros();
+    });
+    btnLimpiarFiltros?.addEventListener('click', () => {
+        Object.assign(filtros, { criticos: false, hoy: false, tipo: '', texto: '' });
+        if (buscador) buscador.value = '';
+        if (filtroComunicacion) filtroComunicacion.value = '';
+        aplicarFiltros();
+        buscador?.focus();
     });
 
     // Consumir API del Backend
@@ -237,110 +332,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         const response = await fetch("http://localhost:3000/api/radicados");
         const resultado = await response.json();
 
-        if (resultado.success) {
+        if (response.ok && resultado.success && Array.isArray(resultado.radicados)) {
             listaRadicados = resultado.radicados;
-            console.log("Radicados recibidos del servidor:", listaRadicados);
-            mostrarDatos(listaRadicados);
-            actualizarEstadisticas(listaRadicados);
+            datosCargados = true;
+            cardTotal?.setAttribute('aria-disabled', 'false');
+            cardHoy?.setAttribute('aria-disabled', 'false');
+            if (buscador) buscador.disabled = false;
+            if (filtroComunicacion) filtroComunicacion.disabled = false;
+            aplicarFiltros();
         } else {
-            tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
+            console.error('Error al cargar radicados:', resultado.message || 'Respuesta no válida del servidor.');
+            tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
+            if (resumenFiltros) resumenFiltros.textContent = 'No se pudieron cargar los radicados. Recarga la página para reintentar.';
         }
     } catch (error) {
         console.error("Error de red:", error);
-        tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
-    }
-
-    // Filtrar en tiempo real con el buscador
-    if (buscador) {
-        buscador.addEventListener('input', (e) => {
-            const texto = e.target.value.toLowerCase().trim();
-
-            const filtrados = listaRadicados.filter(item => {
-                const numRadicado = (item.numero_radicado || '').toLowerCase();
-                const nombreRemitente = (item.remitente_nombre || '').toLowerCase();
-                const docRemitente = (item.remitente_documento || '').toLowerCase();
-                const nitRemitente = (item.remitente_nit || '').toLowerCase();
-
-                return numRadicado.includes(texto) ||
-                    nombreRemitente.includes(texto) ||
-                    docRemitente.includes(texto) ||
-                    nitRemitente.includes(texto);
-            });
-
-            mostrarDatos(filtrados);
-        });
-    }
-
-    // --- TARJETA 1: TOTAL RADICADOS ---
-    const cardTotal = document.getElementById('card-total');
-    if (cardTotal) {
-        let filtradoTotalActivo = false;
-        cardTotal.addEventListener('click', () => {
-            filtradoTotalActivo = !filtradoTotalActivo;
-            mostrarDatos(listaRadicados);
-            if (filtradoTotalActivo) {
-                cardTotal.classList.add('ring-2', 'ring-blue-600', 'bg-blue-50/20');
-            } else {
-                cardTotal.classList.remove('ring-2', 'ring-blue-600', 'bg-blue-50/20');
-            }
-        });
-    }
-
-    // --- TARJETA 2: REGISTRADOS HOY ---
-    const cardHoy = document.getElementById('card-hoy');
-    if (cardHoy) {
-        let filtradoHoyActivo = false;
-        cardHoy.addEventListener('click', () => {
-            filtradoHoyActivo = !filtradoHoyActivo;
-            const hoy = new Date();
-            const anio = hoy.getFullYear();
-            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-            const dia = String(hoy.getDate()).padStart(2, '0');
-            const hoyStr = `${anio}-${mes}-${dia}`;
-
-            if (filtradoHoyActivo) {
-                const radicadosHoy = listaRadicados.filter(item => {
-                    if (!item.fecha_creacion) return false;
-                    return item.fecha_creacion.split('T')[0].split(' ')[0] === hoyStr;
-                });
-                mostrarDatos(radicadosHoy);
-                cardHoy.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50/30');
-            } else {
-                mostrarDatos(listaRadicados);
-                cardHoy.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50/30');
-            }
-        });
-    }
-
-    // --- TARJETA 3: FILTRO POR TIPO DE COMUNICACIÓN ---
-    const cardTipoComunicacion = document.getElementById('card-tipo-comunicacion');
-    const textoFiltroComunicacion = document.getElementById('texto-filtro-comunicacion');
-    if (cardTipoComunicacion && textoFiltroComunicacion) {
-        let tipoIndex = -1;
-        cardTipoComunicacion.addEventListener('click', () => {
-            const tiposComunicacion = [...new Set(
-                listaRadicados
-                    .map(item => item.tipo_comunicacion)
-                    .filter(Boolean)
-            )];
-
-            if (tiposComunicacion.length === 0) return;
-
-            tipoIndex++;
-
-            if (tipoIndex < tiposComunicacion.length) {
-                const tipoSeleccionado = tiposComunicacion[tipoIndex];
-                textoFiltroComunicacion.textContent = tipoSeleccionado;
-                mostrarDatos(listaRadicados.filter(
-                    item => item.tipo_comunicacion === tipoSeleccionado
-                ));
-                cardTipoComunicacion.classList.add('ring-2', 'ring-purple-500', 'bg-purple-50/30');
-            } else {
-                tipoIndex = -1;
-                textoFiltroComunicacion.textContent = 'Todos';
-                mostrarDatos(listaRadicados);
-                cardTipoComunicacion.classList.remove('ring-2', 'ring-purple-500', 'bg-purple-50/30');
-            }
-        });
+        tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
+        if (resumenFiltros) resumenFiltros.textContent = 'No se pudo conectar con el servidor. Recarga la página para reintentar.';
     }
 });

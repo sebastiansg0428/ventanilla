@@ -37,18 +37,26 @@
         <!-- Tarjeta 1 -->
         <div
           id="card-total"
+          role="button"
+          tabindex="0"
+          aria-pressed="false"
+          aria-disabled="true"
+          aria-controls="tabla-radicados"
+          aria-label="Mostrar solo radicados críticos: en alerta o vencidos"
           style="cursor: pointer"
           class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600 flex items-center justify-between hover:shadow-lg transition"
         >
           <div>
             <p
-              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
             >
-              Total Radicados
+              Total/Críticos
             </p>
             <h3 id="stat-total" class="text-3xl font-bold text-gray-800 mt-1">
               0
             </h3>
+            <span class="tarjeta-ayuda">Total · <strong id="stat-criticos">0</strong> críticos</span>
+            <span class="tarjeta-ayuda">Activar / desactivar críticos</span>
           </div>
           <div class="p-3 bg-blue-50 rounded-xl text-blue-600">...</div>
         </div>
@@ -56,6 +64,12 @@
         <!-- Tarjeta 2 -->
         <div
           id="card-hoy"
+          role="button"
+          tabindex="0"
+          aria-pressed="false"
+          aria-disabled="true"
+          aria-controls="tabla-radicados"
+          aria-label="Mostrar solo radicados registrados hoy"
           style="cursor: pointer"
           class="bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-lg transition"
         >
@@ -68,6 +82,7 @@
             <h3 id="stat-hoy" class="text-3xl font-bold text-gray-800 mt-1">
               0
             </h3>
+            <span class="tarjeta-ayuda">Activar / desactivar hoy</span>
           </div>
           <div class="p-3 bg-emerald-50 rounded-xl text-emerald-600">...</div>
         </div>
@@ -75,21 +90,20 @@
         <!-- Tarjeta 3 - Filtro de Comunicación -->
         <div
           id="card-tipo-comunicacion"
-          style="cursor: pointer"
           class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-lg transition"
         >
           <div>
-            <p
+            <label for="filtro-comunicacion"
               class="text-xs font-bold text-slate-400 uppercase tracking-wider"
             >
               Tipo de Comunicación
-            </p>
-            <h3
-              id="texto-filtro-comunicacion"
-              class="text-xl font-extrabold text-slate-800 mt-1"
-            >
-              Todos
-            </h3>
+            </label>
+            <select id="filtro-comunicacion" aria-controls="tabla-radicados" disabled>
+              <option value="">Todos</option>
+              <option value="interna">Interna</option>
+              <option value="externa">Externa</option>
+              <option value="sin-tipo">No especificado</option>
+            </select>
           </div>
           <div class="p-3 bg-purple-50 rounded-xl text-purple-600">
             <svg
@@ -114,9 +128,17 @@
         <input
           type="text"
           id="buscador"
+          aria-label="Buscar por radicado, cédula, NIT o remitente"
+          aria-controls="tabla-radicados"
+          disabled
           placeholder="Buscar por número de radicado, cédula o remitente..."
           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
         />
+        <div class="barra-filtros">
+          <p id="resumen-filtros" role="status" aria-live="polite">Cargando radicados...</p>
+          <button id="limpiar-filtros" type="button" disabled>Limpiar filtros</button>
+        </div>
+        <p class="ayuda-filtros">Los filtros se combinan. Los contadores de las tarjetas corresponden al total general.</p>
       </div>
 
       <!-- Tabla de Resultados -->
@@ -127,15 +149,11 @@
           <table class="w-full text-left border-collapse">
             <thead>
               <tr
-                class="bg-slate-50 text-slate-700 text-xs uppercase font-semibold border-b border-slate-200"
+                class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200"
               >
                 <th class="p-4">Radicado</th>
-                <th class="p-4">Tipo</th>
-                <th class="p-4">Fecha</th>
+                <th class="p-4">Tipo / Fecha</th>
                 <th class="p-4">Remitente</th>
-                <th class="p-4">Cédula / NIT</th>
-                <th class="p-4">Destino</th>
-                <th class="p-4">Tiempo de Respuesta</th>
                 <th class="p-4">Semáforo</th>
                 <th class="p-4">Estado</th>
                 <th class="p-4">Soporte</th>
@@ -147,7 +165,7 @@
             >
               <!-- Los datos se inyectarán dinámicamente con JavaScript -->
               <tr>
-                <td colspan="10" class="p-6 text-center text-slate-400">
+                <td colspan="6" class="p-6 text-center text-slate-400">
                   Cargando radicados...
                 </td>
               </tr>
