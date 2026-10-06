@@ -529,6 +529,57 @@ footer {
   color: #b45309;
 }
 
+#tabla-radicados .semaforo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--semaforo-borde);
+  border-radius: 999px;
+  background: var(--semaforo-fondo);
+  color: var(--semaforo-texto);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#tabla-radicados .semaforo--verde {
+  --semaforo-fondo: #dcfce7;
+  --semaforo-texto: #166534;
+  --semaforo-borde: #86efac;
+  --semaforo-punto: #22c55e;
+}
+
+#tabla-radicados .semaforo--amarillo {
+  --semaforo-fondo: #fef9c3;
+  --semaforo-texto: #854d0e;
+  --semaforo-borde: #fde047;
+  --semaforo-punto: #eab308;
+}
+
+#tabla-radicados .semaforo--rojo {
+  --semaforo-fondo: #fee2e2;
+  --semaforo-texto: #991b1b;
+  --semaforo-borde: #fca5a5;
+  --semaforo-punto: #ef4444;
+}
+
+#tabla-radicados .semaforo--sin-calcular {
+  --semaforo-fondo: #f1f5f9;
+  --semaforo-texto: #475569;
+  --semaforo-borde: #cbd5e1;
+  --semaforo-punto: #94a3b8;
+}
+
+#tabla-radicados .semaforo__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 0.5rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--semaforo-punto);
+}
+
 #tabla-radicados .badge-comunicacion {
   padding: 0.25rem 0.625rem;
   border-radius: 999px;

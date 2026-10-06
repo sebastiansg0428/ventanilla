@@ -76,11 +76,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Función para renderizar la tabla con menú desplegable interactivo y radicado clickeable
     function mostrarDatos(datos) {
         if (datos.length === 0) {
-            tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">No se encontraron registros.</td></tr>`;
             return;
         }
 
-        const estadosDisponibles = ['Recibido', 'En Trámite', 'Pendiente', 'Respondido'];
+        const estadosDisponibles = ['Recibido', 'En trámite', 'Pendiente', 'Respondido'];
+        const estilosSemaforo = {
+            completado: 'verde',
+            vencido: 'rojo',
+            alerta: 'amarillo',
+            a_tiempo: 'verde'
+        };
 
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
@@ -97,6 +103,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 : tipoNormalizado === 'externa'
                     ? 'Externa'
                     : 'No especificado';
+            const semaforo = item.semaforo || {};
+            const estiloSemaforo = estilosSemaforo[semaforo.nivel] || 'sin-calcular';
 
             let soporteHtml = 'Sin archivo';
             if (item.ruta_archivo) {
@@ -123,6 +131,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <td class="p-4">
                         <span class="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium">
                             ${item.tiempo_de_respuesta || 'No especificado'}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <span class="semaforo semaforo--${estiloSemaforo}">
+                            <span class="semaforo__dot"></span>
+                            ${semaforo.texto || 'Sin calcular'}
                         </span>
                     </td>
                     <td class="p-4">
@@ -164,6 +178,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const radicadoEncontrado = listaRadicados.find(r => r.numero_radicado === numeroRadicado);
                     if (radicadoEncontrado) {
                         radicadoEncontrado.estado = nuevoEstado;
+                        radicadoEncontrado.semaforo = resultado.semaforo;
+                        mostrarDatos(listaRadicados);
                     }
                 } else {
                     alert('Error al actualizar el estado en el servidor.');
@@ -227,11 +243,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             mostrarDatos(listaRadicados);
             actualizarEstadisticas(listaRadicados);
         } else {
-            tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
         }
     } catch (error) {
         console.error("Error de red:", error);
-        tablaBody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
+        tablaBody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
     }
 
     // Filtrar en tiempo real con el buscador
