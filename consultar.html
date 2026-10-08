@@ -156,7 +156,7 @@
                 <th class="p-4">Remitente</th>
                 <th class="p-4">Semáforo</th>
                 <th class="p-4">Estado</th>
-                <th class="p-4">Soporte</th>
+                <th class="p-4">Comprobante de recepción</th>
               </tr>
             </thead>
             <tbody
@@ -173,6 +173,19 @@
           </table>
         </div>
       </div>
+      <section id="seccion-alertas" aria-labelledby="alertas-titulo">
+        <h2 id="alertas-titulo">Alertas por dependencia</h2>
+        <label for="alertas-dependencia">Dependencia (nombre registrado)</label>
+        <select id="alertas-dependencia" disabled>
+          <option value="">Seleccione una dependencia...</option>
+        </select>
+        <button id="actualizar-alertas" type="button" disabled>Actualizar alertas</button>
+        <p id="alertas-estado" role="status" aria-live="polite">Cargando dependencias...</p>
+        <h3>Próximos a vencer</h3>
+        <ul id="alertas-proximos"></ul>
+        <h3>Vencidos</h3>
+        <ul id="alertas-vencidos"></ul>
+      </section>
     </main>
 
     <!-- MODAL DE DETALLE Y TRAZABILIDAD -->
@@ -237,6 +250,16 @@
               <p id="modal-tiempo" class="modal-value"></p>
             </div>
           </div>
+          <div class="modal-grid">
+            <div class="modal-field">
+              <p class="modal-label">Fecha límite actual</p>
+              <p id="modal-fecha-limite" class="modal-value"></p>
+            </div>
+            <div class="modal-field">
+              <p class="modal-label">Fundamento legal aplicado</p>
+              <p id="modal-fundamento-legal" class="modal-value"></p>
+            </div>
+          </div>
 
           <!-- Contacto -->
           <div class="modal-grid">
@@ -256,8 +279,17 @@
             <div id="modal-asunto" class="modal-subject"></div>
           </div>
 
-          <!-- Enlace de Soporte PDF -->
-          <div id="modal-contenedor-soporte"></div>
+          <!-- Documento adjunto guardado con el radicado -->
+          <section id="modal-contenedor-soporte" aria-labelledby="modal-adjunto-titulo">
+            <h4 id="modal-adjunto-titulo">Documento adjunto recibido</h4>
+            <p id="modal-adjunto-nombre"></p>
+            <a id="modal-adjunto-enlace" target="_blank" rel="noopener noreferrer" hidden>
+              Abrir PDF en otra pestaña
+            </a>
+            <p id="modal-adjunto-mensaje" role="status" aria-live="polite"></p>
+            <iframe id="modal-adjunto-preview" title="Vista previa del documento adjunto" hidden></iframe>
+            <p>Se muestra el archivo adjuntado al registrar este radicado. Si el visor no está disponible en tu navegador, usa el enlace para abrir el PDF.</p>
+          </section>
         </div>
 
         <!-- Pie del Modal -->
@@ -267,11 +299,21 @@
       </div>
     </div>
 
+    <dialog id="visor-comprobante" aria-labelledby="comprobante-titulo">
+      <div class="comprobante-cabecera">
+        <h3 id="comprobante-titulo">Comprobante de recepción</h3>
+        <button id="cerrar-comprobante" type="button">Cerrar</button>
+      </div>
+      <iframe id="comprobante-preview" title="Vista previa del comprobante de recepción"></iframe>
+    </dialog>
+
     <!-- FOOTER -->
     <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
       Sistema de Ventanilla Única | Alcaldía Municipal
     </footer>
 
+    <script src="js/jspdf.umd.min.js"></script>
+    <script src="js/comprobante.js"></script>
     <script src="js/consultar.js"></script>
   </body>
 </html>

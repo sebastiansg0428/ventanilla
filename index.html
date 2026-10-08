@@ -103,355 +103,366 @@
 
         <form
           id="radicadoForm"
-          class="space-y-5 bg-white p-8 rounded-2xl shadow-sm border border-slate-200"
+          class="space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-slate-200"
         >
-          <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">
+          <h2 class="text-xl font-bold text-slate-800 mb-2 border-b pb-3">
             Formulario de Radicación
           </h2>
 
-          <!-- Tipo de Recepción -->
-          <div class="mb-4">
-            <label
-              for="tipo_recepcion"
-              class="block text-sm font-semibold text-slate-700 mb-1"
-            >
-              Tipo de Recepción *
-            </label>
-            <select
-              id="tipo_recepcion"
-              name="tipo_recepcion"
-              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
-              required
-            >
-              <option
-                value="Seleccione el tipo de recepción..."
-                disabled
-                selected
-              >
-                Seleccione el tipo de recepción...
-              </option>
-              <option value="Digital">Digital</option>
-              <option value="Fisico">Físico</option>
-            </select>
-          </div>
-
-          <!-- Tipo de Documento -->
-          <div class="mb-4">
-            <label
-              for="tipo_documento"
-              class="block text-sm font-semibold text-slate-700 mb-1"
-            >
-              Tipo de Documento *
-            </label>
-            <select
-              id="tipo_documento"
-              name="tipo_documento"
-              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
-              required
-            >
-              <option
-                value="Seleccione el tipo de documento..."
-                disabled
-                selected
-              >
-                Seleccione el tipo de documento...
-              </option>
-              <option value="Informativo">Informativo</option>
-              <option value="Solicitud">Solicitud</option>
-              <option value="Derecho de peticion">Derecho de Petición</option>
-              <option value="Denuncia">Denuncia</option>
-              <option value="Queja">Queja</option>
-              <option value="Reclamo">Reclamo</option>
-              <option value="Notificacion Juridica">
-                Notificación Jurídica
-              </option>
-              <option value="Restablecimiento de Derechos">
-                Restablecimiento de Derechos
-              </option>
-              <option value="Cuotas Partes">Cuotas Partes</option>
-              <option value="Accion de Tutela">Acción de Tutela</option>
-              <option value="Desacato de Tutela">Desacato de Tutela</option>
-              <option value="Licencia de  construcción">
-                Licencia de Construcción
-              </option>
-              <option value="Notificacion">Notificación</option>
-              <option value="Invitacion">Invitación</option>
-              <option value="Licencia Urbanistica">Licencia Urbanística</option>
-              <option value="Solicitud SIMIT-RUT">Solicitud SIMIT-RUT</option>
-            </select>
-          </div>
-
-          <!-- Campo Tipo de Comunicación -->
-          <div class="mb-4">
-            <label
-              for="tipo_comunicacion"
-              class="block text-sm font-semibold text-slate-700 mb-1"
-            >
-              Tipo de Comunicación *<span class="text-rose-500"></span>
-            </label>
-            <div>
-              <select
-                id="tipo_comunicacion"
-                name="tipo_comunicacion"
-                required
-                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
-              >
-                <option value="" disabled selected>
-                  Seleccione el tipo de comunicación...
-                </option>
-                <option value="Externa">Comunicación Externa</option>
-                <option value="Interna">Comunicación Interna</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Nombre del Remitente -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Nombre del Remitente *</label
-            >
-            <input
-              type="text"
-              name="remitente_nombre"
-              placeholder="Nombre completo"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <!-- Cédula -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Cédula *</label
-            >
-            <input
-              type="text"
-              name="remitente_documento"
-              placeholder="Número de identificación"
-              maxlength="10"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <!-- Entidad / Empresa -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Entidad / Empresa *</label
-            >
-            <input
-              type="text"
-              name="remitente_entidad"
-              placeholder="Nombre de la entidad"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <!-- NIT de la entidad -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >NIT de la entidad</label
-            >
-            <input
-              type="text"
-              name="remitente_nit"
-              placeholder="NIT sin dígito de verificación"
-              maxlength="12"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-            />
-          </div>
-
-          <!-- Teléfono / Celular -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Teléfono / Celular *</label
-            >
-            <input
-              type="tel"
-              name="remitente_telefono"
-              placeholder="Ej. 3101234567"
-              maxlength="10"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <!-- Correo Electrónico -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Correo Electrónico *</label
-            >
-            <input
-              type="email"
-              name="remitente_email"
-              placeholder="correo@ejemplo.com"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-            />
-          </div>
-
-          <!-- Número de Folios -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Número de Folios *</label
-            >
-            <input
-              type="number"
-              name="numero_folios"
-              value="1"
-              min="1"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <!-- Dependencia de Destino -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Dependencia de Destino *</label
-            >
-            <select
-              name="dependencia_destino"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            >
-              <option value="" disabled selected>
-                Seleccione la dependencia de destino...
-              </option>
-              <option value="comisaría">comisaría</option>
-              <option value="Inspeccion urbana">Inspección urbana</option>
-              <option value="Inspeccion rural">Inspección rural</option>
-              <option value="Talento Humano">Talento Humano</option>
-              <option value=" Secretaría de Desarrollo Social">
-                Secretaría de Desarrollo Social
-              </option>
-              <option value=" Secretaría de Gobierno">
-                Secretaría de Gobierno
-              </option>
-              <option value="Oficina de Planeación">
-                Oficina de Planeación
-              </option>
-              <option value="Oficina asesora Jurídica y Contrato">
-                Oficina asesora Jurídica y Contrato
-              </option>
-              <option value=" Secretaría Financiera">
-                Secretaría Financiera
-              </option>
-              <option value="SEDAM">SEDAM</option>
-              <option value=" Secretaría de Salud">Secretaría de Salud</option>
-              <option value=" Secretaría de  Educación">
-                Secretaría de Educación
-              </option>
-              <option value=" Secretaría de Infraestructura">
-                Secretaría de Infraestructura
-              </option>
-              <option value=" Secretaría de  Tránsito">
-                Secretaría de Tránsito
-              </option>
-              <option value="Despacho del Alcalde">Despacho del Alcalde</option>
-              <option value="Oficina Control Interno">
-                Oficina de Control Interno
-              </option>
-              <option value="Sisbén">Sisbén</option>
-              <option value="Gestion de Riesgos">Gestion de Riesgos</option>
-              <option value="Equidad de Género">Equidad de Género</option>
-              <option value="Victimas">Víctimas</option>
-              <option value="Almacen Municipal">Almacén Municipal</option>
-              <option value="Promotoria">Promotoria</option>
-              <option value="Control Disciplinario">
-                Control Disciplinario
-              </option>
-              <option value="Juventudes">Juventudes</option>
-              <option value="Todas las dependencias">
-                Todas las dependencias
-              </option>
-            </select>
-          </div>
-
-          <!-- Asunto / Resumen del Documento -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Asunto / Resumen del Documento *</label
-            >
-            <textarea
-              name="asunto_documento"
-              rows="4"
-              placeholder="Escriba el asunto detallado..."
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200"
-              required
-            ></textarea>
-          </div>
-
-          <!-- Quién Registra -->
-          <div>
-            <label
-              for="usuario_recibe"
-              class="block text-sm font-semibold text-slate-700 mb-1.5"
-            >
-              Funcionario / Quién Registra *</label
-            >
-            <select
-              id="usuario_recibe"
-              name="usuario_recibe"
-              required
-              class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-700"
-            >
-              <option value="" disabled selected>
-                Seleccione el funcionario...
-              </option>
-              <option value="Maria">Maria Mira Manrrique</option>
-              <option value="Karime">Luz Karime Carabali</option>
-              <option value="Angela Johana Fory">Angela Johana Fory</option>
-            </select>
-          </div>
-
-          <!-- Soporte Documental (PDF) -->
-          <div class="upload-field">
-            <label class="block text-sm font-semibold text-slate-700 mb-1.5"
-              >Soporte Documental (PDF) *</label
-            >
-            <div
-              class="relative border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-500 transition bg-slate-50 cursor-pointer group"
-            >
-              <input
-                type="file"
-                id="archivo"
-                accept="application/pdf"
-                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                required
-              />
-              <div class="flex flex-col items-center justify-center space-y-2">
-                <svg
-                  class="w-10 h-10 text-blue-600 group-hover:scale-110 transition transform duration-200"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  ></path>
-                </svg>
-                <p
-                  class="text-sm font-medium text-slate-700"
-                  id="texto-archivo"
-                >
-                  Haz clic aquí o arrastra tu archivo PDF
-                </p>
-                <p class="text-xs text-slate-400">
-                  Formato PDF permitido (Máx. 10MB)
-                </p>
+          <!-- SECCIÓN 1: Clasificación del Trámite -->
+          <section class="form-section">
+            <div class="form-section-header">
+              <span class="section-badge">1</span>
+              <div>
+                <h3>Clasificación y Tipo de Recepción</h3>
+                <p>Canal de entrada, tipo de comunicación y trámite institucional.</p>
               </div>
             </div>
-          </div>
+
+            <div class="form-grid-3">
+              <div>
+                <label for="tipo_recepcion">
+                  Tipo de Recepción <span class="campo-obligatorio">*</span>
+                </label>
+                <select id="tipo_recepcion" name="tipo_recepcion" required>
+                  <option
+                    value="Seleccione el tipo de recepción..."
+                    disabled
+                    selected
+                  >
+                    Seleccione el tipo de recepción...
+                  </option>
+                  <option value="Digital">Digital</option>
+                  <option value="Fisico">Físico</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="tipo_comunicacion">
+                  Tipo de Comunicación <span class="campo-obligatorio">*</span>
+                </label>
+                <select
+                  id="tipo_comunicacion"
+                  name="tipo_comunicacion"
+                  required
+                >
+                  <option value="" disabled selected>
+                    Seleccione el tipo de comunicación...
+                  </option>
+                  <option value="Externa">Comunicación Externa</option>
+                  <option value="Interna">Comunicación Interna</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="tipo_tramite_id">
+                  Tipo de Trámite <span class="campo-obligatorio">*</span>
+                </label>
+                <select
+                  id="tipo_tramite_id"
+                  name="tipo_tramite_id"
+                  required
+                >
+                  <option value="" disabled selected>
+                    Seleccione el tipo de trámite...
+                  </option>
+                  <option value="8">Informativo</option>
+                  <option value="9">Solicitud</option>
+                  <option value="5">Derecho de petición</option>
+                  <option value="10">Denuncia</option>
+                  <option value="6">Queja</option>
+                  <option value="7">Reclamo</option>
+                  <option value="11">Notificación Judicial</option>
+                  <option value="12">Restablecimiento de derecho</option>
+                  <option value="13">Cuotas partes</option>
+                  <option value="14">Acción de tutela</option>
+                  <option value="15">Desacato de Tutela</option>
+                  <option value="16">Licencia de construcción</option>
+                  <option value="17">Notificación</option>
+                  <option value="18">Invitación</option>
+                  <option value="19">Licencia Urbanística</option>
+                  <option value="20">Solicitud SIMIT-RUT</option>
+                </select>
+                <p id="estado-tipos-tramite" role="status" aria-live="polite" class="form-ayuda">
+                  El servidor determina el término legal y la fecha límite del trámite.
+                </p>
+                <button id="reintentar-tipos-tramite" type="button" hidden>
+                  Reintentar carga de trámites
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCIÓN 2: Datos del Remitente -->
+          <section class="form-section">
+            <div class="form-section-header">
+              <span class="section-badge">2</span>
+              <div>
+                <h3>Datos del Remitente / Solicitante</h3>
+                <p>Información de identificación y contacto de quien radica el documento.</p>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label for="remitente_nombre">
+                  Nombre Completo del Remitente <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="remitente_nombre"
+                  name="remitente_nombre"
+                  placeholder="Ej. Juan Pérez González"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="remitente_documento">
+                  Cédula / Documento de Identidad <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="remitente_documento"
+                  name="remitente_documento"
+                  placeholder="Número de cédula (máx. 10 dígitos)"
+                  maxlength="10"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="remitente_telefono">
+                  Teléfono / Celular <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="tel"
+                  id="remitente_telefono"
+                  name="remitente_telefono"
+                  placeholder="Ej. 3101234567"
+                  maxlength="10"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="remitente_email">
+                  Correo Electrónico <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="remitente_email"
+                  name="remitente_email"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+
+              <div>
+                <label for="remitente_entidad">
+                  Entidad / Empresa <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="remitente_entidad"
+                  name="remitente_entidad"
+                  placeholder="Nombre de la entidad o particular"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="remitente_nit">
+                  NIT de la Entidad
+                </label>
+                <input
+                  type="text"
+                  id="remitente_nit"
+                  name="remitente_nit"
+                  placeholder="NIT sin dígito de verificación (opcional)"
+                  maxlength="12"
+                />
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCIÓN 3: Asignación y Contenido -->
+          <section class="form-section">
+            <div class="form-section-header">
+              <span class="section-badge">3</span>
+              <div>
+                <h3>Destino y Resumen del Trámite</h3>
+                <p>Dependencia competente, número de folios, funcionario receptor y asunto.</p>
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div>
+                <label for="dependencia_destino">
+                  Dependencia de Destino <span class="campo-obligatorio">*</span>
+                </label>
+                <select
+                  id="dependencia_destino"
+                  name="dependencia_destino"
+                  required
+                >
+                  <option value="" disabled selected>
+                    Seleccione la dependencia de destino...
+                  </option>
+                  <option value="comisaría">comisaría</option>
+                  <option value="Inspeccion urbana">Inspección urbana</option>
+                  <option value="Inspeccion rural">Inspección rural</option>
+                  <option value="Talento Humano">Talento Humano</option>
+                  <option value="Secretaría de Desarrollo Social">
+                    Secretaría de Desarrollo Social
+                  </option>
+                  <option value="Secretaría de Gobierno">
+                    Secretaría de Gobierno
+                  </option>
+                  <option value="Oficina de Planeación">
+                    Oficina de Planeación
+                  </option>
+                  <option value="Oficina asesora Jurídica y Contrato">
+                    Oficina asesora Jurídica y Contrato
+                  </option>
+                  <option value="Secretaría Financiera">
+                    Secretaría Financiera
+                  </option>
+                  <option value="SEDAM">SEDAM</option>
+                  <option value="Secretaría de Salud">Secretaría de Salud</option>
+                  <option value="Secretaría de Educación">
+                    Secretaría de Educación
+                  </option>
+                  <option value="Secretaría de Infraestructura">
+                    Secretaría de Infraestructura
+                  </option>
+                  <option value="Secretaría de Tránsito">
+                    Secretaría de Tránsito
+                  </option>
+                  <option value="Despacho del Alcalde">Despacho del Alcalde</option>
+                  <option value="Oficina Control Interno">
+                    Oficina de Control Interno
+                  </option>
+                  <option value="Sisbén">Sisbén</option>
+                  <option value="Gestion de Riesgos">Gestion de Riesgos</option>
+                  <option value="Equidad de Género">Equidad de Género</option>
+                  <option value="Victimas">Víctimas</option>
+                  <option value="Almacen Municipal">Almacén Municipal</option>
+                  <option value="Promotoria">Promotoria</option>
+                  <option value="Control Disciplinario">
+                    Control Disciplinario
+                  </option>
+                  <option value="Juventudes">Juventudes</option>
+                  <option value="Todas las dependencias">
+                    Todas las dependencias
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label for="numero_folios">
+                  Número de Folios <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="numero_folios"
+                  name="numero_folios"
+                  value="1"
+                  min="1"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="usuario_recibe">
+                  Funcionario / Quién Registra <span class="campo-obligatorio">*</span>
+                </label>
+                <select name="usuario_recibe" id="usuario_recibe" required>
+                  <option value="" disabled selected>
+                    Seleccione el funcionario...
+                  </option>
+                  <option value="Maria Mira Manrrique">Maria Mira Manrrique</option>
+                  <option value="Luz Karime Carabali">Luz Karime Carabali</option>
+                  <option value="Angela Johana Fory">Angela Johana Fory</option>
+                </select>
+              </div>
+
+              <div class="col-span-full">
+                <label for="asunto_documento">
+                  Asunto / Resumen del Documento <span class="campo-obligatorio">*</span>
+                </label>
+                <textarea
+                  id="asunto_documento"
+                  name="asunto_documento"
+                  rows="4"
+                  placeholder="Escriba de forma detallada el asunto o motivo de la radicación..."
+                  required
+                ></textarea>
+                <div class="contador-caracteres">
+                  <span id="contador-asunto">0 caracteres ingresados</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCIÓN 4: Soporte Documental (PDF) -->
+          <section class="form-section">
+            <div class="form-section-header">
+              <span class="section-badge">4</span>
+              <div>
+                <h3>Soporte Documental Digital</h3>
+                <p>Adjunte el documento digitalizado en formato PDF correspondiente al trámite.</p>
+              </div>
+            </div>
+
+            <div class="upload-field">
+              <div id="dropzone-area">
+                <input
+                  type="file"
+                  id="archivo"
+                  accept="application/pdf"
+                  required
+                />
+                <div>
+                  <svg
+                    class="w-10 h-10 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    ></path>
+                  </svg>
+                  <p
+                    class="text-sm font-medium text-slate-700"
+                    id="texto-archivo"
+                  >
+                    Haz clic aquí o arrastra tu archivo PDF
+                  </p>
+                  <p class="text-xs text-slate-400" id="pista-archivo">
+                    Formato PDF permitido (Máx. 10MB)
+                  </p>
+                  <div id="archivo-detalle" class="archivo-badge-info" hidden>
+                    <span id="archivo-nombre-detalle"></span>
+                    <button type="button" id="btn-quitar-archivo" class="btn-quitar-archivo" title="Quitar archivo">✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Botón de Envío -->
           <button
             type="submit"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 text-base"
+            id="btn-submit"
           >
-            Generar Radicado y Registrar
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id="btn-submit-texto">Generar Radicado y Registrar</span>
           </button>
         </form>
       </section>
@@ -464,10 +475,11 @@
       <p>Sistema de Ventanilla Única - Prácticas ADSO | Alcaldía Municipal</p>
     </footer>
 
-    <!-- Tu archivo JS local para ajustes específicos -->
-    <script src="js/main.js"></script>
+    <!-- jsPDF se carga desde el archivo incluido en este proyecto. -->
+    <script src="js/jspdf.umd.min.js"></script>
 
-    <!-- jsPDF para generar comprobantes institucionales -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Archivos JavaScript de la aplicación -->
+    <script src="js/comprobante.js"></script>
+    <script src="js/main.js"></script>
   </body>
 </html>

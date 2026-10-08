@@ -10,6 +10,84 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filtroComunicacion = document.getElementById('filtro-comunicacion');
     const resumenFiltros = document.getElementById('resumen-filtros');
     const btnLimpiarFiltros = document.getElementById('limpiar-filtros');
+    const visorComprobante = document.getElementById('visor-comprobante');
+    const previewComprobante = document.getElementById('comprobante-preview');
+    let urlComprobante = null;
+    const dependenciaAlertas = document.getElementById('alertas-dependencia');
+    const actualizarAlertas = document.getElementById('actualizar-alertas');
+    const estadoAlertas = document.getElementById('alertas-estado');
+    const proximosAlertas = document.getElementById('alertas-proximos');
+    const vencidosAlertas = document.getElementById('alertas-vencidos');
+    let solicitudAlertas = 0;
+
+    function cargarDependenciasAlertas() {
+        const dependencias = [...new Set(listaRadicados.map(item => item.dependencia_destino)
+            .filter(nombre => typeof nombre === 'string' && nombre.trim()))].sort((a, b) => a.localeCompare(b));
+        for (const nombre of dependencias) {
+            const opcion = document.createElement('option');
+            opcion.value = nombre;
+            opcion.textContent = nombre;
+            dependenciaAlertas.append(opcion);
+        }
+        dependenciaAlertas.disabled = dependencias.length === 0;
+        estadoAlertas.textContent = dependencias.length
+            ? 'Seleccione una dependencia para consultar sus alertas.'
+            : 'No hay dependencias con radicados registrados.';
+    }
+
+    function mostrarListaAlertas(contenedor, alertas) {
+        contenedor.replaceChildren();
+        for (const item of alertas) {
+            const fila = document.createElement('li');
+            fila.textContent = `${item.numero_radicado} · ${item.remitente_nombre || 'No registrado'} · ${item.semaforo.texto || item.semaforo.nivel} · Fecha límite: ${item.fecha_limite_actual || 'No registrada'}`;
+            contenedor.append(fila);
+        }
+        if (!alertas.length) {
+            const fila = document.createElement('li');
+            fila.textContent = 'Sin alertas en este grupo.';
+            contenedor.append(fila);
+        }
+    }
+
+    async function cargarAlertas() {
+        const solicitudActual = ++solicitudAlertas;
+        const dependencia = dependenciaAlertas.value;
+        proximosAlertas.replaceChildren();
+        vencidosAlertas.replaceChildren();
+        actualizarAlertas.disabled = !dependencia;
+        if (!dependencia) {
+            estadoAlertas.textContent = 'Seleccione una dependencia para consultar sus alertas.';
+            return;
+        }
+        estadoAlertas.textContent = 'Consultando alertas...';
+        try {
+            const response = await fetch(`http://localhost:3000/api/alertas?dependencia=${encodeURIComponent(dependencia)}`);
+            if (response.status === 404) {
+                throw new Error('El servidor activo no ofrece /api/alertas. Inicia el backend actualizado.');
+            }
+            const resultado = await response.json();
+            if (solicitudActual !== solicitudAlertas) return;
+            if (!response.ok || !resultado.success || !Array.isArray(resultado.alertas)) {
+                throw new Error(resultado.message || 'Respuesta no válida al consultar alertas.');
+            }
+            mostrarListaAlertas(proximosAlertas, resultado.alertas.filter(item => item.semaforo?.nivel === 'alerta'));
+            mostrarListaAlertas(vencidosAlertas, resultado.alertas.filter(item => item.semaforo?.nivel === 'vencido'));
+            estadoAlertas.textContent = `${resultado.alertas.length} alertas para ${dependencia}.`;
+        } catch (error) {
+            if (solicitudActual !== solicitudAlertas) return;
+            console.error('Error al consultar alertas:', error);
+            estadoAlertas.textContent = `No se pudieron cargar las alertas. ${error.message} Usa Actualizar alertas para reintentar.`;
+        }
+    }
+    dependenciaAlertas.addEventListener('change', cargarAlertas);
+    actualizarAlertas.addEventListener('click', cargarAlertas);
+
+    visorComprobante.addEventListener('close', () => {
+        previewComprobante.removeAttribute('src');
+        if (urlComprobante) URL.revokeObjectURL(urlComprobante);
+        urlComprobante = null;
+    });
+    document.getElementById('cerrar-comprobante').addEventListener('click', () => visorComprobante.close());
 
     function normalizarTexto(valor) {
         return String(valor ?? '').trim().toLowerCase();
@@ -44,11 +122,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modalDetalle = document.getElementById('modal-detalle');
     const btnCerrarModal = document.getElementById('btn-cerrar-modal');
     const btnCerrarFooter = document.getElementById('btn-cerrar-footer');
+    const adjuntoNombre = document.getElementById('modal-adjunto-nombre');
+    const adjuntoEnlace = document.getElementById('modal-adjunto-enlace');
+    const adjuntoMensaje = document.getElementById('modal-adjunto-mensaje');
+    const adjuntoPreview = document.getElementById('modal-adjunto-preview');
+    let solicitudAdjunto = 0;
     let elementoQueAbreModal = null;
     let overflowAnterior = '';
 
+    function limpiarVistaAdjunto() {
+        solicitudAdjunto++;
+        adjuntoPreview.hidden = true;
+        adjuntoPreview.removeAttribute('src');
+        adjuntoEnlace.hidden = true;
+        adjuntoEnlace.removeAttribute('href');
+        adjuntoNombre.textContent = '';
+        adjuntoMensaje.textContent = '';
+    }
+
+    async function mostrarAdjunto(item) {
+        limpiarVistaAdjunto();
+        if (!item.ruta_archivo) {
+            adjuntoMensaje.textContent = 'No hay documento adjunto para este radicado.';
+            return;
+        }
+
+        const solicitudActual = solicitudAdjunto;
+        const urlPdf = `http://localhost:3000/uploads/${encodeURIComponent(item.ruta_archivo)}`;
+        adjuntoNombre.textContent = item.nombre_archivo_original || 'Archivo PDF';
+        adjuntoEnlace.href = urlPdf;
+        adjuntoEnlace.hidden = false;
+        adjuntoMensaje.textContent = 'Verificando disponibilidad del documento adjunto...';
+
+        try {
+            const response = await fetch(urlPdf, { method: 'HEAD' });
+            if (solicitudActual !== solicitudAdjunto) return;
+            if (!response.ok) {
+                console.error('No se pudo acceder al documento adjunto:', item.numero_radicado, response.status);
+                adjuntoMensaje.textContent = 'No se pudo cargar el documento adjunto. Verifica que el archivo esté disponible en el servidor.';
+                return;
+            }
+            adjuntoPreview.title = `Documento adjunto: ${adjuntoNombre.textContent}`;
+            adjuntoPreview.src = urlPdf;
+            adjuntoPreview.hidden = false;
+            adjuntoMensaje.textContent = '';
+        } catch (error) {
+            if (solicitudActual !== solicitudAdjunto) return;
+            console.error('Error de conexión al consultar el documento adjunto:', error);
+            adjuntoMensaje.textContent = 'No se pudo conectar con el servidor para cargar el documento adjunto. Puedes reabrir el detalle para reintentar.';
+        }
+    }
+
     function cerrarModalFn() {
         if (modalDetalle) {
+            limpiarVistaAdjunto();
             modalDetalle.classList.remove('activo');
             modalDetalle.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = overflowAnterior;
@@ -203,12 +330,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     <!-- 6. ACCIÓN PDF -->
                     <td class="p-4 text-center">
-                        ${item.ruta_archivo ? `
-                            <a href="http://localhost:3000/uploads/${item.ruta_archivo}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg text-xs font-medium transition-colors">
+                            <button type="button" data-radicado="${item.numero_radicado}" class="generar-comprobante" title="Ver el comprobante de recepción sin descargarlo">
                                 <svg class="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
-                                PDF
-                            </a>
-                        ` : '<span class="text-xs text-slate-400">Sin archivo</span>'}
+                                Ver comprobante
+                            </button>
                     </td>
                 </tr>
             `;
@@ -218,8 +343,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Escuchador global en la tabla para detectar cuando cambian un estado (Event Delegation)
     tablaBody.addEventListener('change', async (e) => {
         if (e.target.classList.contains('select-estado')) {
-            const numeroRadicado = e.target.getAttribute('data-radicado');
-            const nuevoEstado = e.target.value;
+            const selector = e.target;
+            const numeroRadicado = selector.getAttribute('data-radicado');
+            const radicadoEncontrado = listaRadicados.find(r => r.numero_radicado === numeroRadicado);
+            if (!radicadoEncontrado) {
+                console.error('No se encontró el radicado para actualizar su estado:', numeroRadicado);
+                alert('No se encontró el radicado para guardar el cambio de estado. Recarga la página.');
+                return;
+            }
+            const estadoAnterior = radicadoEncontrado.estado || 'Recibido';
+            const nuevoEstado = selector.value;
+            selector.disabled = true;
 
             try {
                 const response = await fetch(`http://localhost:3000/api/radicados/${numeroRadicado}/estado`, {
@@ -232,27 +366,48 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const resultado = await response.json();
 
-                if (resultado.success) {
-                    console.log(`Radicado ${numeroRadicado} actualizado a: ${nuevoEstado}`);
+                if (response.ok && resultado.success) {
+                    console.log(`Radicado ${numeroRadicado} actualizado a: ${resultado.estado}`);
 
-                    const radicadoEncontrado = listaRadicados.find(r => r.numero_radicado === numeroRadicado);
-                    if (radicadoEncontrado) {
-                        radicadoEncontrado.estado = nuevoEstado;
-                        radicadoEncontrado.semaforo = resultado.semaforo;
-                        aplicarFiltros();
-                    }
+                    radicadoEncontrado.estado = resultado.estado;
+                    radicadoEncontrado.semaforo = resultado.semaforo;
+                    aplicarFiltros();
+                    if (dependenciaAlertas.value) await cargarAlertas();
                 } else {
-                    alert('Error al actualizar el estado en el servidor.');
+                    selector.value = estadoAnterior;
+                    alert(resultado.message || 'Error al actualizar el estado en el servidor.');
                 }
             } catch (error) {
+                selector.value = estadoAnterior;
                 console.error('Error de red al actualizar estado:', error);
                 alert('No se pudo conectar con el servidor para guardar el cambio.');
+            } finally {
+                if (selector.isConnected) selector.disabled = false;
             }
         }
     });
 
     // Escuchador en la tabla para abrir el modal al hacer clic en un radicado
-    tablaBody.addEventListener('click', (e) => {
+    tablaBody.addEventListener('click', async (e) => {
+        const btnComprobante = e.target.closest('.generar-comprobante');
+        if (btnComprobante) {
+            const item = listaRadicados.find(r => r.numero_radicado === btnComprobante.getAttribute('data-radicado'));
+            try {
+                if (!item) throw new Error('No se encontró el radicado para generar el comprobante.');
+                const fecha = new Date(String(item.fecha_creacion || '').replace(' ', 'T'));
+                if (Number.isNaN(fecha.getTime())) throw new Error('El radicado no tiene una fecha de recepción válida.');
+                const doc = crearComprobantePDF({ ...item, fecha_hora: fecha.toLocaleString() });
+                if (urlComprobante) URL.revokeObjectURL(urlComprobante);
+                urlComprobante = URL.createObjectURL(doc.output('blob'));
+                document.getElementById('comprobante-titulo').textContent = `Comprobante de recepción: ${item.numero_radicado}`;
+                previewComprobante.src = urlComprobante;
+                visorComprobante.showModal();
+            } catch (error) {
+                console.error('Error al generar el comprobante:', error);
+                alert(`No se pudo generar el comprobante. ${error.message}`);
+            }
+            return;
+        }
         // Asegúrate de incluir el punto '.' para buscar la clase
         const btnDetalle = e.target.closest('.ver-detalle');
 
@@ -272,24 +427,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById('modal-documento').textContent = item.remitente_documento || item.remitente_nit || 'No registrado';
                 document.getElementById('modal-destino').textContent = item.dependencia_destino || 'No registrado';
                 document.getElementById('modal-tiempo').textContent = item.tiempo_de_respuesta || 'No especificado';
+                document.getElementById('modal-fecha-limite').textContent = item.fecha_limite_actual || 'No registrada';
+                document.getElementById('modal-fundamento-legal').textContent = item.fundamento_legal_aplicado || 'No registrado';
                 document.getElementById('modal-telefono').textContent = item.remitente_telefono || 'No registrado';
                 document.getElementById('modal-email').textContent = item.remitente_email || 'No registrado';
                 document.getElementById('modal-asunto').textContent = item.asunto_documento || 'Sin observaciones.';
 
-                const contenedorSoporte = document.getElementById('modal-contenedor-soporte');
-                if (item.ruta_archivo) {
-                    const urlPdf = `http://localhost:3000/uploads/${item.ruta_archivo}`;
-                    contenedorSoporte.innerHTML = `
-                        <a href="${urlPdf}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium text-sm flex items-center gap-1.5">
-                            📄 Ver Documento de Soporte (PDF)
-                        </a>
-                    `;
-                } else {
-                    contenedorSoporte.innerHTML = `<p class="text-sm text-slate-400">No hay archivo adjunto para este radicado.</p>`;
-                }
-
                 // 2. Llamar a la función para mostrar el modal
                 abrirModalFn();
+                await mostrarAdjunto(item);
             }
         }
     });
@@ -340,14 +486,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (buscador) buscador.disabled = false;
             if (filtroComunicacion) filtroComunicacion.disabled = false;
             aplicarFiltros();
+            cargarDependenciasAlertas();
         } else {
             console.error('Error al cargar radicados:', resultado.message || 'Respuesta no válida del servidor.');
             tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
             if (resumenFiltros) resumenFiltros.textContent = 'No se pudieron cargar los radicados. Recarga la página para reintentar.';
+            estadoAlertas.textContent = 'No se pudieron cargar las dependencias. Recarga la página para reintentar.';
         }
     } catch (error) {
         console.error("Error de red:", error);
         tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
         if (resumenFiltros) resumenFiltros.textContent = 'No se pudo conectar con el servidor. Recarga la página para reintentar.';
+        estadoAlertas.textContent = 'No se pudieron cargar las dependencias. Recarga la página para reintentar.';
     }
 });

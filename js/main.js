@@ -2,12 +2,95 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.querySelector('form');
     const inputArchivo = document.getElementById('archivo');
     const textoArchivo = document.getElementById('texto-archivo');
+    const selectorTramite = document.getElementById('tipo_tramite_id');
+    const estadoTramites = document.getElementById('estado-tipos-tramite');
+    const reintentarTramites = document.getElementById('reintentar-tipos-tramite');
+    const dropzoneArea = document.getElementById('dropzone-area');
+    const btnQuitarArchivo = document.getElementById('btn-quitar-archivo');
+    const archivoDetalle = document.getElementById('archivo-detalle');
+    const archivoNombreDetalle = document.getElementById('archivo-nombre-detalle');
+    const pistaArchivo = document.getElementById('pista-archivo');
+    const inputAsunto = document.getElementById('asunto_documento');
+    const contadorAsunto = document.getElementById('contador-asunto');
+    const btnSubmit = document.getElementById('btn-submit');
+    const btnSubmitTexto = document.getElementById('btn-submit-texto');
+
+    let tiposTramite = [];
     let archivoSeleccionadoGlobal = null;
 
     if (!form) {
         console.error("No se encontró el formulario en el DOM.");
         return;
     }
+
+    // --- CARGA DINÁMICA DE TIPOS DE TRÁMITE ---
+    async function cargarTiposTramite() {
+        selectorTramite.disabled = true;
+        reintentarTramites.hidden = true;
+        estadoTramites.textContent = 'Cargando tipos de trámite...';
+        try {
+            const response = await fetch('http://localhost:3000/api/tipos-tramite');
+            if (response.status === 404) {
+                throw new Error('El servidor activo no ofrece /api/tipos-tramite. Inicia el backend actualizado.');
+            }
+            const resultado = await response.json();
+            if (!response.ok || !resultado.success || !Array.isArray(resultado.tipos_tramite)) {
+                throw new Error(resultado.message || 'Respuesta no válida al consultar tipos de trámite.');
+            }
+            const ordenDeseado = [
+                'informativo',
+                'solicitud',
+                'derecho_peticion',
+                'denuncia',
+                'queja',
+                'reclamo',
+                'notificacion_judicial',
+                'restablecimiento_derecho',
+                'cuotas_partes',
+                'accion_tutela',
+                'desacato_tutela',
+                'licencia_construccion',
+                'notificacion',
+                'invitacion',
+                'licencia_urbanistica',
+                'solicitud_simit_rut'
+            ];
+            tiposTramite = resultado.tipos_tramite.filter(tipo => tipo.termino_legal_id != null);
+            tiposTramite.sort((a, b) => {
+                const ordenA = a.orden != null && a.orden > 0 ? a.orden : (ordenDeseado.indexOf(a.codigo) !== -1 ? ordenDeseado.indexOf(a.codigo) + 1 : 999);
+                const ordenB = b.orden != null && b.orden > 0 ? b.orden : (ordenDeseado.indexOf(b.codigo) !== -1 ? ordenDeseado.indexOf(b.codigo) + 1 : 999);
+                if (ordenA !== ordenB) return ordenA - ordenB;
+                return (a.nombre || '').localeCompare(b.nombre || '');
+            });
+            selectorTramite.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccione el tipo de trámite...';
+            selectorTramite.append(placeholder);
+            for (const tipo of tiposTramite) {
+                const opcion = document.createElement('option');
+                opcion.value = String(tipo.id);
+                opcion.textContent = tipo.nombre;
+                selectorTramite.append(opcion);
+            }
+            selectorTramite.disabled = tiposTramite.length === 0;
+            estadoTramites.textContent = tiposTramite.length
+                ? 'El servidor determina el término legal y la fecha límite del trámite.'
+                : 'No hay tipos de trámite con término legal disponible.';
+            reintentarTramites.hidden = tiposTramite.length > 0;
+        } catch (error) {
+            console.error('Error al cargar tipos de trámite:', error);
+            selectorTramite.replaceChildren();
+            const opcion = document.createElement('option');
+            opcion.value = '';
+            opcion.textContent = 'Trámites no disponibles';
+            selectorTramite.append(opcion);
+            estadoTramites.textContent = `No se pudieron cargar los trámites. ${error.message}`;
+            reintentarTramites.hidden = false;
+        }
+    }
+    reintentarTramites.addEventListener('click', cargarTiposTramite);
+    cargarTiposTramite();
 
     // 1. Validación estricta en tiempo real: Solo números con límite de dígitos
     const inputsNumericos = document.querySelectorAll(
@@ -26,31 +109,142 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 2. Capturar el archivo PDF en memoria y actualizar el texto visual
+    // 2. Formateador de peso en bytes a texto legible
+    function formatearTamano(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const unidades = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${unidades[i]}`;
+    }
+
+    // 3. Manejo visual y estado del archivo PDF seleccionado
+    function actualizarVistaArchivo(archivo) {
+        if (archivo) {
+            archivoSeleccionadoGlobal = archivo;
+            const tamanoTexto = archivo.size ? ` (${formatearTamano(archivo.size)})` : '';
+            if (textoArchivo) {
+                textoArchivo.textContent = `📄 ${archivo.name}${tamanoTexto}`;
+                textoArchivo.classList.add('text-blue-600', 'font-semibold');
+            }
+            if (archivoDetalle) {
+                archivoDetalle.hidden = false;
+            }
+            if (archivoNombreDetalle) {
+                archivoNombreDetalle.textContent = `${archivo.name}${tamanoTexto}`;
+            }
+            if (pistaArchivo) {
+                pistaArchivo.hidden = true;
+            }
+        } else {
+            archivoSeleccionadoGlobal = null;
+            if (inputArchivo) {
+                inputArchivo.value = '';
+            }
+            if (textoArchivo) {
+                textoArchivo.textContent = "Haz clic aquí o arrastra tu archivo PDF";
+                textoArchivo.classList.remove('text-blue-600', 'font-semibold');
+            }
+            if (archivoDetalle) {
+                archivoDetalle.hidden = true;
+            }
+            if (pistaArchivo) {
+                pistaArchivo.hidden = false;
+            }
+        }
+    }
+
     if (inputArchivo) {
         inputArchivo.addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
-                archivoSeleccionadoGlobal = e.target.files[0];
-                const nombreArchivo = archivoSeleccionadoGlobal.name;
-
-                if (textoArchivo) {
-                    textoArchivo.textContent = `📄 ${nombreArchivo}`;
-                    textoArchivo.classList.add('text-blue-600', 'font-semibold');
+                const archivo = e.target.files[0];
+                if (archivo.type && archivo.type !== 'application/pdf' && !archivo.name?.toLowerCase().endsWith('.pdf')) {
+                    alert('El archivo seleccionado debe ser un documento PDF.');
+                    actualizarVistaArchivo(null);
+                    return;
                 }
-                console.log("📁 Archivo cargado:", nombreArchivo);
+                if (archivo.size && archivo.size > 10 * 1024 * 1024) {
+                    alert('El archivo supera el límite máximo permitido de 10MB.');
+                    actualizarVistaArchivo(null);
+                    return;
+                }
+                actualizarVistaArchivo(archivo);
+                console.log("📁 Archivo cargado:", archivo.name);
             } else {
-                archivoSeleccionadoGlobal = null;
-                if (textoArchivo) {
-                    textoArchivo.textContent = "Haz clic aquí o arrastra tu archivo PDF";
-                    textoArchivo.classList.remove('text-blue-600', 'font-semibold');
-                }
+                actualizarVistaArchivo(null);
             }
         });
     }
 
-    // 3. Manejar el envío del formulario al backend de Node.js
+    if (btnQuitarArchivo) {
+        btnQuitarArchivo.addEventListener('click', (e) => {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            actualizarVistaArchivo(null);
+        });
+    }
+
+    // 4. Soporte para arrastrar y soltar (Drag and Drop)
+    if (dropzoneArea) {
+        ['dragenter', 'dragover'].forEach(nombreEvento => {
+            dropzoneArea.addEventListener(nombreEvento, (e) => {
+                e.preventDefault?.();
+                dropzoneArea.classList.add('drag-active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(nombreEvento => {
+            dropzoneArea.addEventListener(nombreEvento, (e) => {
+                e.preventDefault?.();
+                dropzoneArea.classList.remove('drag-active');
+            });
+        });
+
+        dropzoneArea.addEventListener('drop', (e) => {
+            const archivos = e.dataTransfer?.files;
+            if (archivos && archivos.length > 0) {
+                const archivo = archivos[0];
+                if (archivo.type && archivo.type !== 'application/pdf' && !archivo.name?.toLowerCase().endsWith('.pdf')) {
+                    alert('El archivo seleccionado debe ser un documento PDF.');
+                    return;
+                }
+                if (archivo.size && archivo.size > 10 * 1024 * 1024) {
+                    alert('El archivo supera el límite máximo permitido de 10MB.');
+                    return;
+                }
+                actualizarVistaArchivo(archivo);
+            }
+        });
+    }
+
+    // 5. Contador de caracteres en tiempo real para el asunto
+    if (inputAsunto && contadorAsunto) {
+        inputAsunto.addEventListener('input', () => {
+            const longitud = inputAsunto.value ? inputAsunto.value.length : 0;
+            contadorAsunto.textContent = `${longitud} caracteres ingresados`;
+        });
+    }
+
+    // 6. Control de estado del botón de envío (loading state)
+    function alternarEstadoEnvio(enviando) {
+        if (btnSubmit) {
+            btnSubmit.disabled = enviando;
+        }
+        if (btnSubmitTexto) {
+            btnSubmitTexto.textContent = enviando
+                ? 'Generando radicado y registrando...'
+                : 'Generar Radicado y Registrar';
+        }
+    }
+
+    // 7. Manejar el envío del formulario al backend de Node.js
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (selectorTramite.disabled || !tiposTramite.some(tipo => String(tipo.id) === selectorTramite.value)) {
+            alert('Selecciona un tipo de trámite con término legal disponible antes de registrar.');
+            return;
+        }
 
         if (!archivoSeleccionadoGlobal) {
             alert("Por favor, adjunta obligatoriamente un archivo en formato PDF.");
@@ -59,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(form);
         formData.set('archivo', archivoSeleccionadoGlobal);
+
+        alternarEstadoEnvio(true);
 
         try {
             console.log("🚀 Enviando datos de radicación al servidor...");
@@ -87,17 +283,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     remitente_documento: formData.get('remitente_documento') || '',
                     asunto_documento: formData.get('asunto_documento') || 'Sin asunto registrado',
                     fecha_hora: new Date().toLocaleString()
-                };;
-                // --- GENERAR Y DESCARGAR EL PDF AUTOMÁTICAMENTE ---
-                descargarComprobantePDF(datosComprobante);
+                };
 
-                alert(`¡Radicado exitoso!\nNúmero asignado: ${resultado.radicado}\nSu comprobante en PDF se ha descargado.`);
+                // --- GENERAR Y DESCARGAR EL PDF AUTOMÁTICAMENTE ---
+                let pdfDescargado = false;
+                try {
+                    descargarComprobantePDF(datosComprobante);
+                    pdfDescargado = true;
+                } catch (pdfError) {
+                    console.warn("⚠️ No se pudo generar la descarga automática del PDF:", pdfError);
+                }
+
+                if (pdfDescargado) {
+                    alert(`¡Radicado exitoso!\nNúmero asignado: ${resultado.radicado}\nSu comprobante en PDF se ha descargado.`);
+                } else {
+                    alert(`¡Radicado exitoso!\nNúmero asignado: ${resultado.radicado}\n\n(Aviso: No se pudo descargar el comprobante en PDF automáticamente. Puedes consultarlo o reimprimirlo en "Consultar Radicado").`);
+                }
 
                 form.reset();
-                archivoSeleccionadoGlobal = null;
-                if (textoArchivo) {
-                    textoArchivo.textContent = "Haz clic aquí o arrastra tu archivo PDF";
-                    textoArchivo.classList.remove('text-blue-600', 'font-semibold');
+                actualizarVistaArchivo(null);
+                if (contadorAsunto) {
+                    contadorAsunto.textContent = '0 caracteres ingresados';
                 }
             } else {
                 alert(`Error: ${resultado.message || 'No se pudo completar el registro.'}`);
@@ -106,85 +312,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("❌ Error de conexión con el backend:", error);
             alert("No se pudo conectar con el servidor. Verifica que Node.js esté encendido en el puerto 3000.");
+        } finally {
+            alternarEstadoEnvio(false);
         }
     });
 });
-
-// --- FUNCIÓN PARA GENERAR EL COMPROBANTE INSTITUCIONAL CON jsPDF ---
-function descargarComprobantePDF(datosRadicado) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    // Encabezado institucional
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("ALCALDÍA MUNICIPAL", 105, 20, { align: "center" });
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Sistema de Ventanilla Única - Comprobante de Recepción Documental", 105, 27, { align: "center" });
-
-    // Línea divisoria
-    doc.setLineWidth(0.4);
-    doc.line(20, 32, 190, 32);
-
-    // Caja destacada para el radicado principal
-    doc.setFillColor(241, 245, 249);
-    doc.rect(20, 38, 170, 24, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("Número de Radicado:", 25, 47);
-    doc.setTextColor(30, 64, 175); // Azul corporativo
-    doc.text(datosRadicado.numero_radicado, 68, 47);
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text("Fecha y Hora:", 25, 56);
-    doc.setFont("helvetica", "normal");
-    doc.text(new Date().toLocaleString(), 55, 56);
-
-    // Detalles específicos solicitados
-    let y = 72;
-    doc.setFont("helvetica", "bold");
-    doc.text("Detalles del Trámite:", 20, y);
-
-    y += 8;
-    doc.setFont("helvetica", "normal");
-
-    const itemsDetalle = [
-        `Tipo de Comunicación: ${datosRadicado.tipo_comunicacion}`,
-        `Número de Radicado: ${datosRadicado.numero_radicado}`,
-        `Número de Folios: ${datosRadicado.numero_folios || '1'}`,
-        `Dependencia Destino: ${datosRadicado.dependencia_destino}`,
-        `Funcionario / Quien Recibe: ${datosRadicado.usuario_recibe || 'Ventanilla Única'}`,
-        `Remitente: ${datosRadicado.remitente_nombre} (${datosRadicado.remitente_documento || 'N/A'})`
-    ];
-
-    itemsDetalle.forEach(detalle => {
-        doc.text(`• ${detalle}`, 24, y);
-        y += 7;
-    });
-
-    // Asunto
-    y += 4;
-    doc.setFont("helvetica", "bold");
-    doc.text("Asunto del Trámite:", 20, y);
-
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    const asuntoDividido = doc.splitTextToSize(datosRadicado.asunto_documento, 170);
-    doc.text(asuntoDividido, 20, y);
-
-    // Pie de página institucional
-    doc.setLineWidth(0.2);
-    doc.line(20, 270, 190, 270);
-
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Este documento sirve como constancia oficial de radicación ante la Alcaldía Municipal.", 105, 275, { align: "center" });
-    doc.text("Conserve este número de radicado para realizar seguimiento a su solicitud en el sistema.", 105, 280, { align: "center" });
-
-    // Descargar archivo PDF
-    doc.save(`Comprobante_${datosRadicado.numero_radicado}.pdf`);
-}
