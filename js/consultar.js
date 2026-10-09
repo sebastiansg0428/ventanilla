@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    const usuario = await AppAuth.confirmarSesion();
+    if (!usuario) return;
     const tablaBody = document.getElementById("tabla-radicados");
     const buscador = document.getElementById("buscador");
     let listaRadicados = [];
@@ -18,21 +20,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     const estadoAlertas = document.getElementById('alertas-estado');
     const proximosAlertas = document.getElementById('alertas-proximos');
     const vencidosAlertas = document.getElementById('alertas-vencidos');
+    const reintentarDependencias = document.getElementById('reintentar-dependencias');
     let solicitudAlertas = 0;
 
-    function cargarDependenciasAlertas() {
-        const dependencias = [...new Set(listaRadicados.map(item => item.dependencia_destino)
-            .filter(nombre => typeof nombre === 'string' && nombre.trim()))].sort((a, b) => a.localeCompare(b));
-        for (const nombre of dependencias) {
-            const opcion = document.createElement('option');
-            opcion.value = nombre;
-            opcion.textContent = nombre;
-            dependenciaAlertas.append(opcion);
+    async function cargarDependenciasAlertas() {
+        dependenciaAlertas.disabled = true;
+        actualizarAlertas.disabled = true;
+        reintentarDependencias.hidden = true;
+        estadoAlertas.textContent = 'Cargando dependencias...';
+        try {
+            const response = await apiFetch('/api/dependencias');
+            const resultado = await response.json();
+            if (!Array.isArray(resultado.dependencias)) {
+                throw new Error('Respuesta no válida al consultar dependencias.');
+            }
+            dependenciaAlertas.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccione una dependencia...';
+            dependenciaAlertas.append(placeholder);
+            for (const dependencia of resultado.dependencias) {
+                const opcion = document.createElement('option');
+                opcion.value = String(dependencia.id);
+                opcion.textContent = dependencia.nombre;
+                dependenciaAlertas.append(opcion);
+            }
+            if (usuario.rol === 'funcionario') {
+                if (!resultado.dependencias.some(dependencia => String(dependencia.id) === String(usuario.dependencia_id))) {
+                    throw new Error('Tu dependencia no está disponible en el catálogo.');
+                }
+                dependenciaAlertas.value = String(usuario.dependencia_id);
+                await cargarAlertas();
+            } else {
+                dependenciaAlertas.disabled = resultado.dependencias.length === 0;
+                estadoAlertas.textContent = resultado.dependencias.length
+                    ? 'Seleccione una dependencia para consultar sus alertas.'
+                    : 'No hay dependencias disponibles en el catálogo.';
+                reintentarDependencias.hidden = resultado.dependencias.length > 0;
+            }
+        } catch (error) {
+            console.error('Error al cargar dependencias:', error);
+            estadoAlertas.textContent = error.message;
+            reintentarDependencias.hidden = false;
         }
-        dependenciaAlertas.disabled = dependencias.length === 0;
-        estadoAlertas.textContent = dependencias.length
-            ? 'Seleccione una dependencia para consultar sus alertas.'
-            : 'No hay dependencias con radicados registrados.';
     }
 
     function mostrarListaAlertas(contenedor, alertas) {
@@ -61,7 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         estadoAlertas.textContent = 'Consultando alertas...';
         try {
-            const response = await fetch(`http://localhost:3000/api/alertas?dependencia=${encodeURIComponent(dependencia)}`);
+            const response = await apiFetch(`/api/alertas?dependencia_id=${encodeURIComponent(dependencia)}`);
             if (response.status === 404) {
                 throw new Error('El servidor activo no ofrece /api/alertas. Inicia el backend actualizado.');
             }
@@ -72,7 +102,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             mostrarListaAlertas(proximosAlertas, resultado.alertas.filter(item => item.semaforo?.nivel === 'alerta'));
             mostrarListaAlertas(vencidosAlertas, resultado.alertas.filter(item => item.semaforo?.nivel === 'vencido'));
-            estadoAlertas.textContent = `${resultado.alertas.length} alertas para ${dependencia}.`;
+            const opcion = dependenciaAlertas.options[dependenciaAlertas.selectedIndex];
+            estadoAlertas.textContent = `${resultado.alertas.length} alertas para ${opcion.textContent}.`;
         } catch (error) {
             if (solicitudActual !== solicitudAlertas) return;
             console.error('Error al consultar alertas:', error);
@@ -81,6 +112,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     dependenciaAlertas.addEventListener('change', cargarAlertas);
     actualizarAlertas.addEventListener('click', cargarAlertas);
+    reintentarDependencias.addEventListener('click', cargarDependenciasAlertas);
 
     visorComprobante.addEventListener('close', () => {
         previewComprobante.removeAttribute('src');
@@ -126,6 +158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const adjuntoEnlace = document.getElementById('modal-adjunto-enlace');
     const adjuntoMensaje = document.getElementById('modal-adjunto-mensaje');
     const adjuntoPreview = document.getElementById('modal-adjunto-preview');
+    let urlAdjunto = null;
     let solicitudAdjunto = 0;
     let elementoQueAbreModal = null;
     let overflowAnterior = '';
@@ -136,6 +169,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         adjuntoPreview.removeAttribute('src');
         adjuntoEnlace.hidden = true;
         adjuntoEnlace.removeAttribute('href');
+        if (urlAdjunto) URL.revokeObjectURL(urlAdjunto);
+        urlAdjunto = null;
         adjuntoNombre.textContent = '';
         adjuntoMensaje.textContent = '';
     }
@@ -148,30 +183,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const solicitudActual = solicitudAdjunto;
-        const urlPdf = `http://localhost:3000/uploads/${encodeURIComponent(item.ruta_archivo)}`;
+        const urlPdf = `/uploads/${encodeURIComponent(item.ruta_archivo)}`;
         adjuntoNombre.textContent = item.nombre_archivo_original || 'Archivo PDF';
-        adjuntoEnlace.href = urlPdf;
-        adjuntoEnlace.hidden = false;
         adjuntoMensaje.textContent = 'Verificando disponibilidad del documento adjunto...';
 
         try {
-            const response = await fetch(urlPdf, { method: 'HEAD' });
+            await apiFetch(urlPdf, { method: 'HEAD' });
             if (solicitudActual !== solicitudAdjunto) return;
-            if (!response.ok) {
-                console.error('No se pudo acceder al documento adjunto:', item.numero_radicado, response.status);
-                adjuntoMensaje.textContent = 'No se pudo cargar el documento adjunto. Verifica que el archivo esté disponible en el servidor.';
-                return;
-            }
+            const response = await apiFetch(urlPdf);
+            const blob = await response.blob();
+            if (solicitudActual !== solicitudAdjunto) return;
+            urlAdjunto = URL.createObjectURL(blob);
+            adjuntoEnlace.href = urlAdjunto;
+            adjuntoEnlace.hidden = false;
             adjuntoPreview.title = `Documento adjunto: ${adjuntoNombre.textContent}`;
-            adjuntoPreview.src = urlPdf;
+            adjuntoPreview.src = urlAdjunto;
             adjuntoPreview.hidden = false;
             adjuntoMensaje.textContent = '';
         } catch (error) {
             if (solicitudActual !== solicitudAdjunto) return;
             console.error('Error de conexión al consultar el documento adjunto:', error);
-            adjuntoMensaje.textContent = 'No se pudo conectar con el servidor para cargar el documento adjunto. Puedes reabrir el detalle para reintentar.';
+            adjuntoMensaje.textContent = `No se pudo cargar el documento adjunto. ${error.message} Puedes reabrir el detalle para reintentar.`;
         }
     }
+
+    window.addEventListener('pagehide', () => {
+        limpiarVistaAdjunto();
+        if (urlComprobante) URL.revokeObjectURL(urlComprobante);
+        urlComprobante = null;
+    });
 
     function cerrarModalFn() {
         if (modalDetalle) {
@@ -321,7 +361,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     <!-- 5. ESTADO -->
                     <td class="p-4">
-                        <select id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${item.numero_radicado}" data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                        <select ${usuario.rol === 'ventanilla' ? 'disabled' : ''} id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${item.numero_radicado}" data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
                             ${estadosDisponibles.map(est => `
                                 <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}</option>
                             `).join('')}
@@ -356,7 +396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             selector.disabled = true;
 
             try {
-                const response = await fetch(`http://localhost:3000/api/radicados/${numeroRadicado}/estado`, {
+                const response = await apiFetch(`/api/radicados/${encodeURIComponent(numeroRadicado)}/estado`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -379,10 +419,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             } catch (error) {
                 selector.value = estadoAnterior;
-                console.error('Error de red al actualizar estado:', error);
-                alert('No se pudo conectar con el servidor para guardar el cambio.');
+                console.error('Error al actualizar estado:', error);
+                alert(error.message);
             } finally {
-                if (selector.isConnected) selector.disabled = false;
+                if (selector.isConnected) selector.disabled = usuario.rol === 'ventanilla';
             }
         }
     });
@@ -474,8 +514,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     // Consumir API del Backend
+    await cargarDependenciasAlertas();
     try {
-        const response = await fetch("http://localhost:3000/api/radicados");
+        const response = await apiFetch('/api/radicados');
         const resultado = await response.json();
 
         if (response.ok && resultado.success && Array.isArray(resultado.radicados)) {
@@ -486,17 +527,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (buscador) buscador.disabled = false;
             if (filtroComunicacion) filtroComunicacion.disabled = false;
             aplicarFiltros();
-            cargarDependenciasAlertas();
         } else {
             console.error('Error al cargar radicados:', resultado.message || 'Respuesta no válida del servidor.');
             tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">Error al cargar los datos.</td></tr>`;
             if (resumenFiltros) resumenFiltros.textContent = 'No se pudieron cargar los radicados. Recarga la página para reintentar.';
-            estadoAlertas.textContent = 'No se pudieron cargar las dependencias. Recarga la página para reintentar.';
         }
     } catch (error) {
         console.error("Error de red:", error);
         tablaBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">No se pudo conectar con el servidor.</td></tr>`;
-        if (resumenFiltros) resumenFiltros.textContent = 'No se pudo conectar con el servidor. Recarga la página para reintentar.';
-        estadoAlertas.textContent = 'No se pudieron cargar las dependencias. Recarga la página para reintentar.';
+        if (resumenFiltros) resumenFiltros.textContent = `${error.message} Recarga la página para reintentar.`;
     }
 });

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { runWithAuth } = require('./auth-support.cjs');
 
 process.env.TZ = 'America/Bogota';
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'consultar.js'), 'utf8');
@@ -18,6 +19,9 @@ function element() {
     const classes = new Set();
     return {
         innerHTML: '', textContent: '', value: '', disabled: true, attributes: {}, children: [],
+        get options() { return this.children; },
+        set options(value) { this.children = value; },
+        get selectedIndex() { return this.options.findIndex(option => option.value === this.value); },
         append(child) { this.children.push(child); },
         replaceChildren(...children) { this.children = children; },
         classList: {
@@ -54,7 +58,7 @@ function records() {
     }));
 }
 
-async function setup({ data = records(), failure = false, networkFailure = false, attachmentFetch, generateReceipt, alertsFetch, stateFetch } = {}) {
+async function setup({ data = records(), failure = false, networkFailure = false, attachmentFetch, generateReceipt, alertsFetch, stateFetch, usuario, dependencies = [{ id: 7, nombre: 'Secretaría de Gobierno' }, { id: 8, nombre: 'Sin radicados' }] } = {}) {
     const nodes = {};
     const get = id => nodes[id] ??= element();
     for (const id of ['card-total', 'card-hoy']) {
@@ -65,9 +69,6 @@ async function setup({ data = records(), failure = false, networkFailure = false
     types.options = ['', 'interna', 'externa', 'sin-tipo'].map((value, index) => ({
         value, text: ['Todos', 'Interna', 'Externa', 'No especificado'][index]
     }));
-    Object.defineProperty(types, 'selectedIndex', {
-        get: () => types.options.findIndex(option => option.value === types.value)
-    });
     const warnings = [];
     const errors = [];
     const requests = [];
@@ -80,7 +81,7 @@ async function setup({ data = records(), failure = false, networkFailure = false
         body: { style: { overflow: '' } },
         addEventListener(name, callback) { if (name === 'DOMContentLoaded') ready = callback; }
     };
-    vm.runInNewContext(source, {
+    runWithAuth(source, {
         document, Date: FixedDate,
         crearComprobantePDF: generateReceipt || (data => {
             receipts.push(data);
@@ -95,10 +96,13 @@ async function setup({ data = records(), failure = false, networkFailure = false
         fetch: async (url, options) => {
             requests.push({ url, options });
             if (networkFailure) throw new Error('Network unavailable');
+            if (url.endsWith('/api/dependencias')) {
+                return { ok: true, json: async () => ({ success: true, dependencias: dependencies }) };
+            }
             if (url.includes('/api/alertas?')) {
                 return alertsFetch ? alertsFetch(url) : { ok: true, json: async () => ({ success: true, alertas: [] }) };
             }
-            if (options?.method === 'HEAD') {
+            if (url.includes('/uploads/')) {
                 return attachmentFetch ? attachmentFetch(url) : { ok: true };
             }
             if (options?.method === 'PUT') {
@@ -109,7 +113,7 @@ async function setup({ data = records(), failure = false, networkFailure = false
             }
             return { ok: !failure, json: async () => ({ success: !failure, radicados: data }) };
         }
-    });
+    }, usuario);
     await ready();
     return {
         get, warnings, errors, requests, receipts, revokedUrls,
@@ -142,6 +146,32 @@ test('all combinations intersect; global counts and active states remain consist
         assert.equal(app.get('stat-total').textContent, 7);
         assert.equal(app.get('stat-criticos').textContent, 4);
     }
+});
+
+test('ventanilla state controls remain disabled across every filter render', async () => {
+    const app = await setup({ usuario: { id: 2, rol: 'ventanilla', dependencia_id: null } });
+    for (const render of [
+        async () => {}, () => app.type('interna'), () => app.get('limpiar-filtros').click(),
+        () => app.get('card-total').click()
+    ]) {
+        await render();
+        const controls = [...app.get('tabla-radicados').innerHTML.matchAll(/<select\b[^>]*>/g)];
+        assert.ok(controls.length);
+        assert.ok(controls.every(([control]) => /<select disabled/.test(control)));
+    }
+});
+
+test('funcionario has a fixed dependency ID and automatically loads its alerts', async () => {
+    const app = await setup({
+        usuario: { id: 3, rol: 'funcionario', dependencia_id: 7 },
+        dependencies: [{ id: 7, nombre: 'Secretaría de Gobierno' }]
+    });
+    assert.equal(app.get('alertas-dependencia').disabled, true);
+    assert.equal(app.get('alertas-dependencia').value, '7');
+    assert.equal(app.get('actualizar-alertas').disabled, false);
+    assert.ok(app.requests.some(request => request.url.endsWith('/api/alertas?dependencia_id=7')));
+    assert.ok(app.requests.every(request => request.options.headers.get('Authorization') === 'Bearer test-token'));
+    assert.doesNotMatch(app.get('tabla-radicados').innerHTML, /<select disabled/);
 });
 
 test('form controls have identifiers, including every dynamically rendered state select', async () => {
@@ -290,7 +320,7 @@ test('connection and JSON errors restore the previous state and re-enable a conn
         assert.equal(select.value, 'Pendiente');
         assert.equal(select.disabled, false);
         assert.equal(data[0].estado, 'Pendiente');
-        assert.ok(app.errors.some(error => typeof error === 'string' && error.includes('No se pudo conectar')));
+        assert.ok(app.errors.some(error => typeof error === 'string' && /No se pudo conectar|Invalid JSON/.test(error)));
     }
 });
 
@@ -338,7 +368,7 @@ test('detail modal and PDF support remain available under filters', async () => 
     await app.get('tabla-radicados').emit('click', { target: { closest: selector => selector === '.ver-detalle' ? button : null } });
     assert.equal(app.get('modal-num-radicado').textContent, 'B');
     assert.ok(app.get('modal-detalle').classList.contains('activo'));
-    assert.equal(app.get('modal-adjunto-preview').src, 'http://localhost:3000/uploads/soporte.pdf');
+    assert.equal(app.get('modal-adjunto-preview').src, 'blob:comprobante');
     assert.equal(app.get('modal-adjunto-preview').hidden, false);
     assert.equal(app.get('modal-adjunto-enlace').href, app.get('modal-adjunto-preview').src);
     app.get('btn-cerrar-modal').onclick();
@@ -346,6 +376,7 @@ test('detail modal and PDF support remain available under filters', async () => 
     assert.ok(button.focused);
     assert.equal(app.get('modal-adjunto-preview').src, undefined);
     assert.equal(app.get('modal-adjunto-preview').hidden, true);
+    assert.deepEqual(app.revokedUrls, ['blob:comprobante']);
     assert.deepEqual(app.rows(), ['B']);
 });
 
@@ -362,8 +393,13 @@ test('preview uses the stored attachment path and displays its original name as 
     const app = await setup({ data });
     await openDetail(app, 'A');
     assert.equal(app.get('modal-adjunto-nombre').textContent, data[0].nombre_archivo_original);
-    assert.equal(app.get('modal-adjunto-preview').src, `http://localhost:3000/uploads/${encodeURIComponent(data[0].ruta_archivo)}`);
-    assert.equal(app.requests.at(-1).options.method, 'HEAD');
+    assert.equal(app.get('modal-adjunto-preview').src, 'blob:comprobante');
+    const pdfRequests = app.requests.filter(request => request.url.includes('/uploads/'));
+    assert.equal(pdfRequests.length, 2);
+    assert.equal(pdfRequests[0].url, `http://localhost:3000/uploads/${encodeURIComponent(data[0].ruta_archivo)}`);
+    assert.equal(pdfRequests[0].options.method, 'HEAD');
+    assert.equal(pdfRequests[1].options.method, undefined);
+    assert.ok(pdfRequests.every(request => request.options.headers.get('Authorization') === 'Bearer test-token'));
 });
 
 test('switching to a radicado without an attachment clears the previous preview', async () => {
@@ -386,7 +422,7 @@ test('unavailable files and network errors report a message instead of showing a
         const app = await setup({ attachmentFetch });
         await openDetail(app, 'A');
         assert.equal(app.get('modal-adjunto-preview').hidden, true);
-        assert.equal(app.get('modal-adjunto-enlace').hidden, false);
+        assert.equal(app.get('modal-adjunto-enlace').hidden, true);
         assert.match(app.get('modal-adjunto-mensaje').textContent, /No se pudo/);
         assert.ok(app.errors.length);
     }
@@ -399,6 +435,7 @@ test('closing or switching the modal ignores an older attachment response', asyn
         data[1].ruta_archivo = null;
         const app = await setup({ data, attachmentFetch: () => new Promise(done => { resolve = done; }) });
         const pending = openDetail(app, 'A');
+        await new Promise(done => setImmediate(done));
         if (close) {
             app.get('btn-cerrar-modal').onclick();
         } else {
@@ -424,7 +461,7 @@ test('table generates a receipt using stored reception data, independently of th
     assert.equal(app.receipts.length, 1);
     assert.equal(app.receipts[0].numero_radicado, 'A');
     assert.equal(app.receipts[0].fecha_hora, new Date('2026-10-06T09:00:00').toLocaleString());
-    assert.equal(app.requests.length, 1);
+    assert.equal(app.requests.length, 2);
     assert.doesNotMatch(app.get('tabla-radicados').innerHTML, /href="http:\/\/localhost:3000\/uploads/);
     assert.equal(app.get('visor-comprobante').open, true);
     assert.equal(app.get('comprobante-preview').src, 'blob:comprobante');
@@ -476,7 +513,7 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     assert.equal(preview, doc);
     assert.equal(saved, undefined);
     context.window.jspdf = undefined;
-    assert.throws(() => context.descargarComprobantePDF({}), /No se pudo cargar jsPDF/);
+    assert.throws(() => context.descargarComprobantePDF({}), /No se cargó jsPDF/);
 });
 
     test('details display legal fields returned by the server without changing its traffic light', async () => {
@@ -494,7 +531,7 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
         assert.equal(data[0].semaforo.nivel, ' Alerta ');
     });
 
-    test('alerts use the exact recorded dependency, separate levels and refresh after a state update', async () => {
+    test('alerts use catalog IDs independently of radicados, separate levels and refresh after a state update', async () => {
         const data = records();
         data[0].dependencia_destino = 'Secretaría de Gobierno';
         data[1].dependencia_destino = 'Secretaría de Gobierno';
@@ -509,10 +546,10 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
                 })
             })
         });
-        assert.deepEqual(app.get('alertas-dependencia').children.map(option => option.value), ['Secretaría de Gobierno']);
-        app.get('alertas-dependencia').value = 'Secretaría de Gobierno';
+        assert.deepEqual(app.get('alertas-dependencia').children.map(option => option.value), ['', '7', '8']);
+        app.get('alertas-dependencia').value = '7';
         await app.get('alertas-dependencia').emit('change');
-        assert.equal(app.requests.at(-1).url, `http://localhost:3000/api/alertas?dependencia=${encodeURIComponent('Secretaría de Gobierno')}`);
+        assert.equal(app.requests.at(-1).url, 'http://localhost:3000/api/alertas?dependencia_id=7');
         assert.match(app.get('alertas-proximos').children[0].textContent, /A.*Próximo a vencer.*2026-10-08/);
         assert.match(app.get('alertas-vencidos').children[0].textContent, /B.*Vencido/);
         const select = element();

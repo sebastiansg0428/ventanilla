@@ -15,7 +15,11 @@
   </head>
   <body
     class="page-register bg-slate-100 min-h-screen flex flex-col justify-between"
+    data-sesion-pendiente
   >
+    <p id="sesion-estado" role="status" aria-live="polite">
+      Verificando sesión...
+    </p>
     <!-- HEADER: Cabecera Institucional -->
     <header class="bg-blue-900 text-white shadow-md">
       <div
@@ -59,7 +63,10 @@
       <div
         class="max-w-6xl mx-auto px-4 flex space-x-6 text-sm font-medium py-2.5 overflow-x-auto"
       >
-        <a href="#" class="text-amber-300 hover:text-white transition"
+        <a
+          href="#"
+          data-accion="radicar"
+          class="text-amber-300 hover:text-white transition"
           >Radicar Documento</a
         >
         <a
@@ -67,12 +74,17 @@
           class="text-blue-200 hover:text-white transition"
           >Consultar Radicado</a
         >
-        <a href="#" class="text-blue-200 hover:text-white transition"
-          >Reportes</a
+        <a
+          href="registro_usuario.html"
+          data-rol="administrador"
+          hidden
+          class="text-blue-200 hover:text-white transition"
+          >Registrar usuario</a
         >
         <a href="#" class="text-blue-200 hover:text-white transition"
           >Ayuda / Manual</a
         >
+        <button type="button" data-cerrar-sesion>Cerrar sesión</button>
       </div>
     </nav>
 
@@ -115,7 +127,10 @@
               <span class="section-badge">1</span>
               <div>
                 <h3>Clasificación y Tipo de Recepción</h3>
-                <p>Canal de entrada, tipo de comunicación y trámite institucional.</p>
+                <p>
+                  Canal de entrada, tipo de comunicación y trámite
+                  institucional.
+                </p>
               </div>
             </div>
 
@@ -158,11 +173,7 @@
                 <label for="tipo_tramite_id">
                   Tipo de Trámite <span class="campo-obligatorio">*</span>
                 </label>
-                <select
-                  id="tipo_tramite_id"
-                  name="tipo_tramite_id"
-                  required
-                >
+                <select id="tipo_tramite_id" name="tipo_tramite_id" required>
                   <option value="" disabled selected>
                     Seleccione el tipo de trámite...
                   </option>
@@ -183,8 +194,14 @@
                   <option value="19">Licencia Urbanística</option>
                   <option value="20">Solicitud SIMIT-RUT</option>
                 </select>
-                <p id="estado-tipos-tramite" role="status" aria-live="polite" class="form-ayuda">
-                  El servidor determina el término legal y la fecha límite del trámite.
+                <p
+                  id="estado-tipos-tramite"
+                  role="status"
+                  aria-live="polite"
+                  class="form-ayuda"
+                >
+                  El servidor determina el término legal y la fecha límite del
+                  trámite.
                 </p>
                 <button id="reintentar-tipos-tramite" type="button" hidden>
                   Reintentar carga de trámites
@@ -199,14 +216,18 @@
               <span class="section-badge">2</span>
               <div>
                 <h3>Datos del Remitente / Solicitante</h3>
-                <p>Información de identificación y contacto de quien radica el documento.</p>
+                <p>
+                  Información de identificación y contacto de quien radica el
+                  documento.
+                </p>
               </div>
             </div>
 
             <div class="form-grid-2">
               <div>
                 <label for="remitente_nombre">
-                  Nombre Completo del Remitente <span class="campo-obligatorio">*</span>
+                  Nombre Completo del Remitente
+                  <span class="campo-obligatorio">*</span>
                 </label>
                 <input
                   type="text"
@@ -219,7 +240,8 @@
 
               <div>
                 <label for="remitente_documento">
-                  Cédula / Documento de Identidad <span class="campo-obligatorio">*</span>
+                  Cédula / Documento de Identidad
+                  <span class="campo-obligatorio">*</span>
                 </label>
                 <input
                   type="text"
@@ -271,9 +293,7 @@
               </div>
 
               <div>
-                <label for="remitente_nit">
-                  NIT de la Entidad
-                </label>
+                <label for="remitente_nit"> NIT de la Entidad </label>
                 <input
                   type="text"
                   id="remitente_nit"
@@ -291,71 +311,35 @@
               <span class="section-badge">3</span>
               <div>
                 <h3>Destino y Resumen del Trámite</h3>
-                <p>Dependencia competente, número de folios, funcionario receptor y asunto.</p>
+                <p>
+                  Dependencia competente, número de folios, funcionario receptor
+                  y asunto.
+                </p>
               </div>
             </div>
 
             <div class="form-grid-3">
               <div>
                 <label for="dependencia_destino">
-                  Dependencia de Destino <span class="campo-obligatorio">*</span>
+                  Dependencia de Destino
+                  <span class="campo-obligatorio">*</span>
                 </label>
                 <select
                   id="dependencia_destino"
-                  name="dependencia_destino"
+                  name="dependencia_destino_id"
+                  disabled
                   required
                 >
                   <option value="" disabled selected>
                     Seleccione la dependencia de destino...
                   </option>
-                  <option value="comisaría">comisaría</option>
-                  <option value="Inspeccion urbana">Inspección urbana</option>
-                  <option value="Inspeccion rural">Inspección rural</option>
-                  <option value="Talento Humano">Talento Humano</option>
-                  <option value="Secretaría de Desarrollo Social">
-                    Secretaría de Desarrollo Social
-                  </option>
-                  <option value="Secretaría de Gobierno">
-                    Secretaría de Gobierno
-                  </option>
-                  <option value="Oficina de Planeación">
-                    Oficina de Planeación
-                  </option>
-                  <option value="Oficina asesora Jurídica y Contrato">
-                    Oficina asesora Jurídica y Contrato
-                  </option>
-                  <option value="Secretaría Financiera">
-                    Secretaría Financiera
-                  </option>
-                  <option value="SEDAM">SEDAM</option>
-                  <option value="Secretaría de Salud">Secretaría de Salud</option>
-                  <option value="Secretaría de Educación">
-                    Secretaría de Educación
-                  </option>
-                  <option value="Secretaría de Infraestructura">
-                    Secretaría de Infraestructura
-                  </option>
-                  <option value="Secretaría de Tránsito">
-                    Secretaría de Tránsito
-                  </option>
-                  <option value="Despacho del Alcalde">Despacho del Alcalde</option>
-                  <option value="Oficina Control Interno">
-                    Oficina de Control Interno
-                  </option>
-                  <option value="Sisbén">Sisbén</option>
-                  <option value="Gestion de Riesgos">Gestion de Riesgos</option>
-                  <option value="Equidad de Género">Equidad de Género</option>
-                  <option value="Victimas">Víctimas</option>
-                  <option value="Almacen Municipal">Almacén Municipal</option>
-                  <option value="Promotoria">Promotoria</option>
-                  <option value="Control Disciplinario">
-                    Control Disciplinario
-                  </option>
-                  <option value="Juventudes">Juventudes</option>
-                  <option value="Todas las dependencias">
-                    Todas las dependencias
-                  </option>
                 </select>
+                <p id="estado-dependencias" role="status" aria-live="polite">
+                  Cargando dependencias...
+                </p>
+                <button id="reintentar-dependencias" type="button" hidden>
+                  Reintentar dependencias
+                </button>
               </div>
 
               <div>
@@ -374,21 +358,26 @@
 
               <div>
                 <label for="usuario_recibe">
-                  Funcionario / Quién Registra <span class="campo-obligatorio">*</span>
+                  Funcionario / Quién Registra
+                  <span class="campo-obligatorio">*</span>
                 </label>
                 <select name="usuario_recibe" id="usuario_recibe" required>
                   <option value="" disabled selected>
-                    Seleccione el funcionario...
+                    Cargando funcionarios de ventanilla...
                   </option>
-                  <option value="Maria Mira Manrrique">Maria Mira Manrrique</option>
-                  <option value="Luz Karime Carabali">Luz Karime Carabali</option>
-                  <option value="Angela Johana Fory">Angela Johana Fory</option>
                 </select>
+                <p id="estado-funcionarios" role="status" aria-live="polite">
+                  Consultando el directorio de usuarios...
+                </p>
+                <button id="reintentar-funcionarios" type="button" hidden>
+                  Reintentar carga de funcionarios
+                </button>
               </div>
 
               <div class="col-span-full">
                 <label for="asunto_documento">
-                  Asunto / Resumen del Documento <span class="campo-obligatorio">*</span>
+                  Asunto / Resumen del Documento
+                  <span class="campo-obligatorio">*</span>
                 </label>
                 <textarea
                   id="asunto_documento"
@@ -410,7 +399,10 @@
               <span class="section-badge">4</span>
               <div>
                 <h3>Soporte Documental Digital</h3>
-                <p>Adjunte el documento digitalizado en formato PDF correspondiente al trámite.</p>
+                <p>
+                  Adjunte el documento digitalizado en formato PDF
+                  correspondiente al trámite.
+                </p>
               </div>
             </div>
 
@@ -447,7 +439,14 @@
                   </p>
                   <div id="archivo-detalle" class="archivo-badge-info" hidden>
                     <span id="archivo-nombre-detalle"></span>
-                    <button type="button" id="btn-quitar-archivo" class="btn-quitar-archivo" title="Quitar archivo">✕</button>
+                    <button
+                      type="button"
+                      id="btn-quitar-archivo"
+                      class="btn-quitar-archivo"
+                      title="Quitar archivo"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               </div>
@@ -455,12 +454,19 @@
           </section>
 
           <!-- Botón de Envío -->
-          <button
-            type="submit"
-            id="btn-submit"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <button type="submit" id="btn-submit" data-accion="radicar">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span id="btn-submit-texto">Generar Radicado y Registrar</span>
           </button>
@@ -479,6 +485,7 @@
     <script src="js/jspdf.umd.min.js"></script>
 
     <!-- Archivos JavaScript de la aplicación -->
+    <script src="js/auth.js"></script>
     <script src="js/comprobante.js"></script>
     <script src="js/main.js"></script>
   </body>

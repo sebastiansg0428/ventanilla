@@ -1,4 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    const usuario = await AppAuth.confirmarSesion({ recepcion: true });
+    if (!usuario) return;
     const form = document.querySelector('form');
     const inputArchivo = document.getElementById('archivo');
     const textoArchivo = document.getElementById('texto-archivo');
@@ -14,8 +16,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const contadorAsunto = document.getElementById('contador-asunto');
     const btnSubmit = document.getElementById('btn-submit');
     const btnSubmitTexto = document.getElementById('btn-submit-texto');
+    const selectorDependencia = document.getElementById('dependencia_destino');
+    const estadoDependencias = document.getElementById('estado-dependencias');
+    const reintentarDependencias = document.getElementById('reintentar-dependencias');
+    const selectorFuncionario = document.getElementById('usuario_recibe');
+    const estadoFuncionarios = document.getElementById('estado-funcionarios');
+    const reintentarFuncionarios = document.getElementById('reintentar-funcionarios');
 
     let tiposTramite = [];
+    let dependencias = [];
     let archivoSeleccionadoGlobal = null;
 
     if (!form) {
@@ -29,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reintentarTramites.hidden = true;
         estadoTramites.textContent = 'Cargando tipos de trámite...';
         try {
-            const response = await fetch('http://localhost:3000/api/tipos-tramite');
+            const response = await apiFetch('/api/tipos-tramite');
             if (response.status === 404) {
                 throw new Error('El servidor activo no ofrece /api/tipos-tramite. Inicia el backend actualizado.');
             }
@@ -91,6 +100,97 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     reintentarTramites.addEventListener('click', cargarTiposTramite);
     cargarTiposTramite();
+
+    // --- CARGA DINÁMICA DE DEPENDENCIAS ---
+    async function cargarDependencias() {
+        selectorDependencia.disabled = true;
+        reintentarDependencias.hidden = true;
+        estadoDependencias.textContent = 'Cargando dependencias...';
+        try {
+            const response = await apiFetch('/api/dependencias');
+            const resultado = await response.json();
+            if (!Array.isArray(resultado.dependencias)) {
+                throw new Error('Respuesta no válida al consultar dependencias.');
+            }
+            dependencias = resultado.dependencias;
+            selectorDependencia.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccione la dependencia de destino...';
+            selectorDependencia.append(placeholder);
+            for (const dependencia of dependencias) {
+                const opcion = document.createElement('option');
+                opcion.value = String(dependencia.id);
+                opcion.textContent = dependencia.nombre;
+                selectorDependencia.append(opcion);
+            }
+            selectorDependencia.disabled = dependencias.length === 0;
+            reintentarDependencias.hidden = dependencias.length > 0;
+            estadoDependencias.textContent = dependencias.length
+                ? 'Seleccione la dependencia de destino.'
+                : 'No hay dependencias disponibles en el catálogo.';
+        } catch (error) {
+            console.error('Error al cargar dependencias:', error);
+            estadoDependencias.textContent = error.message;
+            reintentarDependencias.hidden = false;
+        }
+    }
+    reintentarDependencias.addEventListener('click', cargarDependencias);
+    cargarDependencias();
+
+    // --- CARGA DINÁMICA DE FUNCIONARIOS DE VENTANILLA ---
+    async function cargarFuncionariosVentanilla() {
+        if (!selectorFuncionario) return;
+
+        // El usuario de ventanilla siempre registra con su propia sesión.
+        // No necesita elegir a otra persona ni consultar el directorio completo.
+        if (usuario.rol === 'ventanilla') {
+            selectorFuncionario.replaceChildren(new Option(usuario.nombre, String(usuario.id)));
+            selectorFuncionario.value = String(usuario.id);
+            selectorFuncionario.disabled = true;
+            estadoFuncionarios.textContent = `Sesión iniciada como ${usuario.nombre}. El responsable se registra con esta cuenta.`;
+            reintentarFuncionarios.hidden = true;
+            return;
+        }
+
+        selectorFuncionario.disabled = true;
+        reintentarFuncionarios.hidden = true;
+        estadoFuncionarios.textContent = 'Cargando funcionarios de ventanilla...';
+        try {
+            const response = await apiFetch('/api/usuarios/ventanilla');
+            const resultado = await response.json();
+            if (!response.ok || resultado.success !== true || !Array.isArray(resultado.usuarios)) {
+                throw new Error(resultado.message || 'Respuesta no válida al consultar funcionarios.');
+            }
+
+            selectorFuncionario.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccione el funcionario...';
+            selectorFuncionario.append(placeholder);
+
+            for (const funcionario of resultado.usuarios) {
+                const option = document.createElement('option');
+                option.value = String(funcionario.id);
+                option.textContent = funcionario.nombre;
+                selectorFuncionario.append(option);
+            }
+
+            selectorFuncionario.disabled = resultado.usuarios.length === 0;
+            estadoFuncionarios.textContent = resultado.usuarios.length
+                ? `${resultado.usuarios.length} funcionario(s) de ventanilla disponible(s).`
+                : 'No hay usuarios con rol de ventanilla registrados.';
+            reintentarFuncionarios.hidden = resultado.usuarios.length > 0;
+        } catch (error) {
+            console.error('Error al cargar funcionarios de ventanilla:', error);
+            selectorFuncionario.replaceChildren(new Option('Funcionarios no disponibles', ''));
+            selectorFuncionario.disabled = true;
+            estadoFuncionarios.textContent = `No se pudo cargar el directorio. ${error.message}`;
+            reintentarFuncionarios.hidden = false;
+        }
+    }
+    reintentarFuncionarios.addEventListener('click', cargarFuncionariosVentanilla);
+    cargarFuncionariosVentanilla();
 
     // 1. Validación estricta en tiempo real: Solo números con límite de dígitos
     const inputsNumericos = document.querySelectorAll(
@@ -246,6 +346,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (selectorDependencia.disabled || !dependencias.some(dependencia => String(dependencia.id) === selectorDependencia.value)) {
+            alert('Selecciona una dependencia del catálogo antes de registrar.');
+            return;
+        }
+
         if (!archivoSeleccionadoGlobal) {
             alert("Por favor, adjunta obligatoriamente un archivo en formato PDF.");
             return;
@@ -259,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log("🚀 Enviando datos de radicación al servidor...");
 
-            const response = await fetch('http://localhost:3000/api/radicados', {
+            const response = await apiFetch('/api/radicados', {
                 method: 'POST',
                 body: formData
             });
@@ -277,8 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     numero_radicado: soloCuatroDigitos,
                     tipo_comunicacion: formData.get('tipo_comunicacion') || 'Externa',
                     numero_folios: formData.get('numero_folios') || '1',
-                    dependencia_destino: formData.get('dependencia_destino') || 'General',
-                    usuario_recibe: formData.get('usuario_recibe') || 'Ventanilla Única',
+                    dependencia_destino: dependencias.find(dependencia => String(dependencia.id) === selectorDependencia.value).nombre,
+                    // El backend devuelve el nombre de la sesión que guardó el radicado.
+                    usuario_recibe: resultado.usuario_recibe || usuario.nombre || 'Usuario autenticado',
                     remitente_nombre: formData.get('remitente_nombre') || 'No especificado',
                     remitente_documento: formData.get('remitente_documento') || '',
                     asunto_documento: formData.get('asunto_documento') || 'Sin asunto registrado',
@@ -310,8 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            console.error("❌ Error de conexión con el backend:", error);
-            alert("No se pudo conectar con el servidor. Verifica que Node.js esté encendido en el puerto 3000.");
+            console.error("❌ Error al registrar el radicado:", error);
+            alert(error.message);
         } finally {
             alternarEstadoEnvio(false);
         }

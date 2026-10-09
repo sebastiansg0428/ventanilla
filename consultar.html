@@ -10,12 +10,15 @@
   </head>
   <body
     class="page-consult bg-slate-100 min-h-screen flex flex-col justify-between"
+    data-sesion-pendiente
   >
+    <p id="sesion-estado" role="status" aria-live="polite">Verificando sesión...</p>
     <!-- HEADER -->
     <header
       class="bg-blue-900 text-white shadow-md p-4 text-center font-bold text-lg"
     >
       Alcaldía Municipal - Consulta de Radicados
+      <button type="button" data-cerrar-sesion>Cerrar sesión</button>
     </header>
 
     <!-- CONTENIDO PRINCIPAL -->
@@ -26,6 +29,7 @@
         </h1>
         <a
           href="index.html"
+          data-accion="radicar"
           class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm transition"
         >
           ← Registrar Nuevo Radicado
@@ -175,11 +179,12 @@
       </div>
       <section id="seccion-alertas" aria-labelledby="alertas-titulo">
         <h2 id="alertas-titulo">Alertas por dependencia</h2>
-        <label for="alertas-dependencia">Dependencia (nombre registrado)</label>
+        <label for="alertas-dependencia">Dependencia</label>
         <select id="alertas-dependencia" disabled>
           <option value="">Seleccione una dependencia...</option>
         </select>
         <button id="actualizar-alertas" type="button" disabled>Actualizar alertas</button>
+        <button id="reintentar-dependencias" type="button" hidden>Reintentar dependencias</button>
         <p id="alertas-estado" role="status" aria-live="polite">Cargando dependencias...</p>
         <h3>Próximos a vencer</h3>
         <ul id="alertas-proximos"></ul>
@@ -314,6 +319,7 @@
 
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/comprobante.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/consultar.js"></script>
   </body>
 </html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#123a70" />
+    <title>Iniciar sesión - Ventanilla Única</title>
+    <link rel="icon" type="image/png" href="public/img/archivo.png" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body class="page-auth page-login">
+    <main class="auth-shell">
+      <section class="auth-card" aria-labelledby="login-title">
+        <a class="auth-brand" href="index.html" aria-label="Ventanilla Única, página principal">
+          <span class="auth-brand__mark" aria-hidden="true">VU</span>
+          <span>Ventanilla <strong>Única</strong></span>
+        </a>
+        <div class="auth-heading">
+          <p class="auth-eyebrow">Sistema de gestión documental</p>
+          <h1 id="login-title">Bienvenido de nuevo</h1>
+          <p>Inicia sesión con tu cuenta institucional para continuar.</p>
+        </div>
+        <form id="login-form" class="auth-form">
+          <div class="auth-field">
+            <label for="email">Correo electrónico</label>
+            <input id="email" name="email" type="email" autocomplete="username" maxlength="254" placeholder="nombre@entidad.gov.co" required />
+          </div>
+          <div class="auth-field">
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Ingresa tu contraseña" required />
+          </div>
+          <button id="login-submit" class="auth-submit" type="submit">Iniciar sesión</button>
+          <p id="login-mensaje" class="auth-message" role="status" aria-live="polite"></p>
+        </form>
+        <p class="auth-footnote">Acceso para personal autorizado. El alta de usuarios debe realizarla un administrador.</p>
+      </section>
+    </main>
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+  </body>
+</html>
