@@ -14,6 +14,7 @@ export default defineConfig({
         login: resolve(root, 'login.html'),
         consultar: resolve(root, 'consultar.html'),
         usuarios: resolve(root, 'registro_usuario.html'),
+        catalogos: resolve(root, 'catalogos.html'),
       },
     },
   },

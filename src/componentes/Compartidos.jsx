@@ -110,12 +110,20 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
           Consultar radicados
         </a>
         {usuario.rol === "administrador" && (
-          <a
-            aria-current={pantallaActual === "usuarios" ? "page" : undefined}
-            href="registro_usuario.html"
-          >
-            Gestión de usuarios
-          </a>
+          <>
+            <a
+              aria-current={pantallaActual === "usuarios" ? "page" : undefined}
+              href="registro_usuario.html"
+            >
+              Gestión de usuarios
+            </a>
+            <a
+              aria-current={pantallaActual === "catalogos" ? "page" : undefined}
+              href="catalogos.html"
+            >
+              Gestión de catálogos
+            </a>
+          </>
         )}
         <button type="button" onClick={cerrarSesion}>
           Cerrar sesión
