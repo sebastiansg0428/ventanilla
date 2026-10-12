@@ -60,8 +60,18 @@ function VistaConsultaRadicados({ usuario }) {
   const [radicadoSeleccionado, setRadicadoSeleccionado] = useState(null);
   const [archivoAdjunto, setArchivoAdjunto] = useState({ url: "", estado: "" });
   const [urlComprobante, setUrlComprobante] = useState("");
+  const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
+  const [textoRespuesta, setTextoRespuesta] = useState("");
+  const [plantillaRespuesta, setPlantillaRespuesta] = useState("");
+  // Guardamos la selección en una lista porque el formulario permite varios PDF.
+  const [archivosRespuesta, setArchivosRespuesta] = useState([]);
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
+  const [mensajeRespuesta, setMensajeRespuesta] = useState("");
+  const [respuestaConsultada, setRespuestaConsultada] = useState(null);
   const dialogoDetalle = useRef(null);
   const dialogoComprobante = useRef(null);
+  const dialogoRespuesta = useRef(null);
+  const entradaArchivosRespuesta = useRef(null);
 
   useEffect(() => {
     let vigente = true;
@@ -176,6 +186,115 @@ function VistaConsultaRadicados({ usuario }) {
     if (!urlComprobante && dialogoComprobante.current?.open)
       dialogoComprobante.current.close();
   }, [urlComprobante]);
+
+  useEffect(() => {
+    if (
+      (respuestaSeleccionada || respuestaConsultada) &&
+      dialogoRespuesta.current &&
+      !dialogoRespuesta.current.open
+    )
+      dialogoRespuesta.current.showModal();
+    if (
+      !respuestaSeleccionada &&
+      !respuestaConsultada &&
+      dialogoRespuesta.current?.open
+    )
+      dialogoRespuesta.current.close();
+  }, [respuestaSeleccionada, respuestaConsultada]);
+
+  useEffect(
+    () => () => {
+      // Los enlaces blob son temporales; liberamos memoria al cerrar o cambiar la respuesta.
+      (respuestaConsultada?.documentos || []).forEach((documento) => {
+        if (documento.url) URL.revokeObjectURL(documento.url);
+      });
+    },
+    [respuestaConsultada],
+  );
+
+  function abrirFormularioRespuesta(radicado) {
+    setTextoRespuesta("");
+    setPlantillaRespuesta("");
+    setArchivosRespuesta([]);
+    if (entradaArchivosRespuesta.current)
+      entradaArchivosRespuesta.current.value = "";
+    setMensajeRespuesta("");
+    setRespuestaSeleccionada(radicado);
+  }
+
+  async function enviarRespuesta(evento) {
+    evento.preventDefault();
+    if (!respuestaSeleccionada || !textoRespuesta.trim()) return;
+    setEnviandoRespuesta(true);
+    setMensajeRespuesta("Enviando respuesta…");
+    try {
+      const datos = new FormData();
+      datos.append("contenido", textoRespuesta.trim());
+      datos.append("plantilla", plantillaRespuesta);
+      // El nombre del campo debe coincidir con uploadRespuesta.array("archivos") del backend.
+      archivosRespuesta.forEach((archivo) => datos.append("archivos", archivo));
+      const respuesta = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(respuestaSeleccionada.numero_radicado)}/respuesta`,
+        { method: "POST", body: datos },
+      );
+      const resultado = await respuesta.json();
+      if (!respuesta.ok || resultado.success !== true)
+        throw new Error(resultado.message || "No se pudo enviar la respuesta.");
+      setRadicados((actual) =>
+        actual.map((fila) =>
+          fila.numero_radicado === respuestaSeleccionada.numero_radicado
+            ? {
+                ...fila,
+                estado: resultado.estado,
+                fecha_respuesta: resultado.fecha_respuesta,
+                semaforo: resultado.semaforo,
+              }
+            : fila,
+        ),
+      );
+      setMensajeRespuesta("Respuesta enviada y registrada.");
+      setRespuestaSeleccionada(null);
+    } catch (error) {
+      setMensajeRespuesta(error.message);
+    } finally {
+      setEnviandoRespuesta(false);
+    }
+  }
+
+  async function consultarRespuesta(radicado) {
+    setRespuestaSeleccionada(null);
+    setRespuestaConsultada({ radicado, cargando: true, documentos: [] });
+    const documentosCargados = [];
+    try {
+      const respuestaApi = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/respuesta`,
+      );
+      const resultado = await respuestaApi.json();
+      // /uploads está protegido: cada PDF se obtiene con el token de sesión.
+      const documentos = [];
+      for (const documento of resultado.respuesta.documentos || []) {
+        // Codificamos cada segmento por separado para conservar la carpeta en la URL.
+        const rutaArchivo = documento.ruta_archivo
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/");
+        const archivo = await solicitarApi(`/uploads/${rutaArchivo}`);
+        const url = URL.createObjectURL(await archivo.blob());
+        documentosCargados.push(url);
+        documentos.push({ ...documento, url });
+      }
+      setRespuestaConsultada({
+        radicado,
+        ...resultado.respuesta,
+        documentos,
+        cargando: false,
+      });
+    } catch (error) {
+      documentosCargados.forEach((url) => URL.revokeObjectURL(url));
+      setRespuestaConsultada(null);
+      window.alert(`No se pudo consultar la respuesta. ${error.message}`);
+    }
+  }
 
   useEffect(
     () => () => {
@@ -375,7 +494,7 @@ function VistaConsultaRadicados({ usuario }) {
                   <th>Remitente</th>
                   <th>Semáforo</th>
                   <th>Estado</th>
-                  <th>Comprobante</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,6 +579,25 @@ function VistaConsultaRadicados({ usuario }) {
                         >
                           Ver comprobante
                         </button>
+                        {usuario.rol !== "ventanilla" &&
+                          radicado.estado !== "Respondido" && (
+                            <button
+                              type="button"
+                              className="generar-comprobante"
+                              onClick={() => abrirFormularioRespuesta(radicado)}
+                            >
+                              Responder
+                            </button>
+                          )}
+                        {radicado.estado === "Respondido" && (
+                          <button
+                            type="button"
+                            className="generar-comprobante"
+                            onClick={() => consultarRespuesta(radicado)}
+                          >
+                            Ver respuesta
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -643,6 +781,225 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
             </div>
           </div>
+        )}
+      </dialog>
+
+      <dialog
+        ref={dialogoRespuesta}
+        className="respuesta-dialog"
+        onClose={() => {
+          setRespuestaSeleccionada(null);
+          setRespuestaConsultada(null);
+        }}
+      >
+        {respuestaConsultada && (
+          <div className="modal-dialog">
+            <div className="modal-header">
+              <h2>
+                Respuesta institucional ·{" "}
+                {respuestaConsultada.radicado.numero_radicado}
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Cerrar"
+                onClick={() => dialogoRespuesta.current?.close()}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-content">
+              {respuestaConsultada.cargando ? (
+                <p role="status">Cargando respuesta y documentos…</p>
+              ) : (
+                <>
+                  <CampoDetalle
+                    etiqueta="Respondida por"
+                    valor={respuestaConsultada.funcionario_nombre}
+                  />
+                  <CampoDetalle
+                    etiqueta="Fecha de envío"
+                    valor={convertirFechaLocal(
+                      respuestaConsultada.fecha_envio,
+                    )?.toLocaleString("es-CO")}
+                  />
+                  <CampoDetalle
+                    etiqueta="Plantilla"
+                    valor={respuestaConsultada.plantilla || "Sin plantilla"}
+                  />
+                  <div className="modal-field">
+                    <strong>Contenido de la respuesta</strong>
+                    <p>{respuestaConsultada.contenido}</p>
+                  </div>
+                  <section>
+                    <h3>Documentos adjuntos</h3>
+                    {respuestaConsultada.documentos.length ? (
+                      <ul>
+                        {respuestaConsultada.documentos.map((documento) => (
+                          <li key={documento.id}>
+                            <a
+                              href={documento.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {documento.nombre_archivo}
+                            </a>
+                            <span>
+                              {" "}
+                              ·{" "}
+                              {(
+                                Number(documento.tamano_bytes) /
+                                (1024 * 1024)
+                              ).toFixed(1)}{" "}
+                              MB
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>La respuesta no tiene PDF adjuntos.</p>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => dialogoRespuesta.current?.close()}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+        {respuestaSeleccionada && (
+          <form className="modal-dialog" onSubmit={enviarRespuesta}>
+            <div className="modal-header">
+              <h2>
+                Respuesta institucional ·{" "}
+                {respuestaSeleccionada.numero_radicado}
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Cerrar"
+                onClick={() => dialogoRespuesta.current?.close()}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-content">
+              <p>
+                <strong>Asunto:</strong>{" "}
+                {respuestaSeleccionada.asunto_documento || "Sin asunto"}
+              </p>
+              <p>
+                <strong>Remitente:</strong>{" "}
+                {respuestaSeleccionada.remitente_nombre || "No registrado"}
+              </p>
+              <label htmlFor="plantilla-respuesta">
+                Plantilla institucional
+              </label>
+              <select
+                id="plantilla-respuesta"
+                value={plantillaRespuesta}
+                onChange={(e) => {
+                  const plantilla = e.target.value;
+                  setPlantillaRespuesta(plantilla);
+                  if (plantilla === "general")
+                    setTextoRespuesta(
+                      "En atención a su solicitud, nos permitimos informarle que ",
+                    );
+                  else if (plantilla === "informacion")
+                    setTextoRespuesta(
+                      "En atención a su solicitud, adjuntamos la información requerida. ",
+                    );
+                  else if (plantilla === "traslado")
+                    setTextoRespuesta(
+                      "De acuerdo con nuestras competencias, su solicitud fue trasladada a la dependencia correspondiente. ",
+                    );
+                }}
+              >
+                <option value="">Sin plantilla</option>
+                <option value="general">Respuesta general</option>
+                <option value="informacion">Entrega de información</option>
+                <option value="traslado">Traslado por competencia</option>
+              </select>
+              <label htmlFor="contenido-respuesta">
+                Contenido de la respuesta *
+              </label>
+              <textarea
+                id="contenido-respuesta"
+                required
+                minLength={10}
+                maxLength={10000}
+                rows={8}
+                value={textoRespuesta}
+                onChange={(e) => setTextoRespuesta(e.target.value)}
+                placeholder="Redacta la respuesta para el remitente…"
+              />
+              <label htmlFor="adjunto-respuesta">
+                Documentos de respuesta (hasta 5 PDF, máximo 10 MB cada uno)
+              </label>
+              <input
+                ref={entradaArchivosRespuesta}
+                id="adjunto-respuesta"
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                onChange={(e) => {
+                  const seleccion = Array.from(e.target.files || []);
+                  const pdfsValidos =
+                    seleccion.length <= 5 &&
+                    seleccion.every(
+                      (archivo) =>
+                        archivo.name.toLowerCase().endsWith(".pdf") &&
+                        archivo.size <= 10 * 1024 * 1024,
+                    );
+                  if (!pdfsValidos) {
+                    setMensajeRespuesta(
+                      "Selecciona máximo 5 archivos PDF, cada uno de hasta 10 MB.",
+                    );
+                    e.target.value = "";
+                    setArchivosRespuesta([]);
+                    return;
+                  }
+                  setMensajeRespuesta("");
+                  setArchivosRespuesta(seleccion);
+                }}
+              />
+              {archivosRespuesta.length > 0 && (
+                <ul aria-label="Archivos seleccionados">
+                  {archivosRespuesta.map((archivo) => (
+                    <li key={`${archivo.name}-${archivo.lastModified}`}>
+                      {archivo.name} (
+                      {(archivo.size / (1024 * 1024)).toFixed(1)} MB)
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p role="status" aria-live="polite">
+                {mensajeRespuesta}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => dialogoRespuesta.current?.close()}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  enviandoRespuesta || textoRespuesta.trim().length < 10
+                }
+              >
+                {enviandoRespuesta ? "Enviando…" : "Enviar respuesta"}
+              </button>
+            </div>
+          </form>
         )}
       </dialog>
 
