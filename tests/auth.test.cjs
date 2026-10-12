@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const authSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'auth.js'), 'utf8');
-const loginSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'login.js'), 'utf8');
+const authSource = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'auth.js'), 'utf8');
+const loginSource = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'login.js'), 'utf8');
 const usuario = { id: 1, nombre: 'Prueba', rol: 'administrador', dependencia_id: null };
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
     status, headers: { 'Content-Type': 'application/json' }
@@ -60,7 +60,7 @@ function setup({ sesion = { token: 'test-token', usuario }, fetcher = async () =
         async login() {
             vm.runInContext(loginSource, context);
             ready();
-            await node('login-form').listeners.submit({ preventDefault() {} });
+            await node('login-form').listeners.submit({ preventDefault() { } });
         }
     };
 }
@@ -148,9 +148,11 @@ test('me, not the cached role, determines presentation and prevents funcionario 
         assert.equal(app.body.pending, false);
         assert.equal(JSON.parse(app.storage.get('ventanilla.sesion')).usuario.rol, rol);
     }
-    const funcionario = setup({ fetcher: async () => json({
-        success: true, usuario: { ...usuario, rol: 'funcionario', dependencia_id: 7 }
-    }) });
+    const funcionario = setup({
+        fetcher: async () => json({
+            success: true, usuario: { ...usuario, rol: 'funcionario', dependencia_id: 7 }
+        })
+    });
     assert.equal(await funcionario.auth.confirmarSesion({ recepcion: true }), null);
     assert.equal(funcionario.body.pending, true);
     assert.deepEqual(funcionario.redirects, ['consultar.html']);
@@ -162,9 +164,10 @@ test('me, not the cached role, determines presentation and prevents funcionario 
 
 test('logout calls the backend before clearing session; errors remain visible and retryable', async () => {
     let fallo = false;
-    const app = setup({ fetcher: async url => url.endsWith('/logout')
-        ? json({ success: !fallo, message: fallo ? 'No disponible' : 'Sesion cerrada' }, fallo ? 500 : 200)
-        : json({ success: true, usuario })
+    const app = setup({
+        fetcher: async url => url.endsWith('/logout')
+            ? json({ success: !fallo, message: fallo ? 'No disponible' : 'Sesion cerrada' }, fallo ? 500 : 200)
+            : json({ success: true, usuario })
     });
     await app.auth.confirmarSesion();
     fallo = true;

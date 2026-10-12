@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const authSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'auth.js'), 'utf8');
+const authSource = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'auth.js'), 'utf8');
 
 function runWithAuth(source, context, usuario = { id: 1, rol: 'administrador', dependencia_id: null }) {
     const storage = new Map([['ventanilla.sesion', JSON.stringify({ token: 'test-token', usuario })]]);
@@ -12,14 +12,14 @@ function runWithAuth(source, context, usuario = { id: 1, rol: 'administrador', d
     const document = context.document;
     document.querySelectorAll ??= () => [];
     document.body ??= {};
-    document.body.removeAttribute ??= () => {};
+    document.body.removeAttribute ??= () => { };
     Object.assign(context, {
         Headers,
         URL: class extends URL {
             static createObjectURL(blob) { return urls?.createObjectURL(blob) || 'blob:archivo'; }
             static revokeObjectURL(url) { urls?.revokeObjectURL(url); }
         },
-        window: { addEventListener() {} },
+        window: { addEventListener() { } },
         location: { replace: url => redirects.push(url) },
         sessionStorage: {
             getItem: key => storage.get(key) ?? null,

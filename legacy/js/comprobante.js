@@ -1,6 +1,6 @@
 function crearComprobantePDF(datosRadicado) {
     if (!window.jspdf?.jsPDF) {
-        throw new Error('No se cargó jsPDF desde js/jspdf.umd.min.js. Comprueba que el archivo exista y que el servidor local lo entregue correctamente.');
+        throw new Error('No se cargó jsPDF desde legacy/js/jspdf.umd.min.js. Comprueba que el archivo exista y que el servidor local lo entregue correctamente.');
     }
 
     const { jsPDF } = window.jspdf;

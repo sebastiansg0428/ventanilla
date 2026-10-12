@@ -1,41 +1,31 @@
-# Ventanilla: frontend
+# Ventanilla Única — interfaz React + Vite
 
-Sirve esta carpeta con un servidor HTTP (por ejemplo, Live Server) y abre
-[login.html](login.html). El backend RBAC debe estar activo en
-`http://localhost:3000`; esa direccion se configura en [js/auth.js](js/auth.js).
-Las cuentas se crean en el backend, no en este frontend.
-Si `/api/auth/login` o `/api/auth/me` devuelve 404, inicia o reinicia la version
-actualizada del backend que incluye las rutas RBAC.
+## Iniciar en el computador
 
-## Sesion y roles
+1. Abre una terminal en esta carpeta y ejecuta `npm install`.
+2. En otra terminal, inicia el servidor desde `../backend` con `npm start`.
+3. Ejecuta `npm run dev` aquí y abre la dirección que muestre Vite, normalmente `http://localhost:5173`.
 
-El login guarda token y usuario en `sessionStorage` solo despues de una respuesta
-exitosa. Las paginas protegidas confirman el usuario con `/api/auth/me` antes
-de mostrar su contenido o consultar catalogos y radicados.
+Para generar la versión de publicación ejecuta `npm run build`; para verla localmente usa `npm run preview`.
 
-Todas las solicitudes al backend pasan por `apiFetch`, que agrega el Bearer
-token, conserva el cuerpo `FormData` y muestra los errores del servidor.
-Un 401 borra la sesion y redirige al login. El cierre de sesion llama primero
-a `/api/auth/logout`.
+## Organización del código
 
-- `administrador`: ve las acciones marcadas con `data-rol="administrador"`.
-- `ventanilla`: puede radicar; los selectores de estado son de solo lectura.
-- `funcionario`: no entra al formulario de recepcion; las alertas usan su
-  dependencia confirmada y el selector queda bloqueado.
+- `index.html`, `consultar.html`, `login.html` y `registro_usuario.html` son las entradas de Vite y conservan las direcciones que ya usa el proyecto.
+- `src/main.jsx` inicia React; `src/Aplicacion.jsx` selecciona la pantalla correspondiente a la dirección abierta.
+- `src/paginas/` contiene las pantallas: radicación, consulta, inicio de sesión y registro de usuarios.
+- `src/componentes/Compartidos.jsx` reúne componentes que varias pantallas reutilizan, como la protección de sesión y la navegación.
+- `src/servicios/api.js` centraliza las solicitudes autenticadas al backend; `src/servicios/comprobante.js` genera el recibo.
+- `public/vendor/jspdf.umd.min.js` contiene la copia local de jsPDF, por lo que no se depende de un CDN.
+- `css/style.css` conserva los estilos existentes y los complementa para los componentes de React.
 
-Estas condiciones solo adaptan la interfaz: el backend sigue siendo responsable
-de autorizar cada solicitud. No se incluyen claves administrativas en el cliente.
+Los nombres de carpetas, pantallas, componentes y funciones propios de la interfaz están en español. Algunas claves se conservan intencionalmente: nombres de campos, rutas y respuestas como `usuario_recibe`, `/api/radicados` y `message` forman parte de la comunicación con el backend o el navegador. Cambiarlas unilateralmente puede romper el contrato entre frontend y servidor.
 
-Las dependencias del formulario y de las alertas se cargan desde
-`/api/dependencias` con IDs. El registro envia `dependencia_destino_id` y las
-alertas usan `dependencia_id`. Los PDFs se consultan con HEAD y GET autenticados;
-el visor recibe un Blob y revoca su object URL al cerrarse.
-Los comprobantes locales, filtros y semaforo mantienen su comportamiento.
+## Sesión y permisos
 
-## Validacion
+El inicio de sesión guarda el token en `sessionStorage`. Las pantallas protegidas confirman la sesión con `/api/auth/me`. La interfaz organiza la navegación según el rol, y el backend mantiene la autoridad para validar permisos.
 
-Las pruebas usan `node:test`, sin dependencias adicionales:
+Cuando el rol es `ventanilla`, el nombre del funcionario se toma de la sesión autenticada y el selector queda bloqueado. El backend registra `req.usuario.nombre` como responsable del radicado.
 
-```powershell
-node --test tests\auth.test.cjs tests\main.test.cjs tests\consultar.test.cjs
-```
+## Código anterior
+
+Los scripts de la interfaz anterior se conservan en `legacy/js/`; las páginas actuales cargan los componentes de `src/`. Las pruebas en `tests/` mantienen cobertura de esos scripts anteriores y no representan todavía pruebas completas de la interfaz React.

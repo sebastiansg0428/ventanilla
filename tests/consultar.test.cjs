@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { runWithAuth } = require('./auth-support.cjs');
 
 process.env.TZ = 'America/Bogota';
-const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'consultar.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'consultar.js'), 'utf8');
 
 class FixedDate extends Date {
     constructor(...args) {
@@ -91,7 +91,7 @@ async function setup({ data = records(), failure = false, networkFailure = false
             createObjectURL: () => 'blob:comprobante',
             revokeObjectURL: url => revokedUrls.push(url)
         },
-        console: { log() {}, warn: (...args) => warnings.push(args), error: (...args) => errors.push(args) },
+        console: { log() { }, warn: (...args) => warnings.push(args), error: (...args) => errors.push(args) },
         alert: message => errors.push(message),
         fetch: async (url, options) => {
             requests.push({ url, options });
@@ -151,7 +151,7 @@ test('all combinations intersect; global counts and active states remain consist
 test('ventanilla state controls remain disabled across every filter render', async () => {
     const app = await setup({ usuario: { id: 2, rol: 'ventanilla', dependencia_id: null } });
     for (const render of [
-        async () => {}, () => app.type('interna'), () => app.get('limpiar-filtros').click(),
+        async () => { }, () => app.type('interna'), () => app.get('limpiar-filtros').click(),
         () => app.get('card-total').click()
     ]) {
         await render();
@@ -208,7 +208,7 @@ test('toggling removes only one criterion; keyboard and clear reset all controls
     assert.deepEqual(app.rows(), ['A', 'G']);
     await app.get('card-hoy').click();
     assert.deepEqual(app.rows(), ['A', 'C', 'G']);
-    await app.get('card-total').emit('keydown', { key: 'Enter', preventDefault() {} });
+    await app.get('card-total').emit('keydown', { key: 'Enter', preventDefault() { } });
     assert.deepEqual(app.rows(), ['A', 'C', 'G']);
     assert.equal(app.get('card-total').attributes['aria-pressed'], 'false');
     await app.get('limpiar-filtros').click();
@@ -271,9 +271,11 @@ test('state save locks the selector and uses the canonical server state in the m
     const pending = app.get('tabla-radicados').emit('change', { target: select });
     assert.equal(select.disabled, true);
     assert.equal(data[0].estado, 'Recibido');
-    resolve({ ok: true, json: async () => ({
-        success: true, estado: 'En trámite', semaforo: { nivel: 'a_tiempo' }
-    }) });
+    resolve({
+        ok: true, json: async () => ({
+            success: true, estado: 'En trámite', semaforo: { nivel: 'a_tiempo' }
+        })
+    });
     await pending;
     assert.equal(data[0].estado, 'En trámite');
     assert.equal(data[0].semaforo.nivel, 'a_tiempo');
@@ -285,9 +287,11 @@ test('HTTP or application failures restore the model state and display the serve
     for (const [ok, success] of [[false, true], [true, false], [false, false]]) {
         const data = records();
         data[0].estado = 'En trámite';
-        const app = await setup({ data, stateFetch: async () => ({
-            ok, json: async () => ({ success, message: 'Cambio de estado no permitido.' })
-        }) });
+        const app = await setup({
+            data, stateFetch: async () => ({
+                ok, json: async () => ({ success, message: 'Cambio de estado no permitido.' })
+            })
+        });
         const select = element();
         select.disabled = false;
         select.isConnected = true;
@@ -486,8 +490,8 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     let pages = 1;
     let saved;
     const doc = {
-        setFont() {}, setFontSize() {}, setLineWidth() {}, line() {}, setFillColor() {},
-        rect() {}, setTextColor() {}, setPage() {},
+        setFont() { }, setFontSize() { }, setLineWidth() { }, line() { }, setFillColor() { },
+        rect() { }, setTextColor() { }, setPage() { },
         text(value, x, y) { texts.push({ value, y }); },
         splitTextToSize: text => text.split('\n'),
         addPage() { pages++; },
@@ -498,7 +502,7 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
         window: { jspdf: { jsPDF: function () { return doc; } } }
     };
     vm.createContext(context);
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'comprobante.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8'), context);
     context.descargarComprobantePDF({
         numero_radicado: 'RAD-20261006-9287',
         fecha_hora: '6/10/2026, 12:12:28',
@@ -516,71 +520,73 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     assert.throws(() => context.descargarComprobantePDF({}), /No se cargó jsPDF/);
 });
 
-    test('details display legal fields returned by the server without changing its traffic light', async () => {
-        const data = records();
-        Object.assign(data[0], {
-            fecha_limite_actual: '2026-10-29',
-            fundamento_legal_aplicado: 'Ley de prueba, artículo 14',
-            tiempo_de_respuesta: '15 días hábiles'
-        });
-        const app = await setup({ data });
-        await openDetail(app, 'A');
-        assert.equal(app.get('modal-fecha-limite').textContent, '2026-10-29');
-        assert.equal(app.get('modal-fundamento-legal').textContent, data[0].fundamento_legal_aplicado);
-        assert.equal(app.get('modal-tiempo').textContent, '15 días hábiles');
-        assert.equal(data[0].semaforo.nivel, ' Alerta ');
+test('details display legal fields returned by the server without changing its traffic light', async () => {
+    const data = records();
+    Object.assign(data[0], {
+        fecha_limite_actual: '2026-10-29',
+        fundamento_legal_aplicado: 'Ley de prueba, artículo 14',
+        tiempo_de_respuesta: '15 días hábiles'
     });
+    const app = await setup({ data });
+    await openDetail(app, 'A');
+    assert.equal(app.get('modal-fecha-limite').textContent, '2026-10-29');
+    assert.equal(app.get('modal-fundamento-legal').textContent, data[0].fundamento_legal_aplicado);
+    assert.equal(app.get('modal-tiempo').textContent, '15 días hábiles');
+    assert.equal(data[0].semaforo.nivel, ' Alerta ');
+});
 
-    test('alerts use catalog IDs independently of radicados, separate levels and refresh after a state update', async () => {
-        const data = records();
-        data[0].dependencia_destino = 'Secretaría de Gobierno';
-        data[1].dependencia_destino = 'Secretaría de Gobierno';
-        const app = await setup({
-            data,
-            alertsFetch: async () => ({
-                ok: true, json: async () => ({
-                    success: true, alertas: [
-                        { numero_radicado: 'A', semaforo: { nivel: 'alerta', texto: 'Próximo a vencer' }, fecha_limite_actual: '2026-10-08' },
-                        { numero_radicado: 'B', semaforo: { nivel: 'vencido', texto: 'Vencido' } }
-                    ]
-                })
+test('alerts use catalog IDs independently of radicados, separate levels and refresh after a state update', async () => {
+    const data = records();
+    data[0].dependencia_destino = 'Secretaría de Gobierno';
+    data[1].dependencia_destino = 'Secretaría de Gobierno';
+    const app = await setup({
+        data,
+        alertsFetch: async () => ({
+            ok: true, json: async () => ({
+                success: true, alertas: [
+                    { numero_radicado: 'A', semaforo: { nivel: 'alerta', texto: 'Próximo a vencer' }, fecha_limite_actual: '2026-10-08' },
+                    { numero_radicado: 'B', semaforo: { nivel: 'vencido', texto: 'Vencido' } }
+                ]
             })
-        });
-        assert.deepEqual(app.get('alertas-dependencia').children.map(option => option.value), ['', '7', '8']);
-        app.get('alertas-dependencia').value = '7';
-        await app.get('alertas-dependencia').emit('change');
-        assert.equal(app.requests.at(-1).url, 'http://localhost:3000/api/alertas?dependencia_id=7');
-        assert.match(app.get('alertas-proximos').children[0].textContent, /A.*Próximo a vencer.*2026-10-08/);
-        assert.match(app.get('alertas-vencidos').children[0].textContent, /B.*Vencido/);
-        const select = element();
-        select.classList.add('select-estado');
-        select.value = 'Respondido';
-        select.setAttribute('data-radicado', 'A');
-        await app.get('tabla-radicados').emit('change', { target: select });
-        assert.equal(app.requests.filter(request => request.url.includes('/api/alertas?')).length, 2);
+        })
     });
+    assert.deepEqual(app.get('alertas-dependencia').children.map(option => option.value), ['', '7', '8']);
+    app.get('alertas-dependencia').value = '7';
+    await app.get('alertas-dependencia').emit('change');
+    assert.equal(app.requests.at(-1).url, 'http://localhost:3000/api/alertas?dependencia_id=7');
+    assert.match(app.get('alertas-proximos').children[0].textContent, /A.*Próximo a vencer.*2026-10-08/);
+    assert.match(app.get('alertas-vencidos').children[0].textContent, /B.*Vencido/);
+    const select = element();
+    select.classList.add('select-estado');
+    select.value = 'Respondido';
+    select.setAttribute('data-radicado', 'A');
+    await app.get('tabla-radicados').emit('change', { target: select });
+    assert.equal(app.requests.filter(request => request.url.includes('/api/alertas?')).length, 2);
+});
 
-    test('alerts report errors, allow retry and ignore outdated dependency responses', async () => {
-        let resolve;
-        let count = 0;
-        const data = records();
-        data[0].dependencia_destino = 'Primera';
-        data[1].dependencia_destino = 'Segunda';
-        const app = await setup({ data, alertsFetch: async () => {
+test('alerts report errors, allow retry and ignore outdated dependency responses', async () => {
+    let resolve;
+    let count = 0;
+    const data = records();
+    data[0].dependencia_destino = 'Primera';
+    data[1].dependencia_destino = 'Segunda';
+    const app = await setup({
+        data, alertsFetch: async () => {
             count++;
             if (count === 1) return new Promise(done => { resolve = done; });
             return { ok: false, json: async () => ({ success: false, message: 'Error de alertas' }) };
-        } });
-        app.get('alertas-dependencia').value = 'Primera';
-        const pending = app.get('alertas-dependencia').emit('change');
-        app.get('alertas-dependencia').value = 'Segunda';
-        await app.get('alertas-dependencia').emit('change');
-        resolve({ ok: true, json: async () => ({ success: true, alertas: [] }) });
-        await pending;
-        assert.match(app.get('alertas-estado').textContent, /Error de alertas/);
-        assert.equal(app.get('actualizar-alertas').disabled, false);
-        assert.ok(app.errors.length);
-        app.get('alertas-dependencia').value = '';
-        await app.get('alertas-dependencia').emit('change');
-        assert.equal(app.get('actualizar-alertas').disabled, true);
+        }
     });
+    app.get('alertas-dependencia').value = 'Primera';
+    const pending = app.get('alertas-dependencia').emit('change');
+    app.get('alertas-dependencia').value = 'Segunda';
+    await app.get('alertas-dependencia').emit('change');
+    resolve({ ok: true, json: async () => ({ success: true, alertas: [] }) });
+    await pending;
+    assert.match(app.get('alertas-estado').textContent, /Error de alertas/);
+    assert.equal(app.get('actualizar-alertas').disabled, false);
+    assert.ok(app.errors.length);
+    app.get('alertas-dependencia').value = '';
+    await app.get('alertas-dependencia').emit('change');
+    assert.equal(app.get('actualizar-alertas').disabled, true);
+});

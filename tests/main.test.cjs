@@ -5,17 +5,17 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { runWithAuth } = require('./auth-support.cjs');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'main.js'), 'utf8');
 
 async function setup(catalog, usuario, dependencyFailure = false) {
     const nodes = {};
     const element = () => ({
         value: '', disabled: false, hidden: false, textContent: '', children: [], listeners: {},
-        classList: { add() {}, remove() {} },
+        classList: { add() { }, remove() { } },
         append(child) { this.children.push(child); },
         replaceChildren() { this.children = []; },
         addEventListener(name, callback) { this.listeners[name] = callback; },
-        async emit(name, event = {}) { await this.listeners[name]?.({ target: this, preventDefault() {}, ...event }); }
+        async emit(name, event = {}) { await this.listeners[name]?.({ target: this, preventDefault() { }, ...event }); }
     });
     const get = id => nodes[id] ??= element();
     const form = element();
@@ -46,9 +46,9 @@ async function setup(catalog, usuario, dependencyFailure = false) {
             addEventListener: (name, callback) => { if (name === 'DOMContentLoaded') ready = callback; }
         },
         FormData: FormDataMock,
-        descargarComprobantePDF() {},
+        descargarComprobantePDF() { },
         alert: message => alerts.push(message),
-        console: { log() {}, error: (...args) => errors.push(args) },
+        console: { log() { }, error: (...args) => errors.push(args) },
         fetch: async (url, options) => {
             requests.push({ url, options });
             if (url.endsWith('/api/dependencias')) {
@@ -123,7 +123,7 @@ test('catalog failures and empty catalogs block registration and offer retry', a
 
 test('frontend never includes administrative credentials or editable deadlines', () => {
     for (const file of ['main.js', 'consultar.js', 'comprobante.js']) {
-        const code = fs.readFileSync(path.join(__dirname, '..', 'js', file), 'utf8');
+        const code = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', file), 'utf8');
         assert.doesNotMatch(code, /x-admin-key/i);
     }
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
