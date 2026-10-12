@@ -54,7 +54,9 @@ export async function solicitarApi(ruta, opciones = {}) {
     window.location.replace('login.html');
   }
   if (!respuesta.ok || resultado?.success === false) {
-    throw new Error(resultado?.message || `El servidor rechazó la solicitud (HTTP ${respuesta.status}).`);
+    const error = new Error(resultado?.message || `El servidor rechazó la solicitud (HTTP ${respuesta.status}).`);
+    error.status = respuesta.status;
+    throw error;
   }
   return respuesta;
 }

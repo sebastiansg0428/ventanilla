@@ -1568,7 +1568,7 @@ button.dashboard-card {
   box-shadow: 0 4px 12px rgb(15 23 42 / 5%);
 }
 .table-scroll {
-  overflow-x: auto;
+  background: #fff;
 }
 #tabla-radicados {
   width: 100%;
@@ -1608,6 +1608,102 @@ button.dashboard-card {
   border: 1px solid #cbd5e1;
   border-radius: 0.45rem;
 }
+.users-management-main {
+  width: min(100% - 2rem, 72rem);
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+.users-management-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+.users-table-section {
+  margin-top: 2rem;
+}
+.users-table-toolbar {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.users-table-toolbar h2 {
+  color: #1e293b;
+  font-size: 1.05rem;
+}
+.users-table-toolbar > button,
+.users-table-actions button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: #1e40af;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.users-table-toolbar > button:hover,
+.users-table-actions button:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+.users-table-actions button:disabled,
+.users-table-toolbar > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.users-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+#tabla-usuarios {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+}
+#tabla-usuarios th,
+#tabla-usuarios td {
+  padding: 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+#tabla-usuarios th {
+  color: #64748b;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+#tabla-usuarios tbody tr:last-child td {
+  border-bottom: 0;
+}
+#tabla-usuarios td[colspan] {
+  padding: 1.5rem;
+  color: #64748b;
+  text-align: center;
+}
+.users-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.users-table-actions button:last-child {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+.users-table-actions button:last-child:hover:not(:disabled) {
+  background: #dbeafe;
+}
+@media (max-width: 640px) {
+  .users-management-main {
+    width: min(100% - 1rem, 72rem);
+    padding: 1rem 0;
+  }
+  .users-table-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .alerts-card {
   margin-top: 2rem;
   padding: 1.25rem;
