@@ -98,7 +98,7 @@ describe("radicación React", () => {
     );
 
     expect(
-      await screen.findByText("Adjunta el archivo PDF obligatorio."),
+      await screen.findByText("Adjunta al menos un archivo PDF."),
     ).toBeTruthy();
     expect(solicitarApi).not.toHaveBeenCalledWith(
       "/api/radicados",
@@ -116,7 +116,7 @@ describe("radicación React", () => {
     );
 
     expect(
-      await screen.findByText("El archivo debe ser un documento PDF."),
+      await screen.findByText("Selecciona solo archivos PDF de hasta 10 MB cada uno."),
     ).toBeTruthy();
     expect(solicitarApi).not.toHaveBeenCalledWith(
       "/api/radicados",
@@ -150,7 +150,7 @@ describe("radicación React", () => {
     );
 
     expect(
-      await screen.findByText("El archivo supera el límite de 10 MB."),
+      await screen.findByText("Selecciona solo archivos PDF de hasta 10 MB cada uno."),
     ).toBeTruthy();
     expect(solicitarApi).not.toHaveBeenCalledWith(
       "/api/radicados",
@@ -164,7 +164,7 @@ describe("radicación React", () => {
         return {
           json: async () => ({
             success: true,
-            radicado: "RAD-2026-0001",
+            radicado: "RAD-20261013-0001",
             usuario_recibe: "Luis Gómez",
           }),
         };
@@ -196,7 +196,7 @@ describe("radicación React", () => {
       screen.getByRole("button", { name: "Generar radicado y registrar" }),
     );
 
-    await screen.findByText(/Radicado RAD-2026-0001 guardado/);
+    await screen.findByText(/Radicado RAD-20261013-0001 guardado/);
     const [rutaRegistro, opcionesRegistro] = solicitarApi.mock.calls.find(
       ([ruta]) => ruta === "/api/radicados",
     );
@@ -205,15 +205,15 @@ describe("radicación React", () => {
     expect(opcionesRegistro.body.get("tipo_tramite_id")).toBe("10");
     expect(opcionesRegistro.body.get("dependencia_destino_id")).toBe("3");
     expect(opcionesRegistro.body.get("usuario_recibe")).toBe("8");
-    expect(opcionesRegistro.body.get("archivo").name).toBe("solicitud.pdf");
+    expect(opcionesRegistro.body.get("archivos").name).toBe("solicitud.pdf");
     expect(crearPdfComprobante).toHaveBeenCalledWith(
       expect.objectContaining({
-        numero_radicado: "0001",
+        numero_radicado: "RAD-20261013-0001",
         dependencia_destino: "Secretaría de Gobierno",
         usuario_recibe: "Luis Gómez",
       }),
     );
-    expect(guardarPdf).toHaveBeenCalledWith("Comprobante_RAD-2026-0001.pdf");
+    expect(guardarPdf).toHaveBeenCalledWith("Comprobante_RAD-20261013-0001.pdf");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Generar radicado y registrar" })

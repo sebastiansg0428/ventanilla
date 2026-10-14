@@ -33,7 +33,7 @@ function FormularioRadicacion({ usuario }) {
     dependencias: "Cargando dependencias…",
     funcionarios: "",
   });
-  const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
   const [enProceso, setEnProceso] = useState(false);
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
   const [longitudAsunto, setLongitudAsunto] = useState(0);
@@ -128,27 +128,35 @@ function FormularioRadicacion({ usuario }) {
     cargarFuncionariosVentanilla();
   }, [usuario.id, usuario.rol]);
 
-  function aceptarArchivo(archivoCandidato) {
-    if (!archivoCandidato) return;
-    const esPdf =
-      archivoCandidato.type === "application/pdf" ||
-      archivoCandidato.name.toLowerCase().endsWith(".pdf");
-    if (!esPdf) {
+  function aceptarArchivos(archivosCandidatos) {
+    const seleccion = Array.from(archivosCandidatos || []);
+    if (!seleccion.length) return;
+    if (seleccion.length > 5) {
+      setArchivosSeleccionados([]);
+      if (selectorArchivo.current) selectorArchivo.current.value = "";
       setMensaje({
-        texto: "El archivo debe ser un documento PDF.",
+        texto: "Puedes adjuntar máximo 5 archivos PDF.",
         tono: "error",
       });
       return;
     }
-    if (archivoCandidato.size > 10 * 1024 * 1024) {
+    const pdfsValidos = seleccion.every(
+      (archivo) =>
+        archivo.name.toLowerCase().endsWith(".pdf") &&
+        archivo.size > 0 &&
+        archivo.size <= 10 * 1024 * 1024,
+    );
+    if (!pdfsValidos) {
+      setArchivosSeleccionados([]);
+      if (selectorArchivo.current) selectorArchivo.current.value = "";
       setMensaje({
-        texto: "El archivo supera el límite de 10 MB.",
+        texto: "Selecciona solo archivos PDF de hasta 10 MB cada uno.",
         tono: "error",
       });
       return;
     }
     setMensaje({ texto: "", tono: "" });
-    setArchivoSeleccionado(archivoCandidato);
+    setArchivosSeleccionados(seleccion);
   }
 
   async function enviarFormulario(evento) {
@@ -161,16 +169,19 @@ function FormularioRadicacion({ usuario }) {
       });
       return;
     }
-    if (!archivoSeleccionado) {
+    if (!archivosSeleccionados.length) {
       setMensaje({
-        texto: "Adjunta el archivo PDF obligatorio.",
+        texto: "Adjunta al menos un archivo PDF.",
         tono: "error",
       });
       return;
     }
 
     const datosFormulario = new FormData(formulario);
-    datosFormulario.set("archivo", archivoSeleccionado);
+    datosFormulario.delete("archivos");
+    archivosSeleccionados.forEach((archivo) =>
+      datosFormulario.append("archivos", archivo),
+    );
     setEnProceso(true);
     setMensaje({ texto: "Enviando y guardando el radicado…", tono: "" });
     try {
@@ -188,9 +199,7 @@ function FormularioRadicacion({ usuario }) {
           String(datosFormulario.get("dependencia_destino_id")),
       );
       const pdf = crearPdfComprobante({
-        numero_radicado: String(resultado.radicado || "")
-          .split("-")
-          .pop(),
+        numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: datosFormulario.get("tipo_comunicacion"),
         numero_folios: datosFormulario.get("numero_folios"),
         dependencia_destino: dependenciaDestino?.nombre,
@@ -204,7 +213,8 @@ function FormularioRadicacion({ usuario }) {
       pdf.save(`Comprobante_${resultado.radicado}.pdf`);
       formulario.reset();
       setLongitudAsunto(0);
-      setArchivoSeleccionado(null);
+      setArchivosSeleccionados([]);
+      if (selectorArchivo.current) selectorArchivo.current.value = "";
       setFuncionarioSeleccionado(
         usuario.rol === "ventanilla" ? String(usuario.id) : "",
       );
@@ -443,42 +453,51 @@ function FormularioRadicacion({ usuario }) {
             <SeccionFormulario
               numero="4"
               titulo="Soporte documental"
-              descripcion="Adjunta el documento digitalizado en formato PDF (máx. 10 MB)."
+              descripcion="Adjunta hasta 5 documentos PDF (máx. 10 MB cada uno)."
             >
               <div
                 className="upload-field"
                 onDragOver={(evento) => evento.preventDefault()}
                 onDrop={(evento) => {
                   evento.preventDefault();
-                  aceptarArchivo(evento.dataTransfer.files?.[0]);
+                  aceptarArchivos(evento.dataTransfer.files);
                 }}
               >
                 <input
                   id="archivo-soporte"
-                  name="archivo"
+                  name="archivos"
                   ref={selectorArchivo}
                   type="file"
                   accept="application/pdf,.pdf"
+                  multiple
                   onChange={(evento) =>
-                    aceptarArchivo(evento.target.files?.[0])
+                    aceptarArchivos(evento.target.files)
                   }
                 />
-                <p>
-                  {archivoSeleccionado
-                    ? `${archivoSeleccionado.name} (${(archivoSeleccionado.size / 1024 / 1024).toFixed(2)} MB)`
-                    : "Selecciona o arrastra un archivo PDF"}
-                </p>
-                {archivoSeleccionado && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setArchivoSeleccionado(null);
-                      if (selectorArchivo.current)
-                        selectorArchivo.current.value = "";
-                    }}
-                  >
-                    Quitar archivo
-                  </button>
+                <p>Selecciona o arrastra hasta 5 archivos PDF</p>
+                {archivosSeleccionados.length > 0 && (
+                  <ul aria-label="Archivos de radicación seleccionados">
+                    {archivosSeleccionados.map((archivo, indice) => (
+                      <li key={`${archivo.name}-${archivo.lastModified}`}>
+                        <span>
+                          {archivo.name} (
+                          {(archivo.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setArchivosSeleccionados((actuales) =>
+                              actuales.filter((_, posicion) => posicion !== indice),
+                            );
+                            if (selectorArchivo.current)
+                              selectorArchivo.current.value = "";
+                          }}
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </SeccionFormulario>

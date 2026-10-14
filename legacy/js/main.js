@@ -376,10 +376,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // --- EXTRAER DATOS PARA EL COMPROBANTE ---
                 const radicadoCompleto = resultado.radicado || "4800";
-                const soloCuatroDigitos = radicadoCompleto.split('-').pop() || radicadoCompleto;
 
                 const datosComprobante = {
-                    numero_radicado: soloCuatroDigitos,
+                    numero_radicado: radicadoCompleto,
                     tipo_comunicacion: formData.get('tipo_comunicacion') || 'Externa',
                     numero_folios: formData.get('numero_folios') || '1',
                     dependencia_destino: dependencias.find(dependencia => String(dependencia.id) === selectorDependencia.value).nombre,

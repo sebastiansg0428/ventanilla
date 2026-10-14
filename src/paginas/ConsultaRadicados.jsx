@@ -19,6 +19,30 @@ const convertirFechaLocal = (valor) => {
   const fecha = new Date(String(valor || "").replace(" ", "T"));
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 };
+const obtenerFechaBogota = (valor) => {
+  if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor))
+    return valor;
+  const fechaEntrada = valor instanceof Date ? valor : String(valor || "");
+  const fecha =
+    fechaEntrada instanceof Date
+      ? fechaEntrada
+      : new Date(
+          /(?:Z|[+-]\d{2}:?\d{2})$/i.test(fechaEntrada)
+            ? fechaEntrada
+            : `${fechaEntrada.replace(" ", "T")}-05:00`,
+        );
+  if (Number.isNaN(fecha.getTime())) return null;
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(fecha);
+  const valores = Object.fromEntries(
+    partes.map(({ type, value }) => [type, value]),
+  );
+  return `${valores.year}-${valores.month}-${valores.day}`;
+};
 const estaEnEstadoCritico = (radicado) =>
   ["alerta", "vencido"].includes(normalizarTexto(radicado.semaforo?.nivel));
 const obtenerTipoComunicacion = (radicado) => {
@@ -58,7 +82,11 @@ function VistaConsultaRadicados({ usuario }) {
     "Elige una dependencia para consultar alertas.",
   );
   const [radicadoSeleccionado, setRadicadoSeleccionado] = useState(null);
-  const [archivoAdjunto, setArchivoAdjunto] = useState({ url: "", estado: "" });
+  const [archivoAdjunto, setArchivoAdjunto] = useState({
+    url: "",
+    estado: "",
+    documentos: [],
+  });
   const [urlComprobante, setUrlComprobante] = useState("");
   const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
   const [textoRespuesta, setTextoRespuesta] = useState("");
@@ -104,7 +132,7 @@ function VistaConsultaRadicados({ usuario }) {
     };
   }, [usuario.id, usuario.rol, usuario.dependencia_id]);
 
-  const claveFechaHoy = new Date().toLocaleDateString("en-CA");
+  const claveFechaHoy = obtenerFechaBogota(new Date());
   const radicadosVisibles = useMemo(() => {
     const q = normalizarTexto(textoBusqueda.trim());
     return radicados.filter((radicado) => {
@@ -114,9 +142,7 @@ function VistaConsultaRadicados({ usuario }) {
         "remitente_documento",
         "remitente_nit",
       ].some((key) => normalizarTexto(radicado[key]).includes(q));
-      const fecha = convertirFechaLocal(
-        radicado.fecha_creacion,
-      )?.toLocaleDateString("en-CA");
+      const fecha = obtenerFechaBogota(radicado.fecha_creacion);
       return (
         coincideBusqueda &&
         (!soloCriticos || estaEnEstadoCritico(radicado)) &&
@@ -313,25 +339,52 @@ function VistaConsultaRadicados({ usuario }) {
     setRadicadoSeleccionado(radicado);
     setArchivoAdjunto({
       url: "",
-      estado: radicado.ruta_archivo
-        ? "Cargando soporte…"
-        : "Este radicado no tiene un archivo adjunto.",
+      documentos: [],
+      estado: "Cargando documentos…",
     });
-    if (!radicado.ruta_archivo) return;
     try {
-      const ruta = `/uploads/${encodeURIComponent(radicado.ruta_archivo)}`;
-      await solicitarApi(ruta, { method: "HEAD" });
-      const respuesta = await solicitarApi(ruta);
-      const url = URL.createObjectURL(await respuesta.blob());
-      setArchivoAdjunto((actual) => {
-        if (actual.url) URL.revokeObjectURL(actual.url);
-        return { url, estado: "Soporte disponible." };
+      const respuesta = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/documentos`,
+      );
+      const resultado = await respuesta.json();
+      const documentos = resultado.documentos || [];
+      setArchivoAdjunto({
+        url: "",
+        documentos,
+        estado: documentos.length
+          ? `${documentos.length} documento(s) disponible(s).`
+          : "Este radicado no tiene documentos adjuntos.",
       });
     } catch (error) {
       setArchivoAdjunto({
         url: "",
+        documentos: [],
         estado: `No se pudo abrir el soporte. ${error.message}`,
       });
+    }
+  }
+
+  async function abrirDocumentoAdjunto(documento) {
+    try {
+      const rutaArchivo = documento.ruta_archivo
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/");
+      const respuesta = await solicitarApi(`/uploads/${rutaArchivo}`);
+      const url = URL.createObjectURL(await respuesta.blob());
+      setArchivoAdjunto((actual) => {
+        if (actual.url) URL.revokeObjectURL(actual.url);
+        return {
+          ...actual,
+          url,
+          estado: `Vista previa: ${documento.nombre_archivo}`,
+        };
+      });
+    } catch (error) {
+      setArchivoAdjunto((actual) => ({
+        ...actual,
+        estado: `No se pudo abrir el documento. ${error.message}`,
+      }));
     }
   }
 
@@ -749,12 +802,18 @@ function VistaConsultaRadicados({ usuario }) {
                 </p>
               </div>
               <section>
-                <h3>Documento adjunto</h3>
-                <p>
-                  {radicadoSeleccionado.nombre_archivo_original ||
-                    "Archivo PDF"}
-                </p>
+                <h3>Documentos adjuntos</h3>
                 <p role="status">{archivoAdjunto.estado}</p>
+                {archivoAdjunto.documentos.map((documento) => (
+                  <p key={documento.id}>
+                    <button
+                      type="button"
+                      onClick={() => abrirDocumentoAdjunto(documento)}
+                    >
+                      Ver {documento.nombre_archivo || "archivo PDF"}
+                    </button>
+                  </p>
+                ))}
                 {archivoAdjunto.url && (
                   <>
                     <a

@@ -328,12 +328,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
                     <!-- 1. RADICADO -->
                 <td class="px-4 py-3 whitespace-nowrap">
-    <button data-radicado="${item.numero_radicado}" class="ver-detalle font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1.5 cursor-pointer" style="border: none; background: transparent; padding: 0; outline: none; box-shadow: none;">
+    <button data-radicado="${escaparHtml(item.numero_radicado)}" class="ver-detalle font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1.5 cursor-pointer" style="border: none; background: transparent; padding: 0; outline: none; box-shadow: none;">
         <svg style="width: 16px; height: 16px;" class="text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
         </svg>
-        <span>${item.numero_radicado}</span>
+        <span>${escaparHtml(item.numero_radicado)}</span>
     </button>
 </td>
 
@@ -347,21 +347,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     <!-- 3. REMITENTE -->
                     <td class="p-4">
-                        <div class="font-medium text-slate-800 text-sm">${item.remitente_nombre || 'No registrado'}</div>
-                        <div class="text-xs text-slate-400">CC/NIT: ${item.remitente_documento || item.remitente_nit || 'N/A'}</div>
+                        <div class="font-medium text-slate-800 text-sm">${escaparHtml(item.remitente_nombre || 'No registrado')}</div>
+                        <div class="text-xs text-slate-400">CC/NIT: ${escaparHtml(item.remitente_documento || item.remitente_nit || 'N/A')}</div>
                     </td>
 
                     <!-- 4. SEMÁFORO -->
                     <td class="p-4">
                         <span class="semaforo semaforo--${estiloSemaforo}">
                             <span class="semaforo__dot"></span>
-                            ${semaforo.texto || 'Sin calcular'}
+                            ${escaparHtml(semaforo.texto || 'Sin calcular')}
                         </span>
                     </td>
 
                     <!-- 5. ESTADO -->
                     <td class="p-4">
-                        <select ${usuario.rol === 'ventanilla' ? 'disabled' : ''} id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${item.numero_radicado}" data-radicado="${item.numero_radicado}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                        <select ${usuario.rol === 'ventanilla' ? 'disabled' : ''} id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${escaparHtml(item.numero_radicado)}" data-radicado="${escaparHtml(item.numero_radicado)}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
                             ${estadosDisponibles.map(est => `
                                 <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}</option>
                             `).join('')}
@@ -370,7 +370,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     <!-- 6. ACCIÓN PDF -->
                     <td class="p-4 text-center">
-                            <button type="button" data-radicado="${item.numero_radicado}" class="generar-comprobante" title="Ver el comprobante de recepción sin descargarlo">
+                            <button type="button" data-radicado="${escaparHtml(item.numero_radicado)}" class="generar-comprobante" title="Ver el comprobante de recepción sin descargarlo">
                                 <svg class="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
                                 Ver comprobante
                             </button>
@@ -378,6 +378,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </tr>
             `;
         }).join('');
+    }
+
+    function escaparHtml(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[caracter]);
     }
 
     // Escuchador global en la tabla para detectar cuando cambian un estado (Event Delegation)
