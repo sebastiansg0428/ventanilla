@@ -202,13 +202,13 @@ function FormularioRadicacion({ usuario }) {
         numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: datosFormulario.get("tipo_comunicacion"),
         numero_folios: datosFormulario.get("numero_folios"),
-        dependencia_destino: dependenciaDestino?.nombre,
+        dependencia_destino: resultado.dependencia_destino || dependenciaDestino?.nombre,
         // Este nombre viene de la sesión del servidor y coincide con el responsable guardado.
         usuario_recibe: resultado.usuario_recibe || usuario.nombre,
         remitente_nombre: datosFormulario.get("remitente_nombre"),
         remitente_documento: datosFormulario.get("remitente_documento"),
         asunto_documento: datosFormulario.get("asunto_documento"),
-        fecha_hora: new Date().toLocaleString("es-CO"),
+        fecha_hora: resultado.fecha_hora_recepcion_legible,
       });
       pdf.save(`Comprobante_${resultado.radicado}.pdf`);
       formulario.reset();
