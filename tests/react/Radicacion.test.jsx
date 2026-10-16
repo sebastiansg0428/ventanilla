@@ -49,7 +49,7 @@ async function completarFormulario(user) {
     "Digital",
   );
   await user.selectOptions(
-    screen.getByLabelText(/tipo de comunicación/i),
+    screen.getByLabelText(/clase de comunicación/i),
     "Externa",
   );
   await user.selectOptions(screen.getByLabelText(/tipo de trámite/i), "10");
@@ -104,6 +104,14 @@ describe("radicación React", () => {
       "/api/radicados",
       expect.anything(),
     );
+  });
+
+  it("inicia la clase de comunicación vacía y la exige", async () => {
+    await abrirRadicacion();
+    const selector = screen.getByLabelText(/clase de comunicación/i);
+    expect(selector.value).toBe("");
+    expect(selector.required).toBe(true);
+    expect(selector.checkValidity()).toBe(false);
   });
 
   it("rechaza un archivo que no sea PDF", async () => {
@@ -165,6 +173,7 @@ describe("radicación React", () => {
           json: async () => ({
             success: true,
             radicado: "RAD-20261013-0001",
+            tipo_comunicacion: "Externa",
             usuario_recibe: "Luis Gómez",
           }),
         };
@@ -203,12 +212,14 @@ describe("radicación React", () => {
     expect(rutaRegistro).toBe("/api/radicados");
     expect(opcionesRegistro.method).toBe("POST");
     expect(opcionesRegistro.body.get("tipo_tramite_id")).toBe("10");
+    expect(opcionesRegistro.body.get("tipo_comunicacion")).toBe("Externa");
     expect(opcionesRegistro.body.get("dependencia_destino_id")).toBe("3");
     expect(opcionesRegistro.body.get("usuario_recibe")).toBe("8");
     expect(opcionesRegistro.body.get("archivos").name).toBe("solicitud.pdf");
     expect(crearPdfComprobante).toHaveBeenCalledWith(
       expect.objectContaining({
         numero_radicado: "RAD-20261013-0001",
+        tipo_comunicacion: "Externa",
         dependencia_destino: "Secretaría de Gobierno",
         usuario_recibe: "Luis Gómez",
       }),

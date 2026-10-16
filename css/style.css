@@ -375,13 +375,13 @@ footer {
 }
 
 /* Registro */
-.page-register > header {
+.page-register > header:not(.app-header) {
   background: #1e3a8a;
   color: #fff;
   box-shadow: 0 4px 10px rgb(15 23 42 / 12%);
 }
 
-.page-register > header > div {
+.page-register > header:not(.app-header) > div {
   max-width: 72rem;
   margin: auto;
   padding: 1rem;
@@ -391,30 +391,30 @@ footer {
   gap: 1rem;
 }
 
-.page-register > header > div > div:first-child {
+.page-register > header:not(.app-header) > div > div:first-child {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.page-register > header svg {
+.page-register > header:not(.app-header) svg {
   width: 2rem;
   height: 2rem;
   color: #fbbf24;
 }
 
-.page-register > header h1 {
+.page-register > header:not(.app-header) h1 {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.025em;
 }
 
-.page-register > header p {
+.page-register > header:not(.app-header) p {
   color: #bfdbfe;
   font-size: 0.75rem;
 }
 
-.page-register > header > div > div:last-child {
+.page-register > header:not(.app-header) > div > div:last-child {
   padding: 0.25rem 0.75rem;
   border: 1px solid #1d4ed8;
   border-radius: 999px;
@@ -422,7 +422,7 @@ footer {
   font-size: 0.875rem;
 }
 
-.page-register > header span {
+.page-register > header:not(.app-header) span {
   color: #fcd34d;
   font-weight: 600;
 }
@@ -856,7 +856,7 @@ footer {
   color: #991b1b;
 }
 
-.page-consult > header {
+.page-consult > header:not(.app-header) {
   padding: 1rem;
   background: #1e3a8a;
   color: #fff;
@@ -1232,7 +1232,7 @@ footer {
 }
 
 @media (max-width: 640px) {
-  .page-register > header > div,
+  .page-register > header:not(.app-header) > div,
   .page-register main > section > div:first-child {
     align-items: flex-start;
     flex-direction: column;
@@ -1272,11 +1272,19 @@ footer {
   background: #173c70;
   color: #fff;
 }
+.app-header > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
 .app-header h1 {
+  margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
 }
 .app-header p {
+  margin: 0;
   color: #ffffff;
 }
 .app-header > span {
@@ -1395,6 +1403,11 @@ footer {
 }
 .radicar-form .form-grid-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (min-width: 701px) and (max-width: 1024px) {
+  .radicar-form .form-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .radicar-form .col-span-full {
   grid-column: 1 / -1;

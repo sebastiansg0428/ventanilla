@@ -25,6 +25,8 @@ export function PaginaRadicacion() {
 
 function FormularioRadicacion({ usuario }) {
   const [tiposTramite, setTiposTramite] = useState([]);
+  const [tipoTramiteIdSeleccionado, setTipoTramiteIdSeleccionado] =
+    useState("");
   const [dependencias, setDependencias] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState("");
@@ -38,7 +40,6 @@ function FormularioRadicacion({ usuario }) {
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
   const [longitudAsunto, setLongitudAsunto] = useState(0);
   const selectorArchivo = useRef(null);
-
   async function cargarTiposTramite() {
     setEstadoCatalogos((estadoActual) => ({
       ...estadoActual,
@@ -178,6 +179,18 @@ function FormularioRadicacion({ usuario }) {
     }
 
     const datosFormulario = new FormData(formulario);
+    const tramite = tiposTramite.find(
+      (tipo) =>
+        String(tipo.id) === String(datosFormulario.get("tipo_tramite_id")),
+    );
+    if (!tramite) {
+      setMensaje({
+        texto: "Selecciona un tipo de trámite válido.",
+        tono: "error",
+      });
+      setEnProceso(false);
+      return;
+    }
     datosFormulario.delete("archivos");
     archivosSeleccionados.forEach((archivo) =>
       datosFormulario.append("archivos", archivo),
@@ -200,9 +213,10 @@ function FormularioRadicacion({ usuario }) {
       );
       const pdf = crearPdfComprobante({
         numero_radicado: String(resultado.radicado || ""),
-        tipo_comunicacion: datosFormulario.get("tipo_comunicacion"),
+        tipo_comunicacion: resultado.tipo_comunicacion,
         numero_folios: datosFormulario.get("numero_folios"),
-        dependencia_destino: resultado.dependencia_destino || dependenciaDestino?.nombre,
+        dependencia_destino:
+          resultado.dependencia_destino || dependenciaDestino?.nombre,
         // Este nombre viene de la sesión del servidor y coincide con el responsable guardado.
         usuario_recibe: resultado.usuario_recibe || usuario.nombre,
         remitente_nombre: datosFormulario.get("remitente_nombre"),
@@ -212,6 +226,7 @@ function FormularioRadicacion({ usuario }) {
       });
       pdf.save(`Comprobante_${resultado.radicado}.pdf`);
       formulario.reset();
+      setTipoTramiteIdSeleccionado("");
       setLongitudAsunto(0);
       setArchivosSeleccionados([]);
       if (selectorArchivo.current) selectorArchivo.current.value = "";
@@ -262,20 +277,14 @@ function FormularioRadicacion({ usuario }) {
                     <option value="Fisico">Físico</option>
                   </select>
                 </CampoFormulario>
-                <CampoFormulario etiqueta="Tipo de comunicación">
-                  <select name="tipo_comunicacion" required defaultValue="">
-                    <option value="" disabled>
-                      Selecciona el tipo…
-                    </option>
-                    <option value="Externa">Comunicación externa</option>
-                    <option value="Interna">Comunicación interna</option>
-                  </select>
-                </CampoFormulario>
                 <CampoFormulario etiqueta="Tipo de trámite">
                   <select
                     name="tipo_tramite_id"
                     required
-                    defaultValue=""
+                    value={tipoTramiteIdSeleccionado}
+                    onChange={(evento) =>
+                      setTipoTramiteIdSeleccionado(evento.target.value)
+                    }
                     disabled={!tiposTramite.length}
                   >
                     <option value="" disabled>
@@ -291,6 +300,15 @@ function FormularioRadicacion({ usuario }) {
                   <button type="button" onClick={cargarTiposTramite}>
                     Reintentar trámites
                   </button>
+                </CampoFormulario>
+                <CampoFormulario etiqueta="Clase de comunicación">
+                  <select name="tipo_comunicacion" required defaultValue="">
+                    <option value="" disabled>
+                      Selecciona la clase…
+                    </option>
+                    <option value="Interna">Interna</option>
+                    <option value="Externa">Externa</option>
+                  </select>
                 </CampoFormulario>
               </div>
             </SeccionFormulario>
@@ -470,9 +488,7 @@ function FormularioRadicacion({ usuario }) {
                   type="file"
                   accept="application/pdf,.pdf"
                   multiple
-                  onChange={(evento) =>
-                    aceptarArchivos(evento.target.files)
-                  }
+                  onChange={(evento) => aceptarArchivos(evento.target.files)}
                 />
                 <p>Selecciona o arrastra hasta 5 archivos PDF</p>
                 {archivosSeleccionados.length > 0 && (
@@ -487,7 +503,9 @@ function FormularioRadicacion({ usuario }) {
                           type="button"
                           onClick={() => {
                             setArchivosSeleccionados((actuales) =>
-                              actuales.filter((_, posicion) => posicion !== indice),
+                              actuales.filter(
+                                (_, posicion) => posicion !== indice,
+                              ),
                             );
                             if (selectorArchivo.current)
                               selectorArchivo.current.value = "";
