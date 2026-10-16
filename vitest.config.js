@@ -6,6 +6,7 @@ export default mergeConfig(viteConfig, defineConfig({
     environment: 'jsdom',
     include: ['tests/react/**/*.test.{js,jsx}'],
     setupFiles: ['./tests/react/setup.js'],
+    maxWorkers: 1,
     clearMocks: true,
     restoreMocks: true,
   },

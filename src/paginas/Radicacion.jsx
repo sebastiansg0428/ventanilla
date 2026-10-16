@@ -402,6 +402,7 @@ function FormularioRadicacion({ usuario }) {
                     <option value="" disabled>
                       Selecciona la dependencia…
                     </option>
+                    <option value="todas">Todas las dependencias</option>
                     {dependencias.map((dep) => (
                       <option key={dep.id} value={dep.id}>
                         {dep.nombre}

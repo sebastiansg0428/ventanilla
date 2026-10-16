@@ -19,7 +19,7 @@ function setup({ sesion = { token: 'test-token', usuario }, fetcher = async () =
     const nodes = new Map();
     const node = id => {
         if (!nodes.has(id)) nodes.set(id, {
-            value: '', hidden: false, disabled: false, textContent: '', listeners: {},
+            value: '', hidden: false, disabled: false, textContent: '', dataset: {}, listeners: {},
             addEventListener(name, callback) { this.listeners[name] = callback; }
         });
         return nodes.get(id);

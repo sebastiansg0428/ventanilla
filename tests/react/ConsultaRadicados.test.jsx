@@ -146,7 +146,7 @@ describe("consulta de radicados React", () => {
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/estado", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado: "En trámite" }),
+      body: JSON.stringify({ estado: "En trámite", radicado_dependencia_id: null }),
     });
   });
 

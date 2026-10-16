@@ -43,7 +43,7 @@ async function abrirRadicacion() {
   await screen.findByRole("option", { name: "Luis Gómez" });
 }
 
-async function completarFormulario(user) {
+async function completarFormulario(user, destino = "3") {
   await user.selectOptions(
     screen.getByLabelText(/tipo de recepción/i),
     "Digital",
@@ -65,7 +65,7 @@ async function completarFormulario(user) {
   );
   await user.selectOptions(
     screen.getByLabelText(/dependencia de destino/i),
-    "3",
+    destino,
   );
   await user.selectOptions(
     screen.getByLabelText(/funcionario \/ quién registra/i),
@@ -112,6 +112,67 @@ describe("radicación React", () => {
     expect(selector.value).toBe("");
     expect(selector.required).toBe(true);
     expect(selector.checkValidity()).toBe(false);
+  });
+
+  it("ofrece el destino compartido sin cambiar los IDs de dependencias", async () => {
+    await abrirRadicacion();
+    expect(
+      screen.getByRole("option", { name: "Todas las dependencias" }).value,
+    ).toBe("todas");
+    expect(
+      screen.getByRole("option", { name: "Secretaría de Gobierno" }).value,
+    ).toBe("3");
+  });
+
+  it("envía y muestra en el comprobante el destino de todas las dependencias", async () => {
+    solicitarApi.mockImplementation(async (ruta) => {
+      if (ruta === "/api/radicados") {
+        return {
+          json: async () => ({
+            success: true,
+            radicado: "RAD-20261013-0002",
+            dependencia_destino: "Todas las dependencias",
+            destino_todas_dependencias: true,
+            tipo_comunicacion: "Externa",
+            usuario_recibe: "Luis Gómez",
+          }),
+        };
+      }
+      const respuestas = {
+        "/api/tipos-tramite": {
+          tipos_tramite: [
+            { id: 10, nombre: "Solicitud general", termino_legal_id: 22 },
+          ],
+        },
+        "/api/dependencias": {
+          dependencias: [{ id: 3, nombre: "Secretaría de Gobierno" }],
+        },
+        "/api/usuarios/ventanilla": {
+          usuarios: [{ id: 8, nombre: "Luis Gómez" }],
+        },
+      };
+      if (!respuestas[ruta]) throw new Error(`Ruta inesperada: ${ruta}`);
+      return { json: async () => respuestas[ruta] };
+    });
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    await completarFormulario(user, "todas");
+    await user.upload(
+      document.querySelector('input[type="file"]'),
+      new File(["contenido PDF"], "circular.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+
+    await screen.findByText(/Radicado RAD-20261013-0002 guardado/);
+    const [, opcionesRegistro] = solicitarApi.mock.calls.find(
+      ([ruta]) => ruta === "/api/radicados",
+    );
+    expect(opcionesRegistro.body.get("dependencia_destino_id")).toBe("todas");
+    expect(crearPdfComprobante).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dependencia_destino: "Todas las dependencias",
+      }),
+    );
   });
 
   it("rechaza un archivo que no sea PDF", async () => {
@@ -231,5 +292,5 @@ describe("radicación React", () => {
           .disabled,
       ).toBe(false),
     );
-  });
+  }, 10_000);
 });

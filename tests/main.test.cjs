@@ -46,6 +46,12 @@ async function setup(catalog, usuario, dependencyFailure = false) {
             addEventListener: (name, callback) => { if (name === 'DOMContentLoaded') ready = callback; }
         },
         FormData: FormDataMock,
+        Option: class Option {
+            constructor(text, value) {
+                this.textContent = text;
+                this.value = value;
+            }
+        },
         descargarComprobantePDF() { },
         alert: message => alerts.push(message),
         console: { log() { }, error: (...args) => errors.push(args) },
@@ -113,8 +119,9 @@ test('catalog failures and empty catalogs block registration and offer retry', a
         const app = await setup(catalog);
         assert.equal(app.get('tipo_tramite_id').disabled, true);
         assert.equal(app.get('reintentar-tipos-tramite').hidden, false);
+        const requestsBeforeSubmit = app.requests.length;
         await app.form.emit('submit');
-        assert.equal(app.requests.length, 2);
+        assert.equal(app.requests.length, requestsBeforeSubmit);
         assert.match(app.alerts[0], /tipo de trámite/);
         if (!catalog.success) assert.ok(app.errors.length);
         if (catalog.status === 404) assert.match(app.get('estado-tipos-tramite').textContent, /404|Catálogo/);
@@ -126,9 +133,13 @@ test('frontend never includes administrative credentials or editable deadlines',
         const code = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', file), 'utf8');
         assert.doesNotMatch(code, /x-admin-key/i);
     }
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.doesNotMatch(html, /name=["'](?:fecha_limite[^"']*|termino_dias[^"']*|tiempo_de_respuesta)["']/);
-    assert.match(html, /name="tipo_tramite_id"/);
+    const radicacion = fs.readFileSync(
+        path.join(__dirname, '..', 'src', 'paginas', 'Radicacion.jsx'),
+        'utf8'
+    );
+    assert.doesNotMatch(radicacion, /x-admin-key/i);
+    assert.doesNotMatch(radicacion, /name=["'](?:fecha_limite[^"']*|termino_dias[^"']*|tiempo_de_respuesta)["']/);
+    assert.match(radicacion, /name=["']tipo_tramite_id["']/);
 });
 
 test('funcionario never loads the reception catalogs or registers', async () => {
