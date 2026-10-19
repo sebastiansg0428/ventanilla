@@ -25,9 +25,9 @@ const funcionario = {
 const dependencia = { id: 3, nombre: "Planeación", activo: 1 };
 const tipoTramite = {
   id: 10,
-  codigo: "PET-GEN",
+  codigo: "peticion_general",
   nombre: "Petición general",
-  categoria_general: "Petición",
+  categoria_general: "peticion_general",
   termino_legal_id: 22,
   dias: 15,
   tipo_dias: "habiles",
@@ -138,9 +138,14 @@ describe("gestión de catálogos React", () => {
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
 
-    await user.type(screen.getByLabelText("Código *"), "PET-CONS");
     await user.type(screen.getByLabelText("Nombre *"), "Petición consulta");
-    await user.type(screen.getByLabelText("Categoría general *"), "Petición");
+    expect(screen.getByLabelText("Código técnico *").value).toBe(
+      "peticion_consulta",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Categoría general *"),
+      "consulta",
+    );
     await user.type(screen.getByLabelText("Plazo inicial (días) *"), "15");
     await user.selectOptions(
       screen.getByLabelText("Tipo de días *"),
@@ -162,9 +167,9 @@ describe("gestión de catálogos React", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({
-            codigo: "PET-CONS",
+            codigo: "peticion_consulta",
             nombre: "Petición consulta",
-            categoria_general: "Petición",
+            categoria_general: "consulta",
             dias: 15,
             tipo_dias: "calendario",
             fundamento_legal: "Ley aplicable",
@@ -176,12 +181,36 @@ describe("gestión de catálogos React", () => {
     expect(await screen.findByText("Trámite creado.")).toBeTruthy();
   });
 
+  it("conserva el código manual al seguir cambiando el nombre", async () => {
+    const user = userEvent.setup();
+    render(<PaginaGestionCatalogos />);
+    await screen.findByText("Planeación");
+    await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
+
+    const campoNombre = screen.getByLabelText("Nombre *");
+    const campoCodigo = screen.getByLabelText("Código técnico *");
+    await user.type(campoNombre, "Acción de tutela");
+    expect(campoCodigo.value).toBe("accion_de_tutela");
+
+    await user.clear(campoCodigo);
+    await user.type(campoCodigo, "tutela_especial");
+    await user.clear(campoNombre);
+    await user.type(campoNombre, "Acción constitucional");
+
+    expect(campoCodigo.value).toBe("tutela_especial");
+    const categoria = screen.getByLabelText("Categoría general *");
+    expect(categoria.tagName).toBe("SELECT");
+    expect(
+      within(categoria).getByRole("option", { name: "Trámite especial" }).value,
+    ).toBe("especial");
+  });
+
   it("edita los datos del tipo sin intentar modificar el término legal", async () => {
     const user = userEvent.setup();
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
-    const row = (await screen.findByText("Petición general")).closest("tr");
+    const row = within(screen.getByRole("table")).getAllByRole("row")[1];
     await user.click(
       within(row).getByRole("button", { name: "Editar" }),
     );
@@ -199,9 +228,9 @@ describe("gestión de catálogos React", () => {
       );
       expect(llamada).toBeTruthy();
       expect(JSON.parse(llamada[1].body)).toEqual({
-        codigo: "PET-GEN",
+        codigo: "peticion_general",
         nombre: "Petición actualizada",
-        categoria_general: "Petición",
+        categoria_general: "peticion_general",
         orden: 4,
       });
     });
@@ -263,7 +292,7 @@ describe("gestión de catálogos React", () => {
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
-    const row = (await screen.findByText("Petición general")).closest("tr");
+    const row = within(screen.getByRole("table")).getAllByRole("row")[1];
     await user.click(
       within(row).getByRole("button", { name: "Nueva versión de término" }),
     );

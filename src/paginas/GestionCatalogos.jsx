@@ -9,6 +9,16 @@ import { solicitarApi } from "../servicios/api";
 
 const CATALOGO_DEPENDENCIAS = "dependencias";
 const CATALOGO_TRAMITES = "tipos-tramite";
+const CATEGORIAS_TRAMITE = [
+  { valor: "peticion_general", etiqueta: "Petición general" },
+  {
+    valor: "informacion_documentos",
+    etiqueta: "Información y documentos",
+  },
+  { valor: "consulta", etiqueta: "Consulta" },
+  { valor: "entre_autoridades", etiqueta: "Entre autoridades" },
+  { valor: "especial", etiqueta: "Trámite especial" },
+];
 const FORMULARIO_DEPENDENCIA_VACIO = { nombre: "" };
 const FORMULARIO_TRAMITE_VACIO = {
   codigo: "",
@@ -20,6 +30,17 @@ const FORMULARIO_TRAMITE_VACIO = {
   vigente_desde: "",
   orden: "",
 };
+
+function generarCodigoTramite(nombre) {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60)
+    .replace(/_+$/g, "");
+}
 
 function estaActivo(registro) {
   return Number(registro.activo) === 1;
@@ -53,6 +74,7 @@ function GestionCatalogos({ usuario }) {
     FORMULARIO_TRAMITE_VACIO,
   );
   const [registroEnEdicion, setRegistroEnEdicion] = useState(null);
+  const [codigoTramiteEditado, setCodigoTramiteEditado] = useState(false);
   const [tramiteTerminoNuevo, setTramiteTerminoNuevo] = useState(null);
   const [formularioTermino, setFormularioTermino] = useState({
     dias: "",
@@ -143,6 +165,7 @@ function GestionCatalogos({ usuario }) {
 
   function limpiarFormulario() {
     setRegistroEnEdicion(null);
+    setCodigoTramiteEditado(false);
     setFormularioDependencia(FORMULARIO_DEPENDENCIA_VACIO);
     setFormularioTramite(FORMULARIO_TRAMITE_VACIO);
     setMensaje({ texto: "", tono: "" });
@@ -174,6 +197,7 @@ function GestionCatalogos({ usuario }) {
       if (esDependencia) {
         setFormularioDependencia({ nombre: registro.nombre || "" });
       } else {
+        setCodigoTramiteEditado(true);
         setFormularioTramite({
           ...FORMULARIO_TRAMITE_VACIO,
           codigo: registro.codigo || "",
@@ -246,6 +270,7 @@ function GestionCatalogos({ usuario }) {
         tono: "success",
       });
       setRegistroEnEdicion(null);
+      setCodigoTramiteEditado(false);
       setFormularioDependencia(FORMULARIO_DEPENDENCIA_VACIO);
       setFormularioTramite(FORMULARIO_TRAMITE_VACIO);
       await cargarCatalogos();
@@ -400,38 +425,54 @@ function GestionCatalogos({ usuario }) {
             ) : (
               <>
                 <div className="auth-field">
-                  <label htmlFor="tramite-codigo">Código *</label>
+                  <label htmlFor="tramite-codigo">Código técnico *</label>
                   <input
                     id="tramite-codigo"
                     value={formularioTramite.codigo}
-                    onChange={(evento) =>
+                    onChange={(evento) => {
+                      setCodigoTramiteEditado(true);
                       setFormularioTramite((actual) => ({
                         ...actual,
                         codigo: evento.target.value,
-                      }))
-                    }
-                    maxLength="50"
+                      }));
+                    }}
+                    maxLength="60"
+                    minLength="2"
+                    pattern="[a-z0-9_]{2,60}"
+                    title="Usa de 2 a 60 caracteres: minúsculas sin tildes, números y guion bajo."
+                    placeholder="Ejemplo: accion_tutela"
+                    aria-describedby="tramite-codigo-ayuda"
+                    autoComplete="off"
+                    spellCheck="false"
                     required
                   />
+                  <small id="tramite-codigo-ayuda">
+                    Identificador interno. Se propone desde el nombre; puedes
+                    ajustarlo usando minúsculas, números y guion bajo.
+                  </small>
                 </div>
                 <div className="auth-field">
                   <label htmlFor="tramite-nombre">Nombre *</label>
                   <input
                     id="tramite-nombre"
                     value={formularioTramite.nombre}
-                    onChange={(evento) =>
+                    onChange={(evento) => {
+                      const nombre = evento.target.value;
                       setFormularioTramite((actual) => ({
                         ...actual,
-                        nombre: evento.target.value,
-                      }))
-                    }
+                        nombre,
+                        ...(!registroEnEdicion && !codigoTramiteEditado
+                          ? { codigo: generarCodigoTramite(nombre) }
+                          : {}),
+                      }));
+                    }}
                     maxLength="150"
                     required
                   />
                 </div>
                 <div className="auth-field auth-field--full">
                   <label htmlFor="tramite-categoria">Categoría general *</label>
-                  <input
+                  <select
                     id="tramite-categoria"
                     value={formularioTramite.categoria_general}
                     onChange={(evento) =>
@@ -440,9 +481,20 @@ function GestionCatalogos({ usuario }) {
                         categoria_general: evento.target.value,
                       }))
                     }
-                    maxLength="150"
+                    aria-describedby="tramite-categoria-ayuda"
                     required
-                  />
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {CATEGORIAS_TRAMITE.map(({ valor, etiqueta }) => (
+                      <option key={valor} value={valor}>
+                        {etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                  <small id="tramite-categoria-ayuda">
+                    Agrupa el trámite para su clasificación. El plazo legal se
+                    configura por separado.
+                  </small>
                 </div>
                 {editando ? (
                   <div className="auth-field">

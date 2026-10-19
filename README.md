@@ -18,6 +18,10 @@ Para generar la versión de publicación ejecuta `npm run build`; para verla loc
 - `public/vendor/jspdf.umd.min.js` contiene la copia local de jsPDF, por lo que no se depende de un CDN.
 - `css/style.css` conserva los estilos existentes y los complementa para los componentes de React.
 
+## Diagrama de flujo
+
+Consulta el [diagrama actual de navegación, sesión y operaciones](./docs/diagrama-flujo.md). Describe los flujos implementados en el frontend React y su comunicación con el backend independiente.
+
 Los nombres de carpetas, pantallas, componentes y funciones propios de la interfaz están en español. Algunas claves se conservan intencionalmente: nombres de campos, rutas y respuestas como `usuario_recibe`, `/api/radicados` y `message` forman parte de la comunicación con el backend o el navegador. Cambiarlas unilateralmente puede romper el contrato entre frontend y servidor.
 
 ## Sesión y permisos
