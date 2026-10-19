@@ -258,7 +258,10 @@ function VistaConsultaRadicados({ usuario }) {
       datos.append("contenido", textoRespuesta.trim());
       datos.append("plantilla", plantillaRespuesta);
       if (respuestaSeleccionada.radicado_dependencia_id)
-        datos.append("radicado_dependencia_id", respuestaSeleccionada.radicado_dependencia_id);
+        datos.append(
+          "radicado_dependencia_id",
+          respuestaSeleccionada.radicado_dependencia_id,
+        );
       // El nombre del campo debe coincidir con uploadRespuesta.array("archivos") del backend.
       archivosRespuesta.forEach((archivo) => datos.append("archivos", archivo));
       const respuesta = await solicitarApi(
@@ -270,9 +273,12 @@ function VistaConsultaRadicados({ usuario }) {
         throw new Error(resultado.message || "No se pudo enviar la respuesta.");
       setRadicados((actual) =>
         actual.map((fila) =>
-          (respuestaSeleccionada.radicado_dependencia_id
-            ? fila.radicado_dependencia_id === respuestaSeleccionada.radicado_dependencia_id
-            : fila.numero_radicado === respuestaSeleccionada.numero_radicado)
+          (
+            respuestaSeleccionada.radicado_dependencia_id
+              ? fila.radicado_dependencia_id ===
+                respuestaSeleccionada.radicado_dependencia_id
+              : fila.numero_radicado === respuestaSeleccionada.numero_radicado
+          )
             ? {
                 ...fila,
                 estado: resultado.estado,
@@ -396,9 +402,11 @@ function VistaConsultaRadicados({ usuario }) {
     const estadoAnterior = radicado.estado || "Recibido";
     setRadicados((actual) =>
       actual.map((fila) =>
-        (radicado.radicado_dependencia_id
-          ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
-          : fila.numero_radicado === radicado.numero_radicado)
+        (
+          radicado.radicado_dependencia_id
+            ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
+            : fila.numero_radicado === radicado.numero_radicado
+        )
           ? { ...fila, estado: nuevoEstado }
           : fila,
       ),
@@ -418,9 +426,12 @@ function VistaConsultaRadicados({ usuario }) {
       const resultado = await respuesta.json();
       setRadicados((actual) =>
         actual.map((fila) =>
-          (radicado.radicado_dependencia_id
-            ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
-            : fila.numero_radicado === radicado.numero_radicado)
+          (
+            radicado.radicado_dependencia_id
+              ? fila.radicado_dependencia_id ===
+                radicado.radicado_dependencia_id
+              : fila.numero_radicado === radicado.numero_radicado
+          )
             ? {
                 ...fila,
                 estado: resultado.estado,
@@ -432,9 +443,12 @@ function VistaConsultaRadicados({ usuario }) {
     } catch (error) {
       setRadicados((actual) =>
         actual.map((fila) =>
-          (radicado.radicado_dependencia_id
-            ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
-            : fila.numero_radicado === radicado.numero_radicado)
+          (
+            radicado.radicado_dependencia_id
+              ? fila.radicado_dependencia_id ===
+                radicado.radicado_dependencia_id
+              : fila.numero_radicado === radicado.numero_radicado
+          )
             ? { ...fila, estado: estadoAnterior }
             : fila,
         ),
@@ -580,7 +594,9 @@ function VistaConsultaRadicados({ usuario }) {
                   </tr>
                 ) : (
                   radicadosVisibles.map((radicado) => (
-                    <tr key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}>
+                    <tr
+                      key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}
+                    >
                       <td>
                         <button
                           className="ver-detalle"
@@ -592,7 +608,8 @@ function VistaConsultaRadicados({ usuario }) {
                         {radicado.destino_todas_dependencias === 1 &&
                           radicado.seguimiento_dependencia_nombre && (
                             <small>
-                              Seguimiento: {radicado.seguimiento_dependencia_nombre}
+                              Seguimiento:{" "}
+                              {radicado.seguimiento_dependencia_nombre}
                             </small>
                           )}
                       </td>
@@ -792,6 +809,10 @@ function VistaConsultaRadicados({ usuario }) {
               <CampoDetalle
                 etiqueta="Dependencia destino"
                 valor={radicadoSeleccionado.dependencia_destino}
+              />
+              <CampoDetalle
+                etiqueta="Tipo de tramite"
+                valor={radicadoSeleccionado.tipo_tramite}
               />
               <CampoDetalle
                 etiqueta="Tiempo de respuesta"

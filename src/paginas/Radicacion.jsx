@@ -215,6 +215,7 @@ function FormularioRadicacion({ usuario }) {
         numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: resultado.tipo_comunicacion,
         numero_folios: datosFormulario.get("numero_folios"),
+        tipo_tramite: tramite.nombre,
         dependencia_destino:
           resultado.dependencia_destino || dependenciaDestino?.nombre,
         // Este nombre viene de la sesión del servidor y coincide con el responsable guardado.

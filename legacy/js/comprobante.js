@@ -46,6 +46,7 @@ function crearComprobantePDF(datosRadicado) {
 
     const itemsDetalle = [
         `Tipo de Comunicación: ${datosRadicado.tipo_comunicacion || 'No especificado'}`,
+        `Tipo de Trámite: ${datos.tipo_tramite || 'No registrado'}`,
         `Número de Radicado: ${datosRadicado.numero_radicado}`,
         `Número de Folios: ${datosRadicado.numero_folios || '1'}`,
         `Dependencia Destino: ${datosRadicado.dependencia_destino || 'No registrado'}`,

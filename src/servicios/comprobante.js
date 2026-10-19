@@ -28,6 +28,7 @@ export function crearPdfComprobante(datos) {
   documentoPdf.setFont('helvetica', 'normal');
   const lineasDetalle = [
     `Tipo de Comunicación: ${datos.tipo_comunicacion || 'No especificado'}`,
+    `Tipo de Trámite: ${datos.tipo_tramite || 'No registrado'}`,
     `Número de Radicado: ${datos.numero_radicado || ''}`,
     `Número de Folios: ${datos.numero_folios || '1'}`,
     `Dependencia Destino: ${datos.dependencia_destino || 'No registrada'}`,
