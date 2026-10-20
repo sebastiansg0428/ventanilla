@@ -93,7 +93,7 @@ describe("consulta de radicados React", () => {
     });
   });
 
-  it("combina búsqueda, tipo y estado crítico, y permite limpiar los filtros", async () => {
+  it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {
     const user = userEvent.setup();
     await abrirConsulta();
 
@@ -104,6 +104,7 @@ describe("consulta de radicados React", () => {
     expect(
       screen.getByText("Mostrando 2 de 3. Hay filtros activos."),
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Quitar filtro Fecha: hoy/ })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Registrados hoy/ }));
 
     await user.type(
@@ -114,7 +115,7 @@ describe("consulta de radicados React", () => {
       screen.getByLabelText("Tipo de comunicación"),
       "externa",
     );
-    await user.click(screen.getByRole("button", { name: /Total \/ críticos/ }));
+    await user.click(screen.getByRole("button", { name: /Críticos/ }));
 
     expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "RAD-002" })).toBeNull();
@@ -122,8 +123,19 @@ describe("consulta de radicados React", () => {
     expect(
       screen.getByText("Mostrando 1 de 3. Hay filtros activos."),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Quitar filtro Críticos: alerta y vencido/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Quitar filtro Tipo: Externa/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Quitar filtro Búsqueda: garcia/ })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+    await user.click(
+      screen.getByRole("button", { name: /Quitar filtro Búsqueda: garcia/ }),
+    );
+    expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "RAD-003" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Total/ }));
 
     expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "RAD-002" })).toBeTruthy();

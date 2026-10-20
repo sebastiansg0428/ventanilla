@@ -424,6 +424,10 @@ function GestionCatalogos({ usuario }) {
               </div>
             ) : (
               <>
+                <div className="catalog-form-section-heading catalog-form-section-heading--first auth-field--full">
+                  <h3>Identificación del trámite</h3>
+                  <p>Define el nombre que verá el personal y el código interno del sistema.</p>
+                </div>
                 <div className="auth-field">
                   <label htmlFor="tramite-codigo">Código técnico *</label>
                   <input
@@ -447,14 +451,16 @@ function GestionCatalogos({ usuario }) {
                     required
                   />
                   <small id="tramite-codigo-ayuda">
-                    Identificador interno. Se propone desde el nombre; puedes
-                    ajustarlo usando minúsculas, números y guion bajo.
+                    Es un identificador para el sistema. Se completa a partir
+                    del nombre; si lo cambias, usa minúsculas, números y guion
+                    bajo.
                   </small>
                 </div>
                 <div className="auth-field">
                   <label htmlFor="tramite-nombre">Nombre *</label>
                   <input
                     id="tramite-nombre"
+                    aria-describedby="tramite-nombre-ayuda"
                     value={formularioTramite.nombre}
                     onChange={(evento) => {
                       const nombre = evento.target.value;
@@ -469,6 +475,13 @@ function GestionCatalogos({ usuario }) {
                     maxLength="150"
                     required
                   />
+                  <small id="tramite-nombre-ayuda">
+                    Escribe el nombre que aparecerá al seleccionar este trámite.
+                  </small>
+                </div>
+                <div className="catalog-form-section-heading auth-field--full">
+                  <h3>Clasificación</h3>
+                  <p>La categoría ayuda a organizar el trámite; no determina por sí sola el plazo.</p>
                 </div>
                 <div className="auth-field auth-field--full">
                   <label htmlFor="tramite-categoria">Categoría general *</label>
@@ -492,8 +505,8 @@ function GestionCatalogos({ usuario }) {
                     ))}
                   </select>
                   <small id="tramite-categoria-ayuda">
-                    Agrupa el trámite para su clasificación. El plazo legal se
-                    configura por separado.
+                    Selecciona el grupo que mejor describe el trámite. El plazo
+                    legal se define por separado.
                   </small>
                 </div>
                 {editando ? (
@@ -501,6 +514,7 @@ function GestionCatalogos({ usuario }) {
                     <label htmlFor="tramite-orden">Orden (opcional)</label>
                     <input
                       id="tramite-orden"
+                      aria-describedby="tramite-orden-ayuda"
                       type="number"
                       min="0"
                       value={formularioTramite.orden}
@@ -511,15 +525,24 @@ function GestionCatalogos({ usuario }) {
                         }))
                       }
                     />
+                    <small id="tramite-orden-ayuda">
+                      Controla la posición del trámite en las listas. Déjalo
+                      vacío si no necesitas cambiarla.
+                    </small>
                   </div>
                 ) : (
                   <>
+                    <div className="catalog-form-section-heading auth-field--full">
+                      <h3>Plazo legal inicial</h3>
+                      <p>Indica el tiempo para responder y la norma que lo respalda.</p>
+                    </div>
                     <div className="auth-field">
-                      <label htmlFor="tramite-dias">Plazo inicial (días) *</label>
+                      <label htmlFor="tramite-dias">Cantidad de días para responder *</label>
                       <input
                         id="tramite-dias"
                         type="number"
                         min="1"
+                        aria-describedby="tramite-dias-ayuda"
                         value={formularioTramite.dias}
                         onChange={(evento) =>
                           setFormularioTramite((actual) => ({
@@ -529,11 +552,15 @@ function GestionCatalogos({ usuario }) {
                         }
                         required
                       />
+                      <small id="tramite-dias-ayuda">
+                        Escribe el número de días establecido para este trámite.
+                      </small>
                     </div>
                     <div className="auth-field">
-                      <label htmlFor="tramite-tipo-dias">Tipo de días *</label>
+                      <label htmlFor="tramite-tipo-dias">Cómo contar los días *</label>
                       <select
                         id="tramite-tipo-dias"
+                        aria-describedby="tramite-tipo-dias-ayuda"
                         value={formularioTramite.tipo_dias}
                         onChange={(evento) =>
                           setFormularioTramite((actual) => ({
@@ -546,13 +573,18 @@ function GestionCatalogos({ usuario }) {
                         <option value="habiles">Días hábiles</option>
                         <option value="calendario">Días calendario</option>
                       </select>
+                      <small id="tramite-tipo-dias-ayuda">
+                        Hábiles: no cuentan domingos ni festivos. Calendario:
+                        cuenta todos los días.
+                      </small>
                     </div>
                     <div className="auth-field auth-field--full">
                       <label htmlFor="tramite-fundamento">
-                        Fundamento legal *
+                        Norma que establece el plazo *
                       </label>
                       <textarea
                         id="tramite-fundamento"
+                        aria-describedby="tramite-fundamento-ayuda"
                         value={formularioTramite.fundamento_legal}
                         onChange={(evento) =>
                           setFormularioTramite((actual) => ({
@@ -563,13 +595,17 @@ function GestionCatalogos({ usuario }) {
                         maxLength="1000"
                         required
                       />
+                      <small id="tramite-fundamento-ayuda">
+                        Escribe la ley, decreto o artículo que respalda el plazo.
+                      </small>
                     </div>
                     <div className="auth-field">
                       <label htmlFor="tramite-vigencia">
-                        Vigente desde (opcional)
+                        Fecha desde la que aplica (opcional)
                       </label>
                       <input
                         id="tramite-vigencia"
+                        aria-describedby="tramite-vigencia-ayuda"
                         type="date"
                         value={formularioTramite.vigente_desde}
                         onChange={(evento) =>
@@ -579,6 +615,9 @@ function GestionCatalogos({ usuario }) {
                           }))
                         }
                       />
+                      <small id="tramite-vigencia-ayuda">
+                        Si la dejas vacía, el plazo aplicará desde hoy.
+                      </small>
                     </div>
                   </>
                 )}

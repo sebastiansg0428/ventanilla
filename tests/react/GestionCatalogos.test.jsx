@@ -138,6 +138,13 @@ describe("gestión de catálogos React", () => {
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
 
+    expect(screen.getByText("Identificación del trámite")).toBeTruthy();
+    expect(screen.getByText("Clasificación")).toBeTruthy();
+    expect(screen.getByText("Plazo legal inicial")).toBeTruthy();
+    expect(
+      screen.getByText("Si la dejas vacía, el plazo aplicará desde hoy."),
+    ).toBeTruthy();
+
     await user.type(screen.getByLabelText("Nombre *"), "Petición consulta");
     expect(screen.getByLabelText("Código técnico *").value).toBe(
       "peticion_consulta",
@@ -146,17 +153,20 @@ describe("gestión de catálogos React", () => {
       screen.getByLabelText("Categoría general *"),
       "consulta",
     );
-    await user.type(screen.getByLabelText("Plazo inicial (días) *"), "15");
+    await user.type(
+      screen.getByLabelText("Cantidad de días para responder *"),
+      "15",
+    );
     await user.selectOptions(
-      screen.getByLabelText("Tipo de días *"),
+      screen.getByLabelText("Cómo contar los días *"),
       "calendario",
     );
     await user.type(
-      screen.getByLabelText("Fundamento legal *"),
+      screen.getByLabelText("Norma que establece el plazo *"),
       "Ley aplicable",
     );
     await user.type(
-      screen.getByLabelText("Vigente desde (opcional)"),
+      screen.getByLabelText("Fecha desde la que aplica (opcional)"),
       "2026-01-01",
     );
     await user.click(screen.getByRole("button", { name: "Crear" }));

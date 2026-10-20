@@ -481,6 +481,43 @@ function VistaConsultaRadicados({ usuario }) {
   const radicadosCriticos = radicados.filter(estaEnEstadoCritico).length;
   const hayFiltrosActivos =
     soloCriticos || soloHoy || filtroComunicacion || textoBusqueda.trim();
+  const filtrosActivos = [
+    soloHoy
+      ? {
+          key: "hoy",
+          label: "Fecha: hoy",
+          onRemove: () => setSoloHoy(false),
+        }
+      : null,
+    soloCriticos
+      ? {
+          key: "criticos",
+          label: "Críticos: alerta y vencido",
+          onRemove: () => setSoloCriticos(false),
+        }
+      : null,
+    filtroComunicacion
+      ? {
+          key: "tipo",
+          label: `Tipo: ${filtroComunicacion === "sin-tipo" ? "No especificado" : filtroComunicacion === "interna" ? "Interna" : "Externa"}`,
+          onRemove: () => setFiltroComunicacion(""),
+        }
+      : null,
+    textoBusqueda.trim()
+      ? {
+          key: "busqueda",
+          label: `Búsqueda: ${textoBusqueda.trim()}`,
+          onRemove: () => setTextoBusqueda(""),
+        }
+      : null,
+  ].filter(Boolean);
+
+  function limpiarFiltros() {
+    setTextoBusqueda("");
+    setSoloCriticos(false);
+    setSoloHoy(false);
+    setFiltroComunicacion("");
+  }
 
   return (
     <div className="page-consult app-page">
@@ -495,14 +532,24 @@ function VistaConsultaRadicados({ usuario }) {
 
         <section className="dashboard-cards" aria-label="Resumen y filtros">
           <button
+            className={`dashboard-card ${!hayFiltrosActivos ? "filtro-activo" : ""}`}
+            type="button"
+            aria-pressed={!hayFiltrosActivos}
+            onClick={limpiarFiltros}
+          >
+            <span>Total</span>
+            <strong>{radicados.length}</strong>
+            <small>Mostrar todos los registros</small>
+          </button>
+          <button
             className={`dashboard-card ${soloCriticos ? "filtro-activo" : ""}`}
             type="button"
             aria-pressed={soloCriticos}
             onClick={() => setSoloCriticos((valor) => !valor)}
           >
-            <span>Total / críticos</span>
-            <strong>{radicados.length}</strong>
-            <small>{radicadosCriticos} en alerta o vencidos</small>
+            <span>Críticos</span>
+            <strong>{radicadosCriticos}</strong>
+            <small>Filtrar alerta y vencido</small>
           </button>
           <button
             className={`dashboard-card ${soloHoy ? "filtro-activo" : ""}`}
@@ -530,6 +577,27 @@ function VistaConsultaRadicados({ usuario }) {
             </select>
           </label>
         </section>
+        <div className="filtros-activos-resumen" aria-live="polite">
+          {filtrosActivos.length ? (
+            <ul className="filtros-activos-lista" aria-label="Filtros activos">
+              {filtrosActivos.map((filtro) => (
+                <li key={filtro.key}>
+                  <button
+                    type="button"
+                    className="filtro-badge"
+                    onClick={filtro.onRemove}
+                    aria-label={`Quitar filtro ${filtro.label}`}
+                  >
+                    <span>{filtro.label}</span>
+                    <strong aria-hidden="true">×</strong>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Sin filtros activos.</p>
+          )}
+        </div>
 
         <section className="consult-filters">
           <input
@@ -551,12 +619,7 @@ function VistaConsultaRadicados({ usuario }) {
             </p>
             <button
               type="button"
-              onClick={() => {
-                setTextoBusqueda("");
-                setSoloCriticos(false);
-                setSoloHoy(false);
-                setFiltroComunicacion("");
-              }}
+              onClick={limpiarFiltros}
               disabled={!hayFiltrosActivos}
             >
               Limpiar filtros
