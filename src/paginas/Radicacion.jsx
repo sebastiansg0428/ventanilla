@@ -36,6 +36,7 @@ function FormularioRadicacion({ usuario }) {
     funcionarios: "",
   });
   const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
+  const [errorArchivos, setErrorArchivos] = useState("");
   const [enProceso, setEnProceso] = useState(false);
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
   const [longitudAsunto, setLongitudAsunto] = useState(0);
@@ -132,31 +133,28 @@ function FormularioRadicacion({ usuario }) {
   function aceptarArchivos(archivosCandidatos) {
     const seleccion = Array.from(archivosCandidatos || []);
     if (!seleccion.length) return;
-    if (seleccion.length > 5) {
-      setArchivosSeleccionados([]);
-      if (selectorArchivo.current) selectorArchivo.current.value = "";
-      setMensaje({
-        texto: "Puedes adjuntar máximo 5 archivos PDF.",
-        tono: "error",
-      });
-      return;
-    }
-    const pdfsValidos = seleccion.every(
-      (archivo) =>
-        archivo.name.toLowerCase().endsWith(".pdf") &&
-        archivo.size > 0 &&
-        archivo.size <= 10 * 1024 * 1024,
-    );
-    if (!pdfsValidos) {
-      setArchivosSeleccionados([]);
-      if (selectorArchivo.current) selectorArchivo.current.value = "";
-      setMensaje({
-        texto: "Selecciona solo archivos PDF de hasta 10 MB cada uno.",
-        tono: "error",
-      });
-      return;
+    let error = seleccion.length > 5
+      ? "Puedes adjuntar máximo 5 archivos PDF."
+      : "";
+    if (!error) {
+      for (const archivo of seleccion) {
+        if (!archivo.name.toLowerCase().endsWith(".pdf")) {
+          error = `El archivo "${archivo.name}" no tiene extensión PDF. Selecciona un documento .pdf.`;
+        } else if (archivo.size === 0) {
+          error = `El archivo "${archivo.name}" está vacío. Selecciona un PDF con contenido.`;
+        } else if (archivo.size > 10 * 1024 * 1024) {
+          error = `El archivo "${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(2)} MB (${archivo.size} bytes) y supera el máximo de 10 MB (10485760 bytes) por archivo.`;
+        }
+        if (error) break;
+      }
     }
     setMensaje({ texto: "", tono: "" });
+    setErrorArchivos(error);
+    if (error) {
+      setArchivosSeleccionados([]);
+      if (selectorArchivo.current) selectorArchivo.current.value = "";
+      return;
+    }
     setArchivosSeleccionados(seleccion);
   }
 
@@ -171,10 +169,7 @@ function FormularioRadicacion({ usuario }) {
       return;
     }
     if (!archivosSeleccionados.length) {
-      setMensaje({
-        texto: "Adjunta al menos un archivo PDF.",
-        tono: "error",
-      });
+      setErrorArchivos(errorArchivos || "Adjunta al menos un archivo PDF.");
       return;
     }
 
@@ -230,6 +225,7 @@ function FormularioRadicacion({ usuario }) {
       setTipoTramiteIdSeleccionado("");
       setLongitudAsunto(0);
       setArchivosSeleccionados([]);
+      setErrorArchivos("");
       if (selectorArchivo.current) selectorArchivo.current.value = "";
       setFuncionarioSeleccionado(
         usuario.rol === "ventanilla" ? String(usuario.id) : "",
@@ -489,10 +485,18 @@ function FormularioRadicacion({ usuario }) {
                   ref={selectorArchivo}
                   type="file"
                   accept="application/pdf,.pdf"
+                  aria-label="Documentos PDF de soporte"
+                  aria-invalid={Boolean(errorArchivos)}
+                  aria-describedby={errorArchivos ? "error-archivos" : undefined}
                   multiple
                   onChange={(evento) => aceptarArchivos(evento.target.files)}
                 />
                 <p>Selecciona o arrastra hasta 5 archivos PDF</p>
+                {errorArchivos && (
+                  <div id="error-archivos">
+                    <MensajeEstado tono="error">{errorArchivos}</MensajeEstado>
+                  </div>
+                )}
                 {archivosSeleccionados.length > 0 && (
                   <ul aria-label="Archivos de radicación seleccionados">
                     {archivosSeleccionados.map((archivo, indice) => (

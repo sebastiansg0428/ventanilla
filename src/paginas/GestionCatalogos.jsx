@@ -592,7 +592,7 @@ function GestionCatalogos({ usuario }) {
                             fundamento_legal: evento.target.value,
                           }))
                         }
-                        maxLength="1000"
+                        maxLength="500"
                         required
                       />
                       <small id="tramite-fundamento-ayuda">
@@ -842,7 +842,7 @@ function GestionCatalogos({ usuario }) {
                         fundamento_legal: evento.target.value,
                       }))
                     }
-                    maxLength="1000"
+                    maxLength="500"
                     required
                   />
                 </div>

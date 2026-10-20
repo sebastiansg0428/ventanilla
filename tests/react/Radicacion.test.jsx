@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaRadicacion } from "../../src/paginas/Radicacion.jsx";
@@ -185,7 +185,7 @@ describe("radicación React", () => {
     );
 
     expect(
-      await screen.findByText("Selecciona solo archivos PDF de hasta 10 MB cada uno."),
+      await screen.findByText('El archivo "solicitud.txt" no tiene extensión PDF. Selecciona un documento .pdf.'),
     ).toBeTruthy();
     expect(solicitarApi).not.toHaveBeenCalledWith(
       "/api/radicados",
@@ -219,12 +219,87 @@ describe("radicación React", () => {
     );
 
     expect(
-      await screen.findByText("Selecciona solo archivos PDF de hasta 10 MB cada uno."),
+      await screen.findByText('El archivo "solicitud.pdf" pesa 10.00 MB (10485761 bytes) y supera el máximo de 10 MB (10485760 bytes) por archivo.'),
     ).toBeTruthy();
     expect(solicitarApi).not.toHaveBeenCalledWith(
       "/api/radicados",
       expect.anything(),
     );
+  });
+
+  it("rechaza un PDF vacío y asocia el error al selector", async () => {
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    await user.upload(selector, new File([], "vacio.pdf", { type: "application/pdf" }));
+
+    expect(await screen.findByText(
+      'El archivo "vacio.pdf" está vacío. Selecciona un PDF con contenido.',
+    )).toBeTruthy();
+    expect(selector.getAttribute("aria-invalid")).toBe("true");
+    expect(selector.getAttribute("aria-describedby")).toBe("error-archivos");
+    expect(selector.value).toBe("");
+    expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
+  });
+
+  it("mantiene el motivo del rechazo y los campos con un asunto mayor de 500 caracteres", async () => {
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    await completarFormulario(user);
+    const asunto = screen.getByLabelText(/asunto \/ resumen/i);
+    fireEvent.change(asunto, { target: { value: "a".repeat(1184) } });
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    await user.upload(selector, new File(
+      [new Uint8Array(12169228)], "portadas para cuaderno.pdf",
+      { type: "application/pdf" },
+    ));
+    const error = 'El archivo "portadas para cuaderno.pdf" pesa 11.61 MB (12169228 bytes) y supera el máximo de 10 MB (10485760 bytes) por archivo.';
+    expect(await screen.findByText(error)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    expect(screen.getByText(error)).toBeTruthy();
+    expect(screen.queryByText("Adjunta al menos un archivo PDF.")).toBeNull();
+    expect(asunto.value).toBe("a".repeat(1184));
+    expect(screen.getByLabelText(/nombre completo del remitente/i).value).toBe("María Torres");
+    expect(screen.getByLabelText(/dependencia de destino/i).value).toBe("3");
+    expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
+
+    await user.upload(selector, new File(["PDF"], "valido.pdf", { type: "application/pdf" }));
+    expect(await screen.findByText(/valido.pdf/)).toBeTruthy();
+    expect(screen.queryByText(error)).toBeNull();
+    expect(selector.getAttribute("aria-invalid")).toBe("false");
+    expect(asunto.value).toBe("a".repeat(1184));
+  }, 10_000);
+
+  it("descarta toda la selección si contiene un archivo inválido y permite corregirla por arrastre", async () => {
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    const zona = selector.closest(".upload-field");
+    const valido = new File(["PDF"], "valido.pdf", { type: "application/pdf" });
+    const invalido = new File(["texto"], "invalido.txt", { type: "text/plain" });
+    fireEvent.drop(zona, { dataTransfer: { files: [valido, invalido] } });
+    expect(await screen.findByText(/"invalido.txt" no tiene extensión PDF/)).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
+    expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
+    fireEvent.drop(zona, { dataTransfer: { files: [valido] } });
+    expect(await screen.findByText(/valido.pdf/)).toBeTruthy();
+    expect(screen.queryByText(/"invalido.txt" no tiene extensión PDF/)).toBeNull();
+  });
+
+  it("rechaza más de cinco archivos y acepta una selección corregida de cinco", async () => {
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    const archivos = Array.from({ length: 6 }, (_, indice) =>
+      new File(["PDF"], `adjunto-${indice}.pdf`, { type: "application/pdf" }),
+    );
+    await user.upload(selector, archivos);
+    expect(await screen.findByText("Puedes adjuntar máximo 5 archivos PDF.")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
+    expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
+    await user.upload(selector, archivos.slice(0, 5));
+    expect(await screen.findByRole("list", { name: "Archivos de radicación seleccionados" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Quitar" })).toHaveLength(5);
+    expect(screen.queryByText("Puedes adjuntar máximo 5 archivos PDF.")).toBeNull();
   });
 
   it("envía el formulario y genera el comprobante después del registro exitoso", async () => {
