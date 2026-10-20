@@ -34,6 +34,14 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
-## Código anterior
+## Adjuntos de respuesta institucional
 
+El modal admite hasta 5 PDFs de hasta 10 MB (10.485.760 bytes) cada uno.
+Una selección inválida muestra una alerta fuera del cuerpo desplazable y
+conserva los adjuntos válidos anteriores, el contenido y la plantilla. La lista
+de archivos seleccionados indica qué documentos se enviarán aunque el selector
+nativo quede vacío tras el rechazo. Una selección válida nueva reemplaza la
+anterior; los adjuntos siguen siendo opcionales.
+
+## Código anterior
 Los scripts de la interfaz anterior se conservan en `legacy/js/`; las páginas actuales cargan los componentes de `src/`. Las pruebas en `tests/` mantienen cobertura de esos scripts anteriores y no representan todavía pruebas completas de la interfaz React.

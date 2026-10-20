@@ -93,6 +93,7 @@ function VistaConsultaRadicados({ usuario }) {
   const [plantillaRespuesta, setPlantillaRespuesta] = useState("");
   // Guardamos la selección en una lista porque el formulario permite varios PDF.
   const [archivosRespuesta, setArchivosRespuesta] = useState([]);
+  const [errorArchivosRespuesta, setErrorArchivosRespuesta] = useState("");
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   const [mensajeRespuesta, setMensajeRespuesta] = useState("");
   const [respuestaConsultada, setRespuestaConsultada] = useState(null);
@@ -242,10 +243,36 @@ function VistaConsultaRadicados({ usuario }) {
     setTextoRespuesta("");
     setPlantillaRespuesta("");
     setArchivosRespuesta([]);
+    setErrorArchivosRespuesta("");
     if (entradaArchivosRespuesta.current)
       entradaArchivosRespuesta.current.value = "";
     setMensajeRespuesta("");
     setRespuestaSeleccionada(radicado);
+  }
+
+  function aceptarArchivosRespuesta(evento) {
+    const seleccion = Array.from(evento.target.files || []);
+    if (!seleccion.length) return;
+    let error = seleccion.length > 5
+      ? "Puedes adjuntar máximo 5 archivos PDF."
+      : "";
+    for (const archivo of seleccion) {
+      if (error) break;
+      if (!archivo.name.toLowerCase().endsWith(".pdf")) {
+        error = `El archivo "${archivo.name}" no tiene extensión PDF. Selecciona un documento .pdf.`;
+      } else if (archivo.size === 0) {
+        error = `El archivo "${archivo.name}" está vacío. Selecciona un PDF con contenido.`;
+      } else if (archivo.size > 10 * 1024 * 1024) {
+        error = `El archivo "${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(2)} MB (${archivo.size} bytes) y supera el máximo de 10 MB (10485760 bytes) por archivo.`;
+      }
+    }
+    setMensajeRespuesta("");
+    setErrorArchivosRespuesta(error);
+    if (error) {
+      evento.target.value = "";
+      return;
+    }
+    setArchivosRespuesta(seleccion);
   }
 
   async function enviarRespuesta(evento) {
@@ -1110,26 +1137,9 @@ function VistaConsultaRadicados({ usuario }) {
                 type="file"
                 accept="application/pdf,.pdf"
                 multiple
-                onChange={(e) => {
-                  const seleccion = Array.from(e.target.files || []);
-                  const pdfsValidos =
-                    seleccion.length <= 5 &&
-                    seleccion.every(
-                      (archivo) =>
-                        archivo.name.toLowerCase().endsWith(".pdf") &&
-                        archivo.size <= 10 * 1024 * 1024,
-                    );
-                  if (!pdfsValidos) {
-                    setMensajeRespuesta(
-                      "Selecciona máximo 5 archivos PDF, cada uno de hasta 10 MB.",
-                    );
-                    e.target.value = "";
-                    setArchivosRespuesta([]);
-                    return;
-                  }
-                  setMensajeRespuesta("");
-                  setArchivosRespuesta(seleccion);
-                }}
+                aria-invalid={Boolean(errorArchivosRespuesta)}
+                aria-describedby={errorArchivosRespuesta ? "error-archivos-respuesta" : undefined}
+                onChange={aceptarArchivosRespuesta}
               />
               {archivosRespuesta.length > 0 && (
                 <ul aria-label="Archivos seleccionados">
@@ -1141,10 +1151,25 @@ function VistaConsultaRadicados({ usuario }) {
                   ))}
                 </ul>
               )}
-              <p role="status" aria-live="polite">
-                {mensajeRespuesta}
-              </p>
             </div>
+            {(errorArchivosRespuesta || mensajeRespuesta) && (
+              <div className="respuesta-mensajes">
+                {errorArchivosRespuesta && (
+                  <p
+                    id="error-archivos-respuesta"
+                    className="auth-message"
+                    data-state="error"
+                    role="alert"
+                  >
+                    {errorArchivosRespuesta}{" "}
+                    {archivosRespuesta.length > 0
+                      ? `Se conservan los adjuntos válidos anteriores (${archivosRespuesta.length} PDF).`
+                      : "No se ha adjuntado ningún archivo."}
+                  </p>
+                )}
+                <p role="status" aria-live="polite">{mensajeRespuesta}</p>
+              </div>
+            )}
             <div className="modal-footer">
               <button
                 type="button"

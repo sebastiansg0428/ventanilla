@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaConsultaRadicados } from "../../src/paginas/ConsultaRadicados.jsx";
@@ -61,6 +61,21 @@ async function abrirConsulta() {
   await screen.findByRole("button", { name: "RAD-003" });
 }
 
+async function abrirRespuesta(user) {
+  await abrirConsulta();
+  const dialogo = document.querySelector(".respuesta-dialog");
+  dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
+  dialogo.close = vi.fn(() => {
+    dialogo.removeAttribute("open");
+  });
+  await user.click(screen.getAllByRole("button", { name: "Responder" })[0]);
+  return screen.findByLabelText(/Documentos de respuesta/);
+}
+
+function crearPdf(nombre, tamano) {
+  return new File([new Uint8Array(tamano)], nombre, { type: "application/pdf" });
+}
+
 function simularAlerta() {
   const alertar = vi.fn();
   const ventanaPrueba = Object.create(window);
@@ -91,6 +106,108 @@ describe("consulta de radicados React", () => {
       }
       throw new Error(`Ruta inesperada: ${ruta}`);
     });
+  });
+
+  it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {
+    const user = userEvent.setup();
+    const selector = await abrirRespuesta(user);
+
+    await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
+
+    const alerta = screen.getByRole("alert");
+    expect(alerta.textContent).toContain("excedido.pdf");
+    expect(alerta.textContent).toContain("10485761 bytes");
+    expect(alerta.textContent).toContain("10 MB");
+    expect(alerta.closest(".modal-content")).toBeNull();
+    expect(selector.getAttribute("aria-invalid")).toBe("true");
+    expect(selector.getAttribute("aria-describedby")).toContain(alerta.id);
+    expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
+  });
+
+  it("conserva y envía los PDFs anteriores al rechazar una selección nueva", async () => {
+    const user = userEvent.setup();
+    const selector = await abrirRespuesta(user);
+    const valido = crearPdf("anterior.pdf", 32);
+    await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
+    await user.upload(selector, valido);
+    await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
+
+    expect(screen.getByRole("alert").textContent).toContain("Se conservan");
+    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getByText(/anterior.pdf/)).toBeTruthy();
+    expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
+    expect(screen.getByLabelText(/Contenido de la respuesta/).value).toContain("En atención");
+
+    const original = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (opciones.method === "POST") {
+        return { ok: true, json: async () => ({ success: true, estado: "Respondido" }) };
+      }
+      return original(ruta, opciones);
+    });
+    await user.click(screen.getByRole("button", { name: "Enviar respuesta" }));
+
+    const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
+    expect(envio[1].body.getAll("archivos")).toEqual([valido]);
+    await waitFor(() => expect(screen.queryByLabelText(/Documentos de respuesta/)).toBeNull());
+  });
+
+  it("acepta exactamente 10 MB y limpia el error al reemplazar la selección", async () => {
+    const user = userEvent.setup();
+    const selector = await abrirRespuesta(user);
+    await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
+    await user.upload(selector, crearPdf("limite.pdf", 10 * 1024 * 1024));
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(selector.getAttribute("aria-invalid")).toBe("false");
+    expect(screen.getByText(/limite.pdf/)).toBeTruthy();
+  });
+
+  it("rechaza más de cinco PDFs y extensiones inválidas sin borrar los anteriores", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const selector = await abrirRespuesta(user);
+    await user.upload(selector, crearPdf("anterior.pdf", 32));
+    await user.upload(selector, Array.from({ length: 6 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
+    expect(screen.getByRole("alert").textContent).toContain("máximo 5");
+    await user.upload(selector, new File(["texto"], "invalido.txt", { type: "text/plain" }));
+    expect(screen.getByRole("alert").textContent).toContain("invalido.txt");
+    expect(screen.getByText(/anterior.pdf/)).toBeTruthy();
+    fireEvent.change(selector, { target: { files: [] } });
+    expect(screen.getByText(/anterior.pdf/)).toBeTruthy();
+  });
+
+  it("admite cinco PDFs, rechaza archivos vacíos y reinicia los adjuntos al reabrir", async () => {
+    const user = userEvent.setup();
+    const selector = await abrirRespuesta(user);
+    await user.upload(selector, Array.from({ length: 5 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
+    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
+    await user.upload(selector, crearPdf("vacio.pdf", 0));
+    expect(screen.getByRole("alert").textContent).toContain("está vacío");
+    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
+
+    const dialogo = document.querySelector(".respuesta-dialog");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent(dialogo, new Event("close"));
+    await waitFor(() => expect(screen.queryByLabelText(/Documentos de respuesta/)).toBeNull());
+    await user.click(screen.getAllByRole("button", { name: "Responder" })[0]);
+    await screen.findByLabelText(/Documentos de respuesta/);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
+  });
+
+  it("permite responder sin adjuntos y mantiene visible un rechazo del servidor", async () => {
+    const user = userEvent.setup();
+    await abrirRespuesta(user);
+    await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
+    const original = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (opciones.method === "POST") throw new Error("Cada PDF debe pesar máximo 10 MB.");
+      return original(ruta, opciones);
+    });
+    await user.click(screen.getByRole("button", { name: "Enviar respuesta" }));
+    const mensaje = await screen.findByText("Cada PDF debe pesar máximo 10 MB.");
+    expect(mensaje.closest(".modal-content")).toBeNull();
+    const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
+    expect(envio[1].body.getAll("archivos")).toEqual([]);
   });
 
   it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {

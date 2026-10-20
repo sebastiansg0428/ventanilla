@@ -1975,6 +1975,7 @@ button.dashboard-card {
 }
 .respuesta-dialog .modal-header,
 .respuesta-dialog .modal-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1987,14 +1988,27 @@ button.dashboard-card {
   justify-content: flex-end;
 }
 .respuesta-dialog .modal-content {
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
   gap: 0.65rem;
+}
+.respuesta-dialog .respuesta-mensajes {
+  flex-shrink: 0;
+  max-height: 30vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: 0 1rem;
 }
 .respuesta-dialog textarea,
 .respuesta-dialog select,
 .respuesta-dialog input {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 #modal-detalle::backdrop,
 .receipt-dialog::backdrop {
