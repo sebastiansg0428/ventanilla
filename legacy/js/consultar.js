@@ -298,7 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        const estadosDisponibles = ['Recibido', 'En trámite', 'Pendiente', 'Respondido'];
+        const estadosDisponibles = ['Recibido', 'En trámite', 'Pendiente'];
         const estilosSemaforo = {
             completado: 'verde',
             vencido: 'rojo',
@@ -309,6 +309,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         tablaBody.innerHTML = datos.map(item => {
             const fechaFormateada = new Date(item.fecha_creacion).toLocaleString();
             const estadoActual = item.estado || 'Recibido';
+            const sinRespuesta = item.requiere_respuesta === 0 || item.requiere_respuesta === false;
+            const final = ['Respondido', 'Enterado'].includes(estadoActual);
+            const opcionesEstado = [...estadosDisponibles, ...(sinRespuesta ? ['Enterado'] : [])];
+            if (!opcionesEstado.includes(estadoActual)) opcionesEstado.push(estadoActual);
             const tipoNormalizado = obtenerTipo(item);
             const tipoBadgeClass = tipoNormalizado === 'interna'
                 ? 'badge-comunicacion--interna'
@@ -361,9 +365,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     <!-- 5. ESTADO -->
                     <td class="p-4">
-                        <select ${usuario.rol === 'ventanilla' ? 'disabled' : ''} id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${escaparHtml(item.numero_radicado)}" data-radicado="${escaparHtml(item.numero_radicado)}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
-                            ${estadosDisponibles.map(est => `
-                                <option value="${est}" ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${est}</option>
+                        <small>${sinRespuesta ? 'No requiere respuesta' : 'Requiere respuesta'}</small>
+                        <select ${usuario.rol === 'ventanilla' || final ? 'disabled' : ''} id="estado-${encodeURIComponent(item.numero_radicado)}" aria-label="Estado del radicado ${escaparHtml(item.numero_radicado)}" data-radicado="${escaparHtml(item.numero_radicado)}" class="select-estado px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                            ${opcionesEstado.map(est => `
+                                <option value="${escaparHtml(est)}" ${!estadosDisponibles.includes(est) && est !== 'Enterado' ? 'disabled' : ''} ${estadoActual.toLowerCase() === est.toLowerCase() ? 'selected' : ''}>${escaparHtml(est)}</option>
                             `).join('')}
                         </select>
                     </td>

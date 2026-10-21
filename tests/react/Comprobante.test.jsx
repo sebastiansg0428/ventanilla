@@ -24,7 +24,7 @@ it.each(["Planeación histórica", null])("incluye el origen interno guardado %s
   expect(textos.filter(({ texto }) => texto === "Línea del asunto").every(({ y }) => y <= 255)).toBe(true);
 });
 
-it("incluye clasificación jurídica, razón social, NIT y correo sin origen interno", () => {
+it.each([false, 0, true, undefined])("incluye datos externos y solo imprime la regla explícita sin respuesta (%s)", (regla) => {
   const textos = [];
   const pdf = {
     setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
@@ -35,6 +35,7 @@ it("incluye clasificación jurídica, razón social, NIT y correo sin origen int
   };
   vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
   crearPdfComprobante({
+    requiere_respuesta: regla,
     tipo_comunicacion: "Externa", remitente_tipo_persona: "juridica",
     remitente_entidad: "Empresa", remitente_nit: "123", remitente_email: "a@example.com",
     dependencia_remitente: "No corresponde",
@@ -44,4 +45,5 @@ it("incluye clasificación jurídica, razón social, NIT y correo sin origen int
     "• NIT: 123", "• Correo: a@example.com",
   ]));
   expect(textos.some((texto) => texto.includes("Dependencia Remitente"))).toBe(false);
+  expect(textos.some((texto) => texto.includes("No requiere respuesta"))).toBe(regla === false || regla === 0);
 });

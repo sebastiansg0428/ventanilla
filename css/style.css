@@ -1179,6 +1179,24 @@ footer {
   --semaforo-punto: #94a3b8;
 }
 
+#tabla-radicados .regla-respuesta {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #475569;
+  font-size: 0.72rem;
+}
+
+#tabla-radicados .estado-final {
+  display: inline-block;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 #tabla-radicados .semaforo__dot {
   width: 0.5rem;
   height: 0.5rem;

@@ -21,6 +21,7 @@ const CATEGORIAS_TRAMITE = [
 ];
 const FORMULARIO_DEPENDENCIA_VACIO = { nombre: "" };
 const FORMULARIO_TRAMITE_VACIO = {
+  requiere_respuesta: true,
   codigo: "",
   nombre: "",
   categoria_general: "",
@@ -201,6 +202,7 @@ function GestionCatalogos({ usuario }) {
         setFormularioTramite({
           ...FORMULARIO_TRAMITE_VACIO,
           codigo: registro.codigo || "",
+          requiere_respuesta: registro.requiere_respuesta !== false && registro.requiere_respuesta !== 0,
           nombre: registro.nombre || "",
           categoria_general: registro.categoria_general || "",
           orden:
@@ -235,6 +237,7 @@ function GestionCatalogos({ usuario }) {
             codigo: formularioTramite.codigo.trim(),
             nombre: formularioTramite.nombre.trim(),
             categoria_general: formularioTramite.categoria_general.trim(),
+            requiere_respuesta: formularioTramite.requiere_respuesta,
             ...(formularioTramite.orden !== ""
               ? { orden: Number(formularioTramite.orden) }
               : {}),
@@ -243,12 +246,15 @@ function GestionCatalogos({ usuario }) {
             codigo: formularioTramite.codigo.trim(),
             nombre: formularioTramite.nombre.trim(),
             categoria_general: formularioTramite.categoria_general.trim(),
+            requiere_respuesta: formularioTramite.requiere_respuesta,
+            ...(formularioTramite.requiere_respuesta ? {
             dias: Number(formularioTramite.dias),
             tipo_dias: formularioTramite.tipo_dias,
             fundamento_legal: formularioTramite.fundamento_legal.trim(),
             ...(formularioTramite.vigente_desde
               ? { vigente_desde: formularioTramite.vigente_desde }
               : {}),
+            } : {}),
           };
 
     setEnProceso(true);
@@ -509,6 +515,17 @@ function GestionCatalogos({ usuario }) {
                     legal se define por separado.
                   </small>
                 </div>
+                <div className="auth-field auth-field--full">
+                  <label htmlFor="tramite-requiere-respuesta">
+                    <input id="tramite-requiere-respuesta" type="checkbox"
+                      checked={formularioTramite.requiere_respuesta}
+                      onChange={(evento) => setFormularioTramite((actual) => ({
+                        ...actual, requiere_respuesta: evento.target.checked,
+                      }))} />
+                    Requiere respuesta
+                  </label>
+                  <small>Aplica solo a futuras radicaciones. Si exige respuesta, debe tener un término vigente. Valida esta clasificación con el responsable documental.</small>
+                </div>
                 {editando ? (
                   <div className="auth-field">
                     <label htmlFor="tramite-orden">Orden (opcional)</label>
@@ -530,7 +547,7 @@ function GestionCatalogos({ usuario }) {
                       vacío si no necesitas cambiarla.
                     </small>
                   </div>
-                ) : (
+                ) : formularioTramite.requiere_respuesta ? (
                   <>
                     <div className="catalog-form-section-heading auth-field--full">
                       <h3>Plazo legal inicial</h3>
@@ -620,7 +637,7 @@ function GestionCatalogos({ usuario }) {
                       </small>
                     </div>
                   </>
-                )}
+                ) : null}
               </>
             )}
             <div className="auth-field--full catalog-form-actions">
@@ -697,7 +714,8 @@ function GestionCatalogos({ usuario }) {
                               <td>{registro.codigo || "—"}</td>
                               <td>{registro.categoria_general || "—"}</td>
                               <td>
-                                {registro.termino_legal_id
+                                {registro.requiere_respuesta === 0 || registro.requiere_respuesta === false
+                                  ? "No requiere respuesta" : registro.termino_legal_id
                                   ? `${registro.dias} ${registro.tipo_dias || "días"}`
                                   : "Sin término vigente"}
                               </td>

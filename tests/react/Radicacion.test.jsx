@@ -87,6 +87,30 @@ describe("radicación React", () => {
     crearPdfComprobante.mockReset().mockReturnValue({ save: guardarPdf });
   });
 
+  it("permite radicar tipo sin respuesta y sin término y usa la regla confirmada en el comprobante", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/tipos-tramite") return { json: async () => ({
+        tipos_tramite: [{ id: 10, nombre: "Solicitud general", requiere_respuesta: 0, termino_legal_id: null }],
+      }) };
+      if (ruta === "/api/radicados") return { json: async () => ({
+        success: true, radicado: "RAD-INFO", tipo_comunicacion: "Externa", requiere_respuesta: false, termino: null,
+      }) };
+      return base(ruta, opciones);
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    expect(screen.getByText(/No requiere respuesta: el destino/)).toBeTruthy();
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "informativo.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    await screen.findByText(/Radicado RAD-INFO guardado/);
+    expect(crearPdfComprobante).toHaveBeenCalledWith(expect.objectContaining({ requiere_respuesta: false }));
+    const body = solicitarApi.mock.calls.find(([ruta]) => ruta === "/api/radicados")[1].body;
+    expect(body.has("requiere_respuesta")).toBe(false);
+  }, 10_000);
+
   it("muestra solo el origen interno y limpia selecciones incompatibles al cambiar de clase", async () => {
     await abrirRadicacion();
     const clase = screen.getByLabelText(/clase de comunicación/i);

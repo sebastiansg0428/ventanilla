@@ -45,6 +45,8 @@ function crearComprobantePDF(datosRadicado) {
     }
 
     const itemsDetalle = [
+        ...(datosRadicado.requiere_respuesta === false || datosRadicado.requiere_respuesta === 0
+            ? ['No requiere respuesta'] : []),
         `Tipo de Comunicación: ${datosRadicado.tipo_comunicacion || 'No especificado'}`,
         ...(datosRadicado.tipo_comunicacion === 'Interna'
             ? [`Dependencia Remitente: ${datosRadicado.dependencia_remitente || 'No registrada'}`]

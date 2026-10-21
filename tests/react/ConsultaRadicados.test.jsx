@@ -447,9 +447,68 @@ describe("consulta de radicados React", () => {
       name: "Estado de RAD-001",
     });
 
-    await user.selectOptions(selectorEstado, "Respondido");
+    await user.selectOptions(selectorEstado, "En trámite");
 
     await waitFor(() => expect(selectorEstado.value).toBe("Recibido"));
     expect(alertar).toHaveBeenCalledWith("No se pudo guardar el estado.");
+  });
+
+  it("ofrece Enterado sin Responder ni Respondido y bloquea el cierre confirmado", async () => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], { requiere_respuesta: 0, semaforo: { nivel: "sin_respuesta", texto: "No requiere respuesta" } });
+    let confirmar;
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados: filas });
+      if (ruta.endsWith("/estado")) return new Promise(resolve => { confirmar = resolve; });
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const selector = within(fila).getByLabelText("Estado de RAD-001");
+    expect(Array.from(selector.options).map(o => o.value)).toEqual(["Recibido", "En trámite", "Pendiente", "Enterado"]);
+    expect(within(fila).queryByRole("button", { name: "Responder" })).toBeNull();
+    fireEvent.change(selector, { target: { value: "Enterado" } });
+    expect(selector.disabled).toBe(true);
+    expect(within(fila).getByText("Guardando estado…")).toBeTruthy();
+    confirmar(respuestaJson({ success: true, estado: "Enterado",
+      fecha_enterado: "2026-10-21 15:30:00", semaforo: { nivel: "completado", texto: "Enterado" } }));
+    await waitFor(() => expect(within(fila).queryByRole("combobox")).toBeNull());
+    expect(within(fila).getByLabelText("Estado de RAD-001: Enterado")).toBeTruthy();
+    expect(within(fila).queryByRole("button", { name: "Ver respuesta" })).toBeNull();
+  });
+
+  it("mantiene Respondido final y no ofrece cierre Enterado para una solicitud", async () => {
+    const filas = crearRadicados();
+    filas[1].estado = "Respondido";
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
+      ? respuestaJson({ success: true, radicados: filas }) : base(ruta, opciones));
+    await abrirConsulta();
+    const selector = screen.getByLabelText("Estado de RAD-001");
+    expect(Array.from(selector.options).map(o => o.value)).toEqual(["Recibido", "En trámite", "Pendiente"]);
+    expect(screen.getByLabelText("Estado de RAD-002: Respondido")).toBeTruthy();
+  });
+
+  it("confirma Enterado solo para la asignación global seleccionada", async () => {
+    const filas = crearRadicados();
+    const global = { ...filas[0], requiere_respuesta: 0, destino_todas_dependencias: 1 };
+    const asignaciones = [
+      { ...global, radicado_dependencia_id: 50, seguimiento_dependencia_nombre: "Planeación" },
+      { ...global, radicado_dependencia_id: 51, seguimiento_dependencia_nombre: "Talento Humano" },
+    ];
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
+      ? respuestaJson({ success: true, radicados: [...asignaciones, ...filas.slice(1)] }) : base(ruta, opciones));
+    render(<PaginaConsultaRadicados />);
+    const botones = await screen.findAllByText("RAD-001", { selector: "button" });
+    const primera = botones[0].closest("tr");
+    const segunda = botones[1].closest("tr");
+    fireEvent.change(within(primera).getByRole("combobox"), { target: { value: "Enterado" } });
+    await waitFor(() => expect(within(primera).queryByRole("combobox")).toBeNull());
+    expect(within(segunda).getByRole("combobox").value).toBe("Recibido");
+    const llamada = solicitarApi.mock.calls.find(([ruta, opciones]) =>
+      ruta.endsWith("/estado") && opciones.method === "PUT");
+    expect(JSON.parse(llamada[1].body)).toEqual({ estado: "Enterado", radicado_dependencia_id: 50 });
   });
 });

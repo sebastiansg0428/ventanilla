@@ -180,6 +180,7 @@ describe("gestión de catálogos React", () => {
             codigo: "peticion_consulta",
             nombre: "Petición consulta",
             categoria_general: "consulta",
+            requiere_respuesta: true,
             dias: 15,
             tipo_dias: "calendario",
             fundamento_legal: "Ley aplicable",
@@ -241,7 +242,31 @@ describe("gestión de catálogos React", () => {
         codigo: "peticion_general",
         nombre: "Petición actualizada",
         categoria_general: "peticion_general",
+        requiere_respuesta: true,
         orden: 4,
+      });
+    });
+  });
+
+  it("crea un tipo sin respuesta sin pedir plazo ni enviar término ficticio", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<PaginaGestionCatalogos />);
+    await screen.findByText("Planeación", { selector: "td" });
+    await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
+    const nombre = screen.getByLabelText("Nombre *");
+    await user.click(nombre);
+    await user.paste("Informativo nuevo");
+    await user.selectOptions(screen.getByLabelText(/Categoría general/), "peticion_general");
+    await user.click(screen.getByLabelText("Requiere respuesta"));
+    expect(screen.queryByLabelText(/Cantidad de días para responder/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+    await waitFor(() => {
+      const llamada = solicitarApi.mock.calls.find(([ruta, opciones]) =>
+        ruta === "/api/tipos-tramite" && opciones?.method === "POST");
+      expect(llamada).toBeTruthy();
+      expect(JSON.parse(llamada[1].body)).toEqual({
+        codigo: "informativo_nuevo", nombre: "Informativo nuevo",
+        categoria_general: "peticion_general", requiere_respuesta: false,
       });
     });
   });

@@ -8,7 +8,11 @@ import {
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
 
-const ESTADOS_POSIBLES = ["Recibido", "En trámite", "Pendiente", "Respondido"];
+const ESTADOS_POSIBLES = ["Recibido", "En trámite", "Pendiente"];
+const requiereRespuesta = (radicado) =>
+  radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
+const esFinal = (radicado) => ["Respondido", "Enterado"].includes(radicado.estado);
+const claveEstado = (radicado) => `${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`;
 const normalizarTexto = (valor) =>
   String(valor || "")
     // normalize es un método integrado de JavaScript para normalizar tildes.
@@ -73,6 +77,9 @@ function VistaConsultaRadicados({ usuario }) {
   const [filtroComunicacion, setFiltroComunicacion] = useState("");
   const [cargando, setCargando] = useState(true);
   const [mensajeError, setMensajeError] = useState("");
+  const [guardandoEstados, setGuardandoEstados] = useState({});
+  const [erroresEstado, setErroresEstado] = useState({});
+  const estadosEnProceso = useRef(new Set());
   const [dependenciaAlertas, setDependenciaAlertas] = useState("");
   const [resumenAlertas, setResumenAlertas] = useState({
     porVencer: [],
@@ -426,6 +433,11 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   async function cambiarEstado(radicado, nuevoEstado) {
+    const clave = claveEstado(radicado);
+    if (estadosEnProceso.current.has(clave)) return;
+    estadosEnProceso.current.add(clave);
+    setGuardandoEstados((actual) => ({ ...actual, [clave]: true }));
+    setErroresEstado((actual) => ({ ...actual, [clave]: "" }));
     const estadoAnterior = radicado.estado || "Recibido";
     setRadicados((actual) =>
       actual.map((fila) =>
@@ -451,6 +463,7 @@ function VistaConsultaRadicados({ usuario }) {
         },
       );
       const resultado = await respuesta.json();
+      if (resultado.success === false || !resultado.estado) throw new Error(resultado.message || "No se pudo guardar el estado.");
       setRadicados((actual) =>
         actual.map((fila) =>
           (
@@ -463,6 +476,7 @@ function VistaConsultaRadicados({ usuario }) {
                 ...fila,
                 estado: resultado.estado,
                 semaforo: resultado.semaforo,
+                fecha_enterado: resultado.fecha_enterado,
               }
             : fila,
         ),
@@ -481,6 +495,10 @@ function VistaConsultaRadicados({ usuario }) {
         ),
       );
       window.alert(error.message);
+      setErroresEstado((actual) => ({ ...actual, [clave]: error.message }));
+    } finally {
+      estadosEnProceso.current.delete(clave);
+      setGuardandoEstados((actual) => ({ ...actual, [clave]: false }));
     }
   }
 
@@ -688,6 +706,9 @@ function VistaConsultaRadicados({ usuario }) {
                       key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}
                     >
                       <td>
+                        <small className="regla-respuesta">
+                          {requiereRespuesta(radicado) ? "Requiere respuesta" : "No requiere respuesta"}
+                        </small>
                         <button
                           className="ver-detalle"
                           type="button"
@@ -735,20 +756,27 @@ function VistaConsultaRadicados({ usuario }) {
                         </span>
                       </td>
                       <td>
-                        <select
+                        {esFinal(radicado) && !guardandoEstados[claveEstado(radicado)] ? (
+                          <span className="estado-final" aria-label={`Estado de ${radicado.numero_radicado}: ${radicado.estado}`}>
+                            {radicado.estado}
+                          </span>
+                        ) : <select
                           id={`estado-radicado-${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "-")}-${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "-")}`}
                           name={`estado_radicado_${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "_")}_${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "_")}`}
                           aria-label={`Estado de ${radicado.numero_radicado}`}
-                          disabled={usuario.rol === "ventanilla"}
+                          disabled={usuario.rol === "ventanilla" || guardandoEstados[claveEstado(radicado)]}
                           value={radicado.estado || "Recibido"}
                           onChange={(evento) =>
                             cambiarEstado(radicado, evento.target.value)
                           }
                         >
-                          {ESTADOS_POSIBLES.map((estadoPosible) => (
-                            <option key={estadoPosible}>{estadoPosible}</option>
+                          {[...ESTADOS_POSIBLES, ...(!requiereRespuesta(radicado) ? ["Enterado"] : []),
+                            ...(![...ESTADOS_POSIBLES, "Enterado"].includes(radicado.estado || "Recibido") ? [radicado.estado] : [])].map((estadoPosible) => (
+                            <option key={estadoPosible} disabled={!ESTADOS_POSIBLES.includes(estadoPosible) && estadoPosible !== "Enterado"}>{estadoPosible}</option>
                           ))}
-                        </select>
+                        </select>}
+                        {guardandoEstados[claveEstado(radicado)] && <small role="status">Guardando estado…</small>}
+                        {erroresEstado[claveEstado(radicado)] && <small role="alert">{erroresEstado[claveEstado(radicado)]}</small>}
                       </td>
                       <td>
                         <button
@@ -759,7 +787,7 @@ function VistaConsultaRadicados({ usuario }) {
                           Ver comprobante
                         </button>
                         {usuario.rol !== "ventanilla" &&
-                          radicado.estado !== "Respondido" && (
+                          requiereRespuesta(radicado) && !esFinal(radicado) && (
                             <button
                               type="button"
                               className="generar-comprobante"
@@ -885,6 +913,12 @@ function VistaConsultaRadicados({ usuario }) {
                 etiqueta="Estado"
                 valor={radicadoSeleccionado.estado || "Recibido"}
               />
+              <CampoDetalle etiqueta="Requisito de respuesta"
+                valor={requiereRespuesta(radicadoSeleccionado) ? "Requiere respuesta" : "No requiere respuesta"} />
+              {radicadoSeleccionado.fecha_enterado && (
+                <CampoDetalle etiqueta="Fecha de enterado"
+                  valor={convertirFechaLocal(radicadoSeleccionado.fecha_enterado)?.toLocaleString("es-CO")} />
+              )}
               <CampoDetalle
                 etiqueta="Remitente"
                 valor={radicadoSeleccionado.remitente_nombre}
@@ -924,7 +958,7 @@ function VistaConsultaRadicados({ usuario }) {
               />
               <CampoDetalle
                 etiqueta="Fecha límite"
-                valor={radicadoSeleccionado.fecha_limite_actual}
+                valor={requiereRespuesta(radicadoSeleccionado) ? radicadoSeleccionado.fecha_limite_actual : "No aplica"}
               />
               <CampoDetalle
                 etiqueta="Fundamento legal"

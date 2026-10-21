@@ -27,6 +27,8 @@ export function crearPdfComprobante(datos) {
   coordenadaY += 9;
   documentoPdf.setFont('helvetica', 'normal');
   const lineasDetalle = [
+    ...(datos.requiere_respuesta === false || datos.requiere_respuesta === 0
+      ? ['No requiere respuesta'] : []),
     `Tipo de Comunicación: ${datos.tipo_comunicacion || 'No especificado'}`,
     ...(datos.tipo_comunicacion === 'Interna'
       ? [`Dependencia Remitente: ${datos.dependencia_remitente || 'No registrada'}`]

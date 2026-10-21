@@ -84,7 +84,7 @@ npm run build
 comprobantes con React Testing Library y servicios simulados. Las pruebas
 legadas cubren `legacy/js/`; no sustituyen las pruebas React. Ninguna de estas
 suites constituye una prueba de extremo a extremo con el backend y MySQL reales.
-Para preparar una base nueva consulta la secuencia 000-019 en el
+Para preparar una base nueva consulta la secuencia 000-020 en el
 [README del backend](../backend/README.md); su ejecucion real en una base aislada
 sigue pendiente de validacion y no debe hacerse sobre la base de uso actual.
 
@@ -132,6 +132,30 @@ Requiere la migración 019 y el backend actualizado, desplegados conjuntamente.
 Registrar una dependencia remitente no concede acceso a esa oficina: los
 permisos siguen dependiendo del destino. No se agregan dirección física ni
 destinatarios externos.
+
+## Informativos y confirmacion Enterado
+
+Requiere la migracion backend 020 y despliegue coordinado de ambos clientes y
+servidor. En Catalogos, el administrador configura «Requiere respuesta» por
+tipo de tramite. Al crear un tipo sin respuesta no se solicita un termino
+legal ficticio. Para activar respuesta posteriormente, registra un termino
+vigente antes de usarlo en radicacion. La regla solo afecta radicados futuros.
+
+Radicacion admite un tipo sin respuesta aunque no tenga termino legal; muestra
+la advertencia y usa la regla confirmada por la API en el PDF. Interna/Externa
+no decide si un documento requiere respuesta. Los historicos no se reclasifican.
+
+Consulta muestra la regla y ofrece Enterado solo cuando no se exige respuesta.
+El selector se bloquea al guardar, revierte ante errores y muestra el rechazo.
+Respondido ya no es una opcion manual: solo se alcanza guardando una respuesta
+institucional. Enterado y Respondido se presentan como estados finales sin
+reapertura. En globales cada dependencia confirma su propia asignacion.
+Los documentos sin respuesta no tienen vencimiento ni alertas, no muestran
+Responder y no admiten ampliaciones. El detalle muestra la fecha de enterado
+y el comprobante indica «No requiere respuesta».
+
+La clasificacion debe revisarse segun el contenido y las reglas juridicas
+aplicables: no debe usarse Informativo para evitar responder una peticion real.
 
 Las pruebas de consulta buscan los registros dentro de botones y filas concretas
 para no recalcular la accesibilidad de todo el documento en cada espera. Los

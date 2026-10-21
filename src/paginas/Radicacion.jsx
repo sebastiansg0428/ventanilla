@@ -56,7 +56,8 @@ function FormularioRadicacion({ usuario }) {
       const respuesta = await solicitarApi("/api/tipos-tramite");
       const resultado = await respuesta.json();
       const tiposDisponibles = (resultado.tipos_tramite || []).filter(
-        (registro) => registro.termino_legal_id != null,
+        (registro) => registro.requiere_respuesta === 0 ||
+          registro.requiere_respuesta === false || registro.termino_legal_id != null,
       );
       setTiposTramite(tiposDisponibles);
       setEstadoCatalogos((estadoActual) => ({
@@ -225,6 +226,7 @@ function FormularioRadicacion({ usuario }) {
       const comprobante = {
         numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: resultado.tipo_comunicacion,
+        requiere_respuesta: resultado.requiere_respuesta,
         dependencia_remitente: resultado.dependencia_remitente,
         remitente_tipo_persona: resultado.remitente_tipo_persona,
         remitente_entidad: datosFormulario.get("remitente_entidad"),
@@ -320,6 +322,10 @@ function FormularioRadicacion({ usuario }) {
                     ))}
                   </select>
                   <small role="status">{estadoCatalogos.tiposTramite}</small>
+                  {tiposTramite.some((tipo) => String(tipo.id) === tipoTramiteIdSeleccionado &&
+                    (tipo.requiere_respuesta === 0 || tipo.requiere_respuesta === false)) && (
+                    <small>No requiere respuesta: el destino confirmará su revisión como Enterado, sin plazo de respuesta.</small>
+                  )}
                   <button type="button" onClick={cargarTiposTramite}>
                     Reintentar trámites
                   </button>

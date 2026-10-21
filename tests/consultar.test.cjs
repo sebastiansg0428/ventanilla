@@ -123,6 +123,46 @@ async function setup({ data = records(), failure = false, networkFailure = false
     };
 }
 
+test('legacy ofrece Enterado solo sin respuesta y bloquea finales sin opciones manuales Respondido', async () => {
+    const datos = [
+        { ...records()[0], requiere_respuesta: 0 },
+        { ...records()[1], requiere_respuesta: 1 },
+        { ...records()[2], requiere_respuesta: 0, estado: 'Enterado' },
+        { ...records()[3], requiere_respuesta: 1, estado: 'Respondido' },
+        { ...records()[4], estado: '<estado-no-admitido>' }
+    ];
+    const app = await setup({ data: datos });
+    const html = app.get('tabla-radicados').innerHTML;
+    const selector = id => html.match(new RegExp(`<select[^>]*data-radicado="${id}"[^>]*>[\\s\\S]*?</select>`))[0];
+    assert.match(selector('A'), /value="Enterado"/);
+    assert.doesNotMatch(selector('A'), /value="Respondido"/);
+    assert.doesNotMatch(selector('B'), /value="Enterado"/);
+    assert.match(selector('C'), /<select disabled/);
+    assert.match(selector('D'), /<select disabled/);
+    assert.match(selector('E'), /value="&lt;estado-no-admitido&gt;" disabled/);
+    assert.doesNotMatch(html, /<estado-no-admitido>/);
+});
+
+test('PDF legado muestra la regla sin respuesta solo cuando es explícita', () => {
+    const pdfSource = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8');
+    for (const regla of [0, false, 1, undefined]) {
+        const textos = [];
+        const pdf = {
+            setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
+            setLineWidth() {}, rect() {}, line() {}, setPage() {},
+            text(texto) { textos.push(texto); },
+            splitTextToSize(texto) { return [texto]; },
+            getNumberOfPages() { return 1; }
+        };
+        const contexto = vm.createContext({ window: { jspdf: { jsPDF: function () { return pdf; } } } });
+        vm.runInContext(pdfSource, contexto);
+        contexto.crearComprobantePDF({
+            requiere_respuesta: regla, numero_radicado: 'RAD-INFO', fecha_hora: '2026-10-21 10:00'
+        });
+        assert.equal(textos.some(t => t.includes('No requiere respuesta')), regla === 0 || regla === false);
+    }
+});
+
 test('all combinations intersect; global counts and active states remain consistent', async () => {
     const app = await setup();
     assert.equal(app.get('stat-total').textContent, 7);
@@ -238,14 +278,16 @@ test('missing types, numeric NIT, no results, and an empty dataset', async () =>
 });
 
 test('successful state updates preserve selection and recompute critical results', async () => {
-    const app = await setup();
+    const data = records();
+    data[0].requiere_respuesta = 0;
+    const app = await setup({ data });
     await app.get('card-total').click();
     await app.get('card-hoy').click();
     await app.type('externa');
     await app.search('ana');
     const select = element();
     select.classList.add('select-estado');
-    select.value = 'Respondido';
+    select.value = 'Enterado';
     select.setAttribute('data-radicado', 'A');
     await app.get('tabla-radicados').emit('change', { target: select });
     assert.deepEqual(app.rows(), ['G']);
@@ -254,7 +296,7 @@ test('successful state updates preserve selection and recompute critical results
     assert.equal(app.get('card-hoy').attributes['aria-pressed'], 'true');
     assert.equal(app.get('filtro-comunicacion').value, 'externa');
     assert.equal(app.get('buscador').value, 'ana');
-    assert.equal(JSON.parse(app.requests.at(-1).options.body).estado, 'Respondido');
+    assert.equal(JSON.parse(app.requests.at(-1).options.body).estado, 'Enterado');
     assert.match(app.get('tabla-radicados').innerHTML, /generar-comprobante/);
 });
 
@@ -279,7 +321,7 @@ test('state save locks the selector and uses the canonical server state in the m
     await pending;
     assert.equal(data[0].estado, 'En trámite');
     assert.equal(data[0].semaforo.nivel, 'a_tiempo');
-    assert.match(app.get('tabla-radicados').innerHTML, /value="En trámite" selected/);
+    assert.match(app.get('tabla-radicados').innerHTML, /value="En trámite"\s+selected/);
     assert.equal(select.disabled, true);
 });
 
@@ -296,7 +338,7 @@ test('HTTP or application failures restore the model state and display the serve
         select.disabled = false;
         select.isConnected = true;
         select.classList.add('select-estado');
-        select.value = 'Respondido';
+        select.value = 'Pendiente';
         select.setAttribute('data-radicado', 'A');
         await app.get('tabla-radicados').emit('change', { target: select });
         assert.equal(select.value, 'En trámite');
@@ -318,7 +360,7 @@ test('connection and JSON errors restore the previous state and re-enable a conn
         const select = element();
         select.isConnected = true;
         select.classList.add('select-estado');
-        select.value = 'Respondido';
+        select.value = 'En trámite';
         select.setAttribute('data-radicado', 'A');
         await app.get('tabla-radicados').emit('change', { target: select });
         assert.equal(select.value, 'Pendiente');
@@ -574,7 +616,7 @@ test('alerts use catalog IDs independently of radicados, separate levels and ref
     assert.match(app.get('alertas-vencidos').children[0].textContent, /B.*Vencido/);
     const select = element();
     select.classList.add('select-estado');
-    select.value = 'Respondido';
+    select.value = 'En trámite';
     select.setAttribute('data-radicado', 'A');
     await app.get('tabla-radicados').emit('change', { target: select });
     assert.equal(app.requests.filter(request => request.url.includes('/api/alertas?')).length, 2);
