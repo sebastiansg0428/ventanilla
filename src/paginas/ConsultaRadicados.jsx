@@ -95,6 +95,9 @@ function VistaConsultaRadicados({ usuario }) {
     documentos: [],
   });
   const [urlComprobante, setUrlComprobante] = useState("");
+  const [generandoComprobante, setGenerandoComprobante] = useState(false);
+  const solicitudComprobante = useRef(0);
+  const comprobanteEnProceso = useRef(false);
   const [respuestaSeleccionada, setRespuestaSeleccionada] = useState(null);
   const [textoRespuesta, setTextoRespuesta] = useState("");
   const [plantillaRespuesta, setPlantillaRespuesta] = useState("");
@@ -502,18 +505,32 @@ function VistaConsultaRadicados({ usuario }) {
     }
   }
 
-  function mostrarComprobante(radicado) {
+  useEffect(() => () => { solicitudComprobante.current += 1; }, []);
+
+  async function mostrarComprobante(radicado) {
+    if (comprobanteEnProceso.current) return;
+    comprobanteEnProceso.current = true;
+    setGenerandoComprobante(true);
+    const solicitud = ++solicitudComprobante.current;
     try {
       const fecha = convertirFechaLocal(radicado.fecha_creacion);
       if (!fecha) throw new Error("El radicado no tiene fecha válida.");
-      const pdf = crearPdfComprobante({
+      const pdf = await crearPdfComprobante({
         ...radicado,
         fecha_hora: fecha.toLocaleString("es-CO"),
       });
+      if (solicitud !== solicitudComprobante.current) return;
       if (urlComprobante) URL.revokeObjectURL(urlComprobante);
       setUrlComprobante(URL.createObjectURL(pdf.output("blob")));
     } catch (error) {
-      window.alert(`No se pudo generar el comprobante. ${error.message}`);
+      if (solicitud === solicitudComprobante.current) {
+        window.alert(`No se pudo generar el comprobante. ${error.message}`);
+      }
+    } finally {
+      if (solicitud === solicitudComprobante.current) {
+        comprobanteEnProceso.current = false;
+        setGenerandoComprobante(false);
+      }
     }
   }
 
@@ -781,6 +798,7 @@ function VistaConsultaRadicados({ usuario }) {
                       <td>
                         <button
                           className="generar-comprobante"
+                          disabled={generandoComprobante}
                           type="button"
                           onClick={() => mostrarComprobante(radicado)}
                         >
@@ -879,6 +897,7 @@ function VistaConsultaRadicados({ usuario }) {
       </main>
       <PiePagina />
 
+      {generandoComprobante && <p role="status">Generando comprobante…</p>}
       <dialog
         ref={dialogoDetalle}
         id="modal-detalle"
@@ -1246,6 +1265,9 @@ function VistaConsultaRadicados({ usuario }) {
         ref={dialogoComprobante}
         className="receipt-dialog"
         onClose={() => {
+          solicitudComprobante.current += 1;
+          comprobanteEnProceso.current = false;
+          setGenerandoComprobante(false);
           if (urlComprobante) URL.revokeObjectURL(urlComprobante);
           setUrlComprobante("");
         }}

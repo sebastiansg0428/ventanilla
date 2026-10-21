@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const visorComprobante = document.getElementById('visor-comprobante');
     const previewComprobante = document.getElementById('comprobante-preview');
     let urlComprobante = null;
+    let comprobanteEnProceso = false;
+    let solicitudComprobante = 0;
     const dependenciaAlertas = document.getElementById('alertas-dependencia');
     const actualizarAlertas = document.getElementById('actualizar-alertas');
     const estadoAlertas = document.getElementById('alertas-estado');
@@ -115,6 +117,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     reintentarDependencias.addEventListener('click', cargarDependenciasAlertas);
 
     visorComprobante.addEventListener('close', () => {
+        solicitudComprobante++;
         previewComprobante.removeAttribute('src');
         if (urlComprobante) URL.revokeObjectURL(urlComprobante);
         urlComprobante = null;
@@ -208,6 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     window.addEventListener('pagehide', () => {
+        solicitudComprobante++;
         limpiarVistaAdjunto();
         if (urlComprobante) URL.revokeObjectURL(urlComprobante);
         urlComprobante = null;
@@ -446,12 +450,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     tablaBody.addEventListener('click', async (e) => {
         const btnComprobante = e.target.closest('.generar-comprobante');
         if (btnComprobante) {
+            if (btnComprobante.disabled || comprobanteEnProceso) return;
+            comprobanteEnProceso = true;
+            const solicitud = ++solicitudComprobante;
+            const contenidoAnterior = btnComprobante.innerHTML;
+            btnComprobante.textContent = 'Generando comprobante...';
+            btnComprobante.disabled = true;
+            btnComprobante.setAttribute('aria-busy', 'true');
             const item = listaRadicados.find(r => r.numero_radicado === btnComprobante.getAttribute('data-radicado'));
             try {
                 if (!item) throw new Error('No se encontró el radicado para generar el comprobante.');
                 const fecha = new Date(String(item.fecha_creacion || '').replace(' ', 'T'));
                 if (Number.isNaN(fecha.getTime())) throw new Error('El radicado no tiene una fecha de recepción válida.');
-                const doc = crearComprobantePDF({ ...item, fecha_hora: fecha.toLocaleString() });
+                const doc = await crearComprobantePDF({ ...item, fecha_hora: fecha.toLocaleString() });
+                if (solicitud !== solicitudComprobante) return;
                 if (urlComprobante) URL.revokeObjectURL(urlComprobante);
                 urlComprobante = URL.createObjectURL(doc.output('blob'));
                 document.getElementById('comprobante-titulo').textContent = `Comprobante de recepción: ${item.numero_radicado}`;
@@ -459,7 +471,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 visorComprobante.showModal();
             } catch (error) {
                 console.error('Error al generar el comprobante:', error);
-                alert(`No se pudo generar el comprobante. ${error.message}`);
+                if (solicitud === solicitudComprobante) alert(`No se pudo generar el comprobante. ${error.message}`);
+            } finally {
+                comprobanteEnProceso = false;
+                btnComprobante.innerHTML = contenidoAnterior;
+                btnComprobante.disabled = false;
+                btnComprobante.removeAttribute('aria-busy');
             }
             return;
         }

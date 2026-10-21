@@ -1,9 +1,27 @@
 // Usa la copia UMD local que se carga en las páginas que generan comprobantes.
-export function crearPdfComprobante(datos) {
+export async function crearPdfComprobante(datos) {
   const JsPdf = window.jspdf?.jsPDF;
   if (!JsPdf) throw new Error('No se cargó jsPDF desde el archivo local.');
 
   const documentoPdf = new JsPdf();
+  const respuestaEscudo = await fetch(`${import.meta.env.BASE_URL}img/escudo-miranda.png`);
+  if (!respuestaEscudo.ok) throw new Error(`No se pudo cargar el escudo institucional (HTTP ${respuestaEscudo.status}).`);
+  const escudo = new Uint8Array(await respuestaEscudo.arrayBuffer());
+  const dimensiones = documentoPdf.getImageProperties(escudo);
+  const dibujarFondo = () => {
+    const ancho = 100;
+    const alto = ancho * dimensiones.height / dimensiones.width;
+    const pagina = documentoPdf.internal.pageSize;
+    documentoPdf.saveGraphicsState();
+    try {
+      documentoPdf.setGState(new documentoPdf.GState({ opacity: 0.10 }));
+      documentoPdf.addImage(escudo, 'PNG', (pagina.getWidth() - ancho) / 2,
+        (pagina.getHeight() - alto) / 2, ancho, alto, 'escudo-miranda');
+    } finally {
+      documentoPdf.restoreGraphicsState();
+    }
+  };
+  dibujarFondo();
   documentoPdf.setFont('helvetica', 'bold');
   documentoPdf.setFontSize(16);
   documentoPdf.text('ALCALDÍA MUNICIPAL', 105, 20, { align: 'center' });
@@ -47,7 +65,7 @@ export function crearPdfComprobante(datos) {
   ];
   const escribir = (texto, x = 24, ancho = 166) => {
     for (const linea of documentoPdf.splitTextToSize(texto, ancho)) {
-      if (coordenadaY > 255) { documentoPdf.addPage(); coordenadaY = 20; }
+      if (coordenadaY > 255) { documentoPdf.addPage(); dibujarFondo(); coordenadaY = 20; }
       documentoPdf.text(linea, x, coordenadaY);
       coordenadaY += 7;
     }

@@ -1,10 +1,30 @@
-function crearComprobantePDF(datosRadicado) {
+const rutaEscudoComprobante = new URL('../../public/img/escudo-miranda.png', document.currentScript.src).href;
+
+async function crearComprobantePDF(datosRadicado) {
     if (!window.jspdf?.jsPDF) {
         throw new Error('No se cargó jsPDF desde legacy/js/jspdf.umd.min.js. Comprueba que el archivo exista y que el servidor local lo entregue correctamente.');
     }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    const respuestaEscudo = await fetch(rutaEscudoComprobante);
+    if (!respuestaEscudo.ok) throw new Error(`No se pudo cargar el escudo institucional (HTTP ${respuestaEscudo.status}).`);
+    const escudo = new Uint8Array(await respuestaEscudo.arrayBuffer());
+    const dimensiones = doc.getImageProperties(escudo);
+    function dibujarFondo() {
+        const ancho = 100;
+        const alto = ancho * dimensiones.height / dimensiones.width;
+        const pagina = doc.internal.pageSize;
+        doc.saveGraphicsState();
+        try {
+            doc.setGState(new doc.GState({ opacity: 0.10 }));
+            doc.addImage(escudo, 'PNG', (pagina.getWidth() - ancho) / 2,
+                (pagina.getHeight() - alto) / 2, ancho, alto, 'escudo-miranda');
+        } finally {
+            doc.restoreGraphicsState();
+        }
+    }
+    dibujarFondo();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.text("ALCALDÍA MUNICIPAL", 105, 20, { align: "center" });
@@ -37,6 +57,7 @@ function crearComprobantePDF(datosRadicado) {
         for (const linea of doc.splitTextToSize(texto, ancho)) {
             if (y > 255) {
                 doc.addPage();
+                dibujarFondo();
                 y = 20;
             }
             doc.text(linea, x, y);
@@ -82,6 +103,7 @@ function crearComprobantePDF(datosRadicado) {
     return doc;
 }
 
-function descargarComprobantePDF(datosRadicado) {
-    crearComprobantePDF(datosRadicado).save(`Comprobante_${datosRadicado.numero_radicado}.pdf`);
+async function descargarComprobantePDF(datosRadicado) {
+    const doc = await crearComprobantePDF(datosRadicado);
+    doc.save(`Comprobante_${datosRadicado.numero_radicado}.pdf`);
 }

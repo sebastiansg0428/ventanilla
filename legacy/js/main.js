@@ -326,7 +326,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 6. Control de estado del botón de envío (loading state)
+    let registroEnProceso = false;
     function alternarEstadoEnvio(enviando) {
+        registroEnProceso = enviando;
         if (btnSubmit) {
             btnSubmit.disabled = enviando;
         }
@@ -340,6 +342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 7. Manejar el envío del formulario al backend de Node.js
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (registroEnProceso) return;
 
         if (selectorTramite.disabled || !tiposTramite.some(tipo => String(tipo.id) === selectorTramite.value)) {
             alert('Selecciona un tipo de trámite con término legal disponible antes de registrar.');
@@ -393,7 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // --- GENERAR Y DESCARGAR EL PDF AUTOMÁTICAMENTE ---
                 let pdfDescargado = false;
                 try {
-                    descargarComprobantePDF(datosComprobante);
+                    await descargarComprobantePDF(datosComprobante);
                     pdfDescargado = true;
                 } catch (pdfError) {
                     console.warn("⚠️ No se pudo generar la descarga automática del PDF:", pdfError);

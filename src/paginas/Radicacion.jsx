@@ -45,6 +45,8 @@ function FormularioRadicacion({ usuario }) {
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
   const [datosComprobante, setDatosComprobante] = useState(null);
   const [errorComprobante, setErrorComprobante] = useState("");
+  const [generandoComprobante, setGenerandoComprobante] = useState(false);
+  const comprobanteEnProceso = useRef(false);
   const [longitudAsunto, setLongitudAsunto] = useState(0);
   const selectorArchivo = useRef(null);
   async function cargarTiposTramite() {
@@ -165,18 +167,25 @@ function FormularioRadicacion({ usuario }) {
     setArchivosSeleccionados(seleccion);
   }
 
-  function descargarComprobante(datos) {
+  async function descargarComprobante(datos) {
+    if (comprobanteEnProceso.current) return;
+    comprobanteEnProceso.current = true;
+    setGenerandoComprobante(true);
     try {
-      const pdf = crearPdfComprobante(datos);
+      const pdf = await crearPdfComprobante(datos);
       pdf.save(`Comprobante_${datos.numero_radicado}.pdf`);
       setErrorComprobante("");
     } catch (error) {
       setErrorComprobante(error.message);
+    } finally {
+      comprobanteEnProceso.current = false;
+      setGenerandoComprobante(false);
     }
   }
 
   async function enviarFormulario(evento) {
     evento.preventDefault();
+    if (enProceso || comprobanteEnProceso.current) return;
     const formulario = evento.currentTarget;
     if (!tiposTramite.length || !dependencias.length) {
       setMensaje({
@@ -261,7 +270,7 @@ function FormularioRadicacion({ usuario }) {
         texto: `Radicado ${resultado.radicado} guardado. El comprobante incluye a ${resultado.usuario_recibe || usuario.nombre}.`,
         tono: "success",
       });
-      descargarComprobante(comprobante);
+      await descargarComprobante(comprobante);
     } catch (error) {
       setMensaje({ texto: error.message, tono: "error" });
     } finally {
@@ -604,13 +613,16 @@ function FormularioRadicacion({ usuario }) {
             <button
               className="radicar-submit"
               type="submit"
-              disabled={enProceso}
+              disabled={enProceso || generandoComprobante}
             >
-              {enProceso
+              {generandoComprobante
+                ? "Preparando comprobante…"
+                : enProceso
                 ? "Guardando radicado…"
                 : "Generar radicado y registrar"}
             </button>
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
+            {generandoComprobante && <p role="status">Generando comprobante…</p>}
             {errorComprobante && datosComprobante && (
               <div>
                 <p className="auth-message" data-state="error" role="alert">
@@ -621,7 +633,7 @@ function FormularioRadicacion({ usuario }) {
                 </p>
                 <button
                   type="button"
-                  disabled={enProceso}
+                  disabled={enProceso || generandoComprobante}
                   onClick={() => descargarComprobante(datosComprobante)}
                 >
                   Reintentar comprobante

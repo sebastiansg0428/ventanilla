@@ -144,7 +144,25 @@ se copia a `dist/img` durante la compilacion.
 Para reemplazarlo, conserva ese nombre de archivo y la proporcion del escudo;
 actualiza las dimensiones intrinsecas del `<img>` si cambian. Los estilos
 mantienen una altura de 64 px en escritorio y 48 px en movil sin deformarlo.
-Incluye texto alternativo institucional. No modifica el login ni los PDF.
+Incluye texto alternativo institucional. No modifica el login.
+
+### Escudo en los comprobantes de recepcion
+
+Los PDF iniciales y regenerados desde Consulta incrustan el mismo escudo como
+marca de agua centrada de 100 mm de ancho y opacidad 0.10 en todas las paginas.
+Se dibuja antes del contenido y se restaura el estado grafico: los textos,
+lineas y datos no se vuelven transparentes. Conserva la proporcion del recurso
+y aparece tambien al descargar o imprimir, no solo en el visor del modal.
+
+`crearPdfComprobante` y el generador legado `crearComprobantePDF` son asincronos:
+sus consumidores deben esperar el resultado antes de `save` u `output`.
+React resuelve la imagen con la base de Vite; el legado desde su script hacia
+`public/img`. No usa servicios externos. Si falla la carga o generacion se
+muestra el error, sin entregar silenciosamente un PDF sin escudo.
+En Radicacion se conserva el registro exitoso y se ofrece reintentar solo el
+comprobante, sin volver a enviar el formulario. En Consulta se bloquean acciones
+duplicadas durante la generacion y se descartan resultados obsoletos.
+No se modifican adjuntos recibidos ni documentos de respuesta institucional.
 
 ## Informativos y confirmacion Enterado
 

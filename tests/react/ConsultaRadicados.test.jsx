@@ -220,6 +220,47 @@ describe("consulta de radicados React", () => {
     expect(output).toHaveBeenCalledWith("blob");
   });
 
+  it("espera el PDF, bloquea clics duplicados y permite reintentar tras fallo de imagen", async () => {
+    const alertar = simularAlerta();
+    let rechazar;
+    crearPdfComprobante.mockReset().mockImplementationOnce(() => new Promise((_, reject) => { rechazar = reject; }));
+    const output = vi.fn(() => new Blob(["PDF"]));
+    crearPdfComprobante.mockResolvedValue({ output });
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:marca"), revokeObjectURL: vi.fn() });
+    await abrirConsulta();
+    document.querySelector(".receipt-dialog").showModal = vi.fn();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const boton = within(fila).getByRole("button", { name: "Ver comprobante" });
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+    expect(boton.disabled).toBe(true);
+    expect(crearPdfComprobante).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Generando comprobante…")).toBeTruthy();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    rechazar(new Error("No se pudo cargar el escudo"));
+    await waitFor(() => expect(boton.disabled).toBe(false));
+    expect(alertar).toHaveBeenCalledWith(expect.stringContaining("No se pudo cargar el escudo"));
+    fireEvent.click(boton);
+    await waitFor(() => expect(output).toHaveBeenCalledWith("blob"));
+    expect(screen.getByTitle("Vista previa del comprobante").getAttribute("src")).toBe("blob:marca");
+    expect(solicitarApi.mock.calls.filter(([ruta, opciones]) => ruta === "/api/radicados" && opciones?.method === "POST")).toHaveLength(0);
+  });
+
+  it("ignora un PDF que termina de generarse después de desmontar Consulta", async () => {
+    let terminar;
+    crearPdfComprobante.mockReset().mockImplementation(() => new Promise(resolve => { terminar = resolve; }));
+    const output = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() });
+    const vista = render(<PaginaConsultaRadicados />);
+    const fila = (await screen.findByText("RAD-001", { selector: "button" })).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver comprobante" }));
+    vista.unmount();
+    terminar({ output });
+    await Promise.resolve();
+    expect(output).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
   it("presenta clasificación jurídica y contacto de una externa", async () => {
     const radicados = crearRadicados();
     Object.assign(radicados[0], {

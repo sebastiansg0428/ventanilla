@@ -143,20 +143,40 @@ test('legacy ofrece Enterado solo sin respuesta y bloquea finales sin opciones m
     assert.doesNotMatch(html, /<estado-no-admitido>/);
 });
 
-test('PDF legado muestra la regla sin respuesta solo cuando es explícita', () => {
+function soporteMarcaAgua() {
+    return {
+        getImageProperties: () => ({ width: 350, height: 355 }),
+        internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
+        saveGraphicsState() {}, restoreGraphicsState() {}, setGState() {},
+        GState: function (estado) { Object.assign(this, estado); }, addImage() {}
+    };
+}
+
+function entornoMarcaAgua() {
+    return {
+        URL,
+        document: { currentScript: { src: 'http://localhost/legacy/js/comprobante.js' } },
+        fetch: async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer })
+    };
+}
+
+test('PDF legado muestra la regla sin respuesta solo cuando es explícita', async () => {
     const pdfSource = fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8');
     for (const regla of [0, false, 1, undefined]) {
         const textos = [];
         const pdf = {
+            ...soporteMarcaAgua(),
             setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
             setLineWidth() {}, rect() {}, line() {}, setPage() {},
             text(texto) { textos.push(texto); },
             splitTextToSize(texto) { return [texto]; },
             getNumberOfPages() { return 1; }
         };
-        const contexto = vm.createContext({ window: { jspdf: { jsPDF: function () { return pdf; } } } });
+        const contexto = vm.createContext({
+            ...entornoMarcaAgua(), window: { jspdf: { jsPDF: function () { return pdf; } } }
+        });
         vm.runInContext(pdfSource, contexto);
-        contexto.crearComprobantePDF({
+        await contexto.crearComprobantePDF({
             requiere_respuesta: regla, numero_radicado: 'RAD-INFO', fecha_hora: '2026-10-21 10:00'
         });
         assert.equal(textos.some(t => t.includes('No requiere respuesta')), regla === 0 || regla === false);
@@ -500,6 +520,7 @@ test('table generates a receipt using stored reception data, independently of th
     data[0].ruta_archivo = null;
     const app = await setup({ data });
     const button = element();
+    button.disabled = false;
     button.setAttribute('data-radicado', 'A');
     await app.get('tabla-radicados').emit('click', {
         target: { closest: selector => selector === '.generar-comprobante' ? button : null }
@@ -518,8 +539,9 @@ test('table generates a receipt using stored reception data, independently of th
 });
 
 test('receipt generation errors are reported', async () => {
-    const app = await setup({ generateReceipt: () => { throw new Error('jsPDF unavailable'); } });
+    const app = await setup({ generateReceipt: async () => { throw new Error('jsPDF unavailable'); } });
     const button = element();
+    button.disabled = false;
     button.setAttribute('data-radicado', 'A');
     await app.get('tabla-radicados').emit('click', {
         target: { closest: selector => selector === '.generar-comprobante' ? button : null }
@@ -527,25 +549,34 @@ test('receipt generation errors are reported', async () => {
     assert.ok(app.errors.some(error => typeof error === 'string' && error.includes('jsPDF unavailable')));
 });
 
-test('shared PDF generator preserves the reception date, wraps text and saves a distinct receipt', () => {
+test('shared PDF generator preserves the reception date, wraps text and saves a distinct receipt', async () => {
     const texts = [];
+    const marcas = [];
     let pages = 1;
+    let opacidad = 1;
     let saved;
     const doc = {
+        ...soporteMarcaAgua(),
+        setGState(estado) { opacidad = estado.opacity; },
+        restoreGraphicsState() { opacidad = 1; },
+        addImage(...args) {
+            marcas.push({ pagina: pages, opacidad, args, textosPrevios: texts.length });
+        },
         setFont() { }, setFontSize() { }, setLineWidth() { }, line() { }, setFillColor() { },
         rect() { }, setTextColor() { }, setPage() { },
-        text(value, x, y) { texts.push({ value, y }); },
+        text(value, x, y) { assert.equal(opacidad, 1); texts.push({ value, y }); },
         splitTextToSize: text => text.split('\n'),
         addPage() { pages++; },
         getNumberOfPages: () => pages,
         save(name) { saved = name; }
     };
     const context = {
+        ...entornoMarcaAgua(),
         window: { jspdf: { jsPDF: function () { return doc; } } }
     };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8'), context);
-    context.descargarComprobantePDF({
+    await context.descargarComprobantePDF({
         numero_radicado: 'RAD-20261006-9287',
         tipo_tramite: 'Consulta',
         tipo_comunicacion: 'Interna',
@@ -558,15 +589,23 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     assert.ok(texts.some(text => text.value === '• Tipo de Trámite: Consulta'));
     assert.ok(texts.some(text => text.value === '• Dependencia Remitente: Planeacion histórica'));
     assert.ok(pages > 1);
+    assert.equal(marcas.length, pages);
+    for (const marca of marcas) {
+        assert.equal(marca.opacidad, 0.1);
+        assert.equal(marca.args[2], 55);
+        assert.equal(marca.args[4], 100);
+        assert.equal(marca.args[5], 100 * 355 / 350);
+    }
+    assert.equal(marcas[0].textosPrevios, 0);
     assert.ok(texts.filter(text => text.value === 'Detalle del documento').every(text => text.y <= 255));
     saved = undefined;
-    const preview = context.crearComprobantePDF({ numero_radicado: 'A', fecha_hora: 'Fecha registrada' });
+    const preview = await context.crearComprobantePDF({ numero_radicado: 'A', fecha_hora: 'Fecha registrada' });
     assert.equal(preview, doc);
     assert.ok(texts.some(text => text.value === '• Tipo de Trámite: No registrado'));
     assert.equal(saved, undefined);
-    context.crearComprobantePDF({ tipo_comunicacion: 'Interna', fecha_hora: 'Fecha' });
+    await context.crearComprobantePDF({ tipo_comunicacion: 'Interna', fecha_hora: 'Fecha' });
     assert.ok(texts.some(text => text.value === '• Dependencia Remitente: No registrada'));
-    context.crearComprobantePDF({
+    await context.crearComprobantePDF({
         tipo_comunicacion: 'Externa', fecha_hora: 'Fecha', remitente_tipo_persona: 'juridica',
         remitente_entidad: 'Empresa', remitente_nit: '123', remitente_email: 'a@example.com'
     });
@@ -575,7 +614,22 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     assert.ok(texts.some(text => text.value === '• NIT: 123'));
     assert.ok(texts.some(text => text.value === '• Correo: a@example.com'));
     context.window.jspdf = undefined;
-    assert.throws(() => context.descargarComprobantePDF({}), /No se cargó jsPDF/);
+    await assert.rejects(context.descargarComprobantePDF({}), /No se cargó jsPDF/);
+});
+
+test('legacy no guarda PDF sin escudo y permite reintentar una carga rechazada', async () => {
+    let guardado = false;
+    const context = vm.createContext({
+        ...entornoMarcaAgua(),
+        fetch: async () => ({ ok: false, status: 404 }),
+        window: { jspdf: { jsPDF: function () { return { ...soporteMarcaAgua(), save() { guardado = true; } }; } } }
+    });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8'), context);
+    await assert.rejects(context.descargarComprobantePDF({}), /escudo institucional.*404/);
+    assert.equal(guardado, false);
+    context.fetch = async () => { throw new Error('Sin conexion'); };
+    await assert.rejects(context.descargarComprobantePDF({}), /Sin conexion/);
+    assert.equal(guardado, false);
 });
 
 test('details display legal fields returned by the server without changing its traffic light', async () => {

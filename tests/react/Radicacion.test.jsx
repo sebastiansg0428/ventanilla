@@ -253,7 +253,7 @@ describe("radicación React", () => {
         return catalogos(ruta, opciones);
       });
       const error = new Error("Fallo de PDF simulado");
-      if (fallo === "generación") crearPdfComprobante.mockImplementationOnce(() => { throw error; });
+      if (fallo === "generación") crearPdfComprobante.mockRejectedValueOnce(error);
       else guardarPdf.mockImplementationOnce(() => { throw error; });
       const user = userEvent.setup();
       await abrirRadicacion();
@@ -280,6 +280,28 @@ describe("radicación React", () => {
       expect(screen.queryByRole("button", { name: "Reintentar comprobante" })).toBeNull();
     }, 10_000,
   );
+
+  it("mantiene bloqueado el registro mientras espera el comprobante sin duplicar la radicación", async () => {
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
+      ? { json: async () => ({ success: true, radicado: "RAD-MARCA", tipo_comunicacion: "Externa" }) }
+      : catalogos(ruta, opciones));
+    let terminar;
+    crearPdfComprobante.mockImplementationOnce(() => new Promise(resolve => { terminar = resolve; }));
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "solicitud.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    await screen.findByText("Generando comprobante…");
+    expect(guardarPdf).not.toHaveBeenCalled();
+    const boton = screen.getByRole("button", { name: "Preparando comprobante…" });
+    expect(boton.disabled).toBe(true);
+    terminar({ save: guardarPdf });
+    await waitFor(() => expect(guardarPdf).toHaveBeenCalledWith("Comprobante_RAD-MARCA.pdf"));
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados")).toHaveLength(1);
+  });
 
   it.each(["rechazo", "red", "cifrado"])("conserva el formulario ante un fallo de %s y no ofrece comprobante", async (fallo) => {
     const mensajeCifrado = "El archivo PDF está cifrado o protegido con contraseña y no se puede validar. Adjunta una copia sin protección, si tienes autorización para hacerlo.";
