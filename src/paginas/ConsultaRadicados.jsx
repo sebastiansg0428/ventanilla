@@ -900,6 +900,20 @@ function VistaConsultaRadicados({ usuario }) {
                 etiqueta="Dependencia destino"
                 valor={radicadoSeleccionado.dependencia_destino}
               />
+              {radicadoSeleccionado.tipo_comunicacion === "Interna" && (
+                <CampoDetalle etiqueta="Dependencia remitente"
+                  valor={radicadoSeleccionado.dependencia_remitente || "No registrada"} />
+              )}
+              {radicadoSeleccionado.tipo_comunicacion === "Externa" && (
+                <>
+                  <CampoDetalle etiqueta="Tipo de persona"
+                    valor={radicadoSeleccionado.remitente_tipo_persona === "juridica"
+                      ? "Jurídica" : radicadoSeleccionado.remitente_tipo_persona === "natural"
+                        ? "Natural" : "No registrado"} />
+                  <CampoDetalle etiqueta="Entidad / razón social" valor={radicadoSeleccionado.remitente_entidad} />
+                  <CampoDetalle etiqueta="NIT" valor={radicadoSeleccionado.remitente_nit} />
+                </>
+              )}
               <CampoDetalle
                 etiqueta="Tipo de tramite"
                 valor={radicadoSeleccionado.tipo_tramite}
@@ -1005,6 +1019,10 @@ function VistaConsultaRadicados({ usuario }) {
                   <CampoDetalle
                     etiqueta="Respondida por"
                     valor={respuestaConsultada.funcionario_nombre}
+                  />
+                  <CampoDetalle
+                    etiqueta="Dependencia responsable"
+                    valor={respuestaConsultada.dependencia_responsable || "No registrada"}
                   />
                   <CampoDetalle
                     etiqueta="Fecha de envío"

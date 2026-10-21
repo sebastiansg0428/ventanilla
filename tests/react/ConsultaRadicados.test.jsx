@@ -3,10 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaConsultaRadicados } from "../../src/paginas/ConsultaRadicados.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
+import { crearPdfComprobante } from "../../src/servicios/comprobante.js";
 
 vi.mock("../../src/servicios/api.js", () => ({
   confirmarSesion: vi.fn(),
   solicitarApi: vi.fn(),
+}));
+vi.mock("../../src/servicios/comprobante.js", () => ({
+  crearPdfComprobante: vi.fn(),
 }));
 
 const usuario = {
@@ -107,6 +111,139 @@ describe("consulta de radicados React", () => {
       }
       throw new Error(`Ruta inesperada: ${ruta}`);
     });
+  });
+
+  it.each(["Interna", "Externa"])("muestra autor, dependencia y fecha solo en Ver respuesta %s", async (tipo) => {
+    const radicados = crearRadicados();
+    radicados[0].tipo_comunicacion = tipo;
+    radicados[0].estado = "Respondido";
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
+      if (ruta.endsWith("/respuesta")) return respuestaJson({ success: true, respuesta: {
+        funcionario_nombre: "Brandon Grajales", dependencia_responsable: "Talento Humano",
+        fecha_envio: "2026-10-21 11:30:00", contenido: "Respuesta oficial registrada",
+        documentos: [{ id: 1, nombre_archivo: "respuesta.pdf", ruta_archivo: "respuestas/archivo.pdf", tamano_bytes: 100 }],
+      } });
+      if (ruta === "/uploads/respuestas/archivo.pdf") return { blob: async () => new Blob(["PDF"]) };
+      return base(ruta, opciones);
+    });
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:respuesta"), revokeObjectURL: vi.fn() });
+    const user = userEvent.setup({ delay: null });
+    await abrirConsulta();
+    document.querySelectorAll("dialog").forEach((dialogo) => {
+      dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
+      dialogo.close = vi.fn(() => {
+        dialogo.removeAttribute("open");
+        fireEvent(dialogo, new Event("close"));
+      });
+    });
+    const boton = screen.getByText("RAD-001", { selector: "button" });
+    await user.click(boton);
+    await screen.findByText("Este radicado no tiene documentos adjuntos.");
+    const detalle = document.querySelector("#modal-detalle");
+    expect(within(detalle).queryByText("Respuesta institucional")).toBeNull();
+    expect(within(detalle).queryByText("Dependencia responsable")).toBeNull();
+    expect(within(detalle).getByText("Estado")).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.startsWith("/uploads/") || ruta.endsWith("/respuesta"))).toBe(false);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("/respuesta/resumen"))).toBe(false);
+    detalle.close();
+    await user.click(within(boton.closest("tr")).getByRole("button", { name: "Ver respuesta" }));
+    const modalRespuesta = document.querySelector(".respuesta-dialog");
+    expect(await within(modalRespuesta).findByText("Brandon Grajales")).toBeTruthy();
+    expect(within(modalRespuesta).getByText("Talento Humano")).toBeTruthy();
+    expect(within(modalRespuesta).getByText("Fecha de envío").closest(".modal-field").textContent).toContain("2026");
+    expect(within(modalRespuesta).getByText("Respuesta oficial registrada")).toBeTruthy();
+    expect(within(modalRespuesta).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
+    expect(within(modalRespuesta).getAllByText("Respondida por")).toHaveLength(1);
+    expect(solicitarApi).toHaveBeenCalledWith("/uploads/respuestas/archivo.pdf");
+  });
+
+  it.each(["Planeación", null])("consulta la respuesta global seleccionada y muestra dependencia %s", async (dependencia) => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { estado: "Respondido", destino_todas_dependencias: 1, radicado_dependencia_id: 301 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta === "/api/radicados/RAD-001/respuesta?radicado_dependencia_id=301") {
+        return respuestaJson({ success: true, respuesta: {
+          funcionario_nombre: "Andrea", dependencia_responsable: dependencia,
+          fecha_envio: "2026-10-21 11:30:00", contenido: "Respuesta seleccionada", documentos: [],
+        } });
+      }
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    const modal = document.querySelector(".respuesta-dialog");
+    modal.showModal = vi.fn();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    expect(await within(modal).findByText(dependencia || "No registrada")).toBeTruthy();
+    expect(within(modal).getByText("Andrea")).toBeTruthy();
+    expect(within(modal).getByText("La respuesta no tiene PDF adjuntos.")).toBeTruthy();
+    expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/respuesta?radicado_dependencia_id=301");
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("/respuesta/resumen"))).toBe(false);
+  });
+
+  it.each(["Oficina histórica", null])("muestra y regenera origen interno %s sin deducirlo del destino", async (origen) => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[1], {
+      dependencia_remitente: origen, dependencia_remitente_id: origen ? 3 : null,
+      dependencia_destino: "Dependencia diferente",
+    });
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
+      return catalogos(ruta, opciones);
+    });
+    const output = vi.fn(() => new Blob(["PDF"], { type: "application/pdf" }));
+    crearPdfComprobante.mockReturnValue({ output });
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:comprobante"), revokeObjectURL: vi.fn() });
+    const user = userEvent.setup({ delay: null });
+    await abrirConsulta();
+    document.querySelectorAll("dialog").forEach((dialogo) => {
+      dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
+      dialogo.close = vi.fn(() => dialogo.removeAttribute("open"));
+    });
+    const boton = screen.getByText("RAD-002", { selector: "button" });
+    const fila = boton.closest("tr");
+    await user.click(boton);
+    const campo = screen.getByText("Dependencia remitente").closest(".modal-field");
+    expect(campo.textContent).toContain(origen || "No registrada");
+    expect(campo.textContent).not.toContain("Dependencia diferente");
+    await user.click(within(fila).getByRole("button", { name: "Ver comprobante" }));
+    expect(crearPdfComprobante).toHaveBeenLastCalledWith(expect.objectContaining({
+      tipo_comunicacion: "Interna", dependencia_remitente: origen,
+    }));
+    expect(output).toHaveBeenCalledWith("blob");
+  });
+
+  it("presenta clasificación jurídica y contacto de una externa", async () => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], {
+      remitente_tipo_persona: "juridica", remitente_entidad: "Empresa registrada",
+      remitente_nit: "900123456", remitente_email: "empresa@example.com",
+    });
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
+      return catalogos(ruta, opciones);
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirConsulta();
+    document.querySelectorAll("dialog").forEach((dialogo) => {
+      dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
+      dialogo.close = vi.fn(() => dialogo.removeAttribute("open"));
+    });
+    await user.click(screen.getByText("RAD-001", { selector: "button" }));
+    expect(screen.getByText("Jurídica")).toBeTruthy();
+    expect(screen.getByText("Empresa registrada")).toBeTruthy();
+    expect(screen.getByText("900123456")).toBeTruthy();
+    expect(screen.getByText("empresa@example.com")).toBeTruthy();
+    expect(screen.queryByText("Dependencia remitente")).toBeNull();
   });
 
   it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {

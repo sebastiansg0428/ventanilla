@@ -28,6 +28,10 @@ function FormularioRadicacion({ usuario }) {
   const [tipoTramiteIdSeleccionado, setTipoTramiteIdSeleccionado] =
     useState("");
   const [dependencias, setDependencias] = useState([]);
+  const [tipoComunicacion, setTipoComunicacion] = useState("");
+  const [dependenciaRemitente, setDependenciaRemitente] = useState("");
+  const [tipoPersona, setTipoPersona] = useState("");
+  const esJuridica = tipoComunicacion === "Externa" && tipoPersona === "juridica";
   const [funcionarios, setFuncionarios] = useState([]);
   const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState("");
   const [estadoCatalogos, setEstadoCatalogos] = useState({
@@ -221,6 +225,11 @@ function FormularioRadicacion({ usuario }) {
       const comprobante = {
         numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: resultado.tipo_comunicacion,
+        dependencia_remitente: resultado.dependencia_remitente,
+        remitente_tipo_persona: resultado.remitente_tipo_persona,
+        remitente_entidad: datosFormulario.get("remitente_entidad"),
+        remitente_nit: datosFormulario.get("remitente_nit"),
+        remitente_email: datosFormulario.get("remitente_email"),
         numero_folios: datosFormulario.get("numero_folios"),
         tipo_tramite: tramite.nombre,
         dependencia_destino:
@@ -236,6 +245,9 @@ function FormularioRadicacion({ usuario }) {
       setErrorComprobante("");
       formulario.reset();
       setTipoTramiteIdSeleccionado("");
+      setTipoComunicacion("");
+      setDependenciaRemitente("");
+      setTipoPersona("");
       setLongitudAsunto(0);
       setArchivosSeleccionados([]);
       setErrorArchivos("");
@@ -313,7 +325,16 @@ function FormularioRadicacion({ usuario }) {
                   </button>
                 </CampoFormulario>
                 <CampoFormulario etiqueta="Clase de comunicación">
-                  <select name="tipo_comunicacion" required defaultValue="">
+                  <select
+                    name="tipo_comunicacion"
+                    required
+                    value={tipoComunicacion}
+                    onChange={(evento) => {
+                      setTipoComunicacion(evento.target.value);
+                      setDependenciaRemitente("");
+                      setTipoPersona("");
+                    }}
+                  >
                     <option value="" disabled>
                       Selecciona la clase…
                     </option>
@@ -321,6 +342,24 @@ function FormularioRadicacion({ usuario }) {
                     <option value="Externa">Externa</option>
                   </select>
                 </CampoFormulario>
+                {tipoComunicacion === "Interna" && (
+                  <CampoFormulario etiqueta="Dependencia remitente">
+                    <select
+                      name="dependencia_remitente_id"
+                      required
+                      value={dependenciaRemitente}
+                      onChange={(evento) => setDependenciaRemitente(evento.target.value)}
+                      disabled={!dependencias.length}
+                    >
+                      <option value="" disabled>Selecciona la dependencia remitente…</option>
+                      {dependencias.map((dep) => (
+                        <option key={dep.id} value={dep.id}>{dep.nombre}</option>
+                      ))}
+                    </select>
+                    <small>{estadoCatalogos.dependencias}</small>
+                    <button type="button" onClick={cargarDependencias}>Reintentar dependencias remitentes</button>
+                  </CampoFormulario>
+                )}
               </div>
             </SeccionFormulario>
 
@@ -330,6 +369,16 @@ function FormularioRadicacion({ usuario }) {
               descripcion="Identificación y contacto de quien presenta el documento."
             >
               <div className="form-grid-2">
+                {tipoComunicacion === "Externa" && (
+                  <CampoFormulario etiqueta="Tipo de persona">
+                    <select name="remitente_tipo_persona" required value={tipoPersona}
+                      onChange={(evento) => setTipoPersona(evento.target.value)}>
+                      <option value="" disabled>Selecciona el tipo de persona…</option>
+                      <option value="natural">Natural</option>
+                      <option value="juridica">Jurídica</option>
+                    </select>
+                  </CampoFormulario>
+                )}
                 <CampoFormulario etiqueta="Nombre completo del remitente">
                   <input
                     name="remitente_nombre"
@@ -366,26 +415,33 @@ function FormularioRadicacion({ usuario }) {
                     required
                   />
                 </CampoFormulario>
-                <CampoFormulario etiqueta="Correo electrónico" required={false}>
+                <CampoFormulario etiqueta="Correo electrónico" required={tipoComunicacion === "Externa"}>
                   <input
                     name="remitente_email"
                     type="email"
+                    maxLength="150"
+                    required={tipoComunicacion === "Externa"}
                     placeholder="correo@ejemplo.com"
                   />
                 </CampoFormulario>
-                <CampoFormulario etiqueta="Entidad / empresa">
+                <CampoFormulario
+                  etiqueta={esJuridica ? "Razón social" : "Entidad / empresa"}
+                  required={tipoComunicacion !== "Interna"}
+                >
                   <input
                     name="remitente_entidad"
-                    maxLength="180"
+                    maxLength="150"
                     placeholder="Nombre de la entidad o particular"
-                    required
+                    required={tipoComunicacion !== "Interna"}
+                    disabled={tipoComunicacion === "Interna"}
                   />
                 </CampoFormulario>
-                <CampoFormulario etiqueta="NIT de la entidad" required={false}>
+                <CampoFormulario etiqueta="NIT de la entidad" required={esJuridica}>
                   <input
                     name="remitente_nit"
                     maxLength="12"
-                    placeholder="Opcional"
+                    placeholder={esJuridica ? "NIT de la persona jurídica" : "Opcional"}
+                    required={esJuridica}
                     inputMode="numeric"
                     onChange={(evento) => {
                       evento.target.value = evento.target.value

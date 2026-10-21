@@ -84,9 +84,54 @@ npm run build
 comprobantes con React Testing Library y servicios simulados. Las pruebas
 legadas cubren `legacy/js/`; no sustituyen las pruebas React. Ninguna de estas
 suites constituye una prueba de extremo a extremo con el backend y MySQL reales.
-Para preparar una base nueva consulta la secuencia 000-018 en el
+Para preparar una base nueva consulta la secuencia 000-019 en el
 [README del backend](../backend/README.md); su ejecucion real en una base aislada
 sigue pendiente de validacion y no debe hacerse sobre la base de uso actual.
+
+### Responsable en el modal de respuesta institucional
+
+«Ver respuesta» muestra «Respondida por», «Dependencia responsable» y
+«Fecha de envío» en el modal **Respuesta institucional**, junto al contenido y
+los adjuntos. Aplica a internas y externas; en globales corresponde a la
+asignación de la fila seleccionada. El endpoint completo
+`/api/radicados/:numero_radicado/respuesta` proporciona estos datos sin otra
+consulta adicional. Una dependencia no disponible se muestra «No registrada».
+
+El detalle del radicado conserva el estado, pero no incluye el bloque de
+respuesta ni consulta `/respuesta/resumen`. Ese endpoint se conserva en el
+backend por compatibilidad. El formulario para redactar respuestas no cambia;
+los datos del autor se muestran al consultar una respuesta ya guardada.
+
+Esta mejora no cambia los permisos de consulta ni permite radicar a funcionarios.
+Requiere el backend actualizado y reiniciado; no necesita migración.
+
+### Procedencia en el registro de radicados
+
+En «Clasificación y tipo de recepción», elegir **Interna** muestra el select
+obligatorio **Dependencia remitente** con oficinas activas del mismo catálogo
+del destino, sin la opción «Todas». Nombre y cédula siguen siendo obligatorios.
+Elegir **Externa** elimina el origen del formulario y exige tipo de persona
+natural/jurídica y correo válido. Para jurídicas también exige razón social y
+NIT; no sustituye la identificación de la persona de contacto. El límite de
+entidad/razón social es 150 caracteres, compatible con MySQL.
+
+En internas, «Entidad / empresa» sigue visible pero deshabilitado y sin
+obligatoriedad; no se envía al servidor. El texto escrito previamente se conserva
+para recuperarlo al volver a Externa. El NIT sigue habilitado y opcional en
+internas; para externas jurídicas conserva su obligatoriedad.
+
+Cambiar de clase limpia las selecciones incompatibles. Un rechazo conserva
+el formulario; un guardado exitoso limpia los campos y conserva el comprobante
+para reintentar solo su descarga. El recibo inicial usa el nombre de origen
+confirmado por el servidor, igual que el detalle y el recibo regenerado.
+Las internas históricas sin procedencia muestran «No registrada».
+Los generadores React y legado aceptan la procedencia, pero el formulario
+legado no se amplía: un cliente antiguo debe actualizar su payload.
+
+Requiere la migración 019 y el backend actualizado, desplegados conjuntamente.
+Registrar una dependencia remitente no concede acceso a esa oficina: los
+permisos siguen dependiendo del destino. No se agregan dirección física ni
+destinatarios externos.
 
 Las pruebas de consulta buscan los registros dentro de botones y filas concretas
 para no recalcular la accesibilidad de todo el documento en cada espera. Los

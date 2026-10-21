@@ -506,12 +506,15 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     context.descargarComprobantePDF({
         numero_radicado: 'RAD-20261006-9287',
         tipo_tramite: 'Consulta',
+        tipo_comunicacion: 'Interna',
+        dependencia_remitente: 'Planeacion histórica',
         fecha_hora: '6/10/2026, 12:12:28',
         asunto_documento: Array(90).fill('Detalle del documento').join('\n')
     });
     assert.ok(texts.some(text => text.value === '6/10/2026, 12:12:28'));
     assert.equal(saved, 'Comprobante_RAD-20261006-9287.pdf');
     assert.ok(texts.some(text => text.value === '• Tipo de Trámite: Consulta'));
+    assert.ok(texts.some(text => text.value === '• Dependencia Remitente: Planeacion histórica'));
     assert.ok(pages > 1);
     assert.ok(texts.filter(text => text.value === 'Detalle del documento').every(text => text.y <= 255));
     saved = undefined;
@@ -519,6 +522,16 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     assert.equal(preview, doc);
     assert.ok(texts.some(text => text.value === '• Tipo de Trámite: No registrado'));
     assert.equal(saved, undefined);
+    context.crearComprobantePDF({ tipo_comunicacion: 'Interna', fecha_hora: 'Fecha' });
+    assert.ok(texts.some(text => text.value === '• Dependencia Remitente: No registrada'));
+    context.crearComprobantePDF({
+        tipo_comunicacion: 'Externa', fecha_hora: 'Fecha', remitente_tipo_persona: 'juridica',
+        remitente_entidad: 'Empresa', remitente_nit: '123', remitente_email: 'a@example.com'
+    });
+    assert.ok(texts.some(text => text.value === '• Tipo de Persona: Jurídica'));
+    assert.ok(texts.some(text => text.value === '• Entidad / Razón Social: Empresa'));
+    assert.ok(texts.some(text => text.value === '• NIT: 123'));
+    assert.ok(texts.some(text => text.value === '• Correo: a@example.com'));
     context.window.jspdf = undefined;
     assert.throws(() => context.descargarComprobantePDF({}), /No se cargó jsPDF/);
 });

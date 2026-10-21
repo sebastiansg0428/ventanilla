@@ -28,6 +28,14 @@ export function crearPdfComprobante(datos) {
   documentoPdf.setFont('helvetica', 'normal');
   const lineasDetalle = [
     `Tipo de Comunicación: ${datos.tipo_comunicacion || 'No especificado'}`,
+    ...(datos.tipo_comunicacion === 'Interna'
+      ? [`Dependencia Remitente: ${datos.dependencia_remitente || 'No registrada'}`]
+      : datos.tipo_comunicacion === 'Externa' ? [
+        `Tipo de Persona: ${datos.remitente_tipo_persona === 'juridica' ? 'Jurídica' : datos.remitente_tipo_persona === 'natural' ? 'Natural' : 'No registrado'}`,
+        `Entidad / Razón Social: ${datos.remitente_entidad || 'No registrada'}`,
+        `NIT: ${datos.remitente_nit || 'No registrado'}`,
+        `Correo: ${datos.remitente_email || 'No registrado'}`,
+      ] : []),
     `Tipo de Trámite: ${datos.tipo_tramite || 'No registrado'}`,
     `Número de Radicado: ${datos.numero_radicado || ''}`,
     `Número de Folios: ${datos.numero_folios || '1'}`,

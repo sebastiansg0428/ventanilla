@@ -53,11 +53,13 @@ async function completarFormulario(user, destino = "3") {
     "Externa",
   );
   await user.selectOptions(screen.getByLabelText(/tipo de trámite/i), "10");
+  await user.selectOptions(screen.getByLabelText(/tipo de persona/i), "natural");
   for (const [etiqueta, valor] of [
     [/nombre completo del remitente/i, "María Torres"],
     [/cédula/i, "12345678"],
     [/teléfono/i, "3001234567"],
     [/entidad \/ empresa/i, "Persona natural"],
+    [/correo electrónico/i, "maria@example.com"],
   ]) {
     await user.click(screen.getByLabelText(etiqueta));
     await user.paste(valor);
@@ -84,6 +86,134 @@ describe("radicación React", () => {
     guardarPdf = vi.fn();
     crearPdfComprobante.mockReset().mockReturnValue({ save: guardarPdf });
   });
+
+  it("muestra solo el origen interno y limpia selecciones incompatibles al cambiar de clase", async () => {
+    await abrirRadicacion();
+    const clase = screen.getByLabelText(/clase de comunicación/i);
+    fireEvent.change(clase, { target: { value: "Interna" } });
+    const origen = screen.getByLabelText(/dependencia remitente/i);
+    expect(origen.required).toBe(true);
+    expect(Array.from(origen.options).map((opcion) => opcion.value)).toEqual(["", "3"]);
+    expect(screen.queryByLabelText(/tipo de persona/i)).toBeNull();
+    expect(screen.getByLabelText(/correo electrónico/i).required).toBe(false);
+    fireEvent.change(origen, { target: { value: "3" } });
+    fireEvent.change(clase, { target: { value: "Externa" } });
+    expect(screen.queryByLabelText(/dependencia remitente/i)).toBeNull();
+    expect(screen.getByLabelText(/correo electrónico/i).required).toBe(true);
+    fireEvent.change(screen.getByLabelText(/tipo de persona/i), { target: { value: "juridica" } });
+    expect(screen.getByLabelText(/razón social/i).maxLength).toBe(150);
+    expect(screen.getByLabelText(/nit de la entidad/i).required).toBe(true);
+    fireEvent.change(clase, { target: { value: "Interna" } });
+    expect(screen.getByLabelText(/dependencia remitente/i).value).toBe("");
+    expect(screen.getByLabelText(/nit de la entidad/i).required).toBe(false);
+    fireEvent.change(clase, { target: { value: "Externa" } });
+    expect(screen.getByLabelText(/tipo de persona/i).value).toBe("");
+  });
+
+  it.each(["natural", "juridica"])("conserva entidad al alternar desde externa %s sin enviarla en interna y mantiene NIT opcional", async (persona) => {
+    await abrirRadicacion();
+    const clase = screen.getByLabelText(/clase de comunicación/i);
+    fireEvent.change(clase, { target: { value: "Externa" } });
+    fireEvent.change(screen.getByLabelText(/tipo de persona/i), { target: { value: persona } });
+    const entidad = screen.getByLabelText(persona === "juridica" ? /razón social/i : /entidad \/ empresa/i);
+    const nit = screen.getByLabelText(/nit de la entidad/i);
+    fireEvent.change(entidad, { target: { value: "Entidad conservada" } });
+    fireEvent.change(nit, { target: { value: "900123" } });
+    expect(entidad.disabled).toBe(false);
+    expect(entidad.required).toBe(true);
+    fireEvent.change(clase, { target: { value: "Interna" } });
+    expect(screen.getByLabelText(/entidad \/ empresa/i)).toBe(entidad);
+    expect(entidad.disabled).toBe(true);
+    expect(entidad.required).toBe(false);
+    expect(entidad.labels[0].querySelector(".campo-obligatorio")).toBeNull();
+    expect(entidad.value).toBe("Entidad conservada");
+    expect(nit.disabled).toBe(false);
+    expect(nit.required).toBe(false);
+    const datosInternos = new FormData(entidad.form);
+    expect(datosInternos.has("remitente_entidad")).toBe(false);
+    expect(datosInternos.get("remitente_nit")).toBe("900123");
+    fireEvent.change(clase, { target: { value: "Externa" } });
+    fireEvent.change(screen.getByLabelText(/tipo de persona/i), { target: { value: persona } });
+    expect(entidad.disabled).toBe(false);
+    expect(entidad.required).toBe(true);
+    expect(entidad.labels[0].querySelector(".campo-obligatorio")).not.toBeNull();
+    expect(entidad.value).toBe("Entidad conservada");
+    expect(nit.required).toBe(persona === "juridica");
+    expect(new FormData(entidad.form).get("remitente_entidad")).toBe("Entidad conservada");
+  });
+
+  it.each([true, false])("envía origen interno y conserva los datos solo ante rechazo: éxito %s", async (exito) => {
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return { json: async () => exito ? {
+        success: true, radicado: "RAD-INTERNA", tipo_comunicacion: "Interna",
+        dependencia_remitente: "Nombre histórico confirmado", dependencia_remitente_id: 3,
+      } : { success: false, message: "Origen inactivo" } };
+      return catalogos(ruta, opciones);
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    if (exito) fireEvent.change(screen.getByLabelText(/entidad \/ empresa/i), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(/clase de comunicación/i), { target: { value: "Interna" } });
+    fireEvent.change(screen.getByLabelText(/dependencia remitente/i), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText(/correo electrónico/i), { target: { value: "" } });
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "interna.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    await screen.findByText(exito ? /Radicado RAD-INTERNA guardado/ : "Origen inactivo");
+    const datos = solicitarApi.mock.calls.find(([ruta]) => ruta === "/api/radicados")[1].body;
+    expect(datos.get("dependencia_remitente_id")).toBe("3");
+    expect(datos.has("remitente_tipo_persona")).toBe(false);
+    expect(datos.has("remitente_entidad")).toBe(false);
+    if (exito) {
+      expect(crearPdfComprobante).toHaveBeenCalledWith(expect.objectContaining({
+        dependencia_remitente: "Nombre histórico confirmado", tipo_comunicacion: "Interna",
+      }));
+      expect(screen.getByLabelText(/clase de comunicación/i).value).toBe("");
+      expect(screen.queryByLabelText(/dependencia remitente/i)).toBeNull();
+      expect(screen.getByLabelText(/entidad \/ empresa/i).value).toBe("");
+    } else {
+      expect(screen.getByLabelText(/dependencia remitente/i).value).toBe("3");
+      expect(screen.getByLabelText(/entidad \/ empresa/i).value).toBe("Persona natural");
+      expect(screen.getByLabelText(/entidad \/ empresa/i).disabled).toBe(true);
+      expect(crearPdfComprobante).not.toHaveBeenCalled();
+    }
+  }, 10_000);
+
+  it("exige correo externo y NIT jurídico antes de enviar, sin enviar origen institucional", async () => {
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") return { json: async () => ({
+        success: true, radicado: "RAD-JURIDICA", tipo_comunicacion: "Externa",
+        remitente_tipo_persona: "juridica",
+      }) };
+      return catalogos(ruta, opciones);
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    fireEvent.change(screen.getByLabelText(/tipo de persona/i), { target: { value: "juridica" } });
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "externa.pdf", { type: "application/pdf" }));
+    const boton = screen.getByRole("button", { name: "Generar radicado y registrar" });
+    await user.click(boton);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta === "/api/radicados")).toBe(false);
+    fireEvent.change(screen.getByLabelText(/nit de la entidad/i), { target: { value: "123456789" } });
+    const correo = screen.getByLabelText(/correo electrónico/i);
+    fireEvent.change(correo, { target: { value: "" } });
+    await user.click(boton);
+    expect(correo.checkValidity()).toBe(false);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta === "/api/radicados")).toBe(false);
+    fireEvent.change(correo, { target: { value: "juridica@example.com" } });
+    await user.click(boton);
+    await screen.findByText(/Radicado RAD-JURIDICA guardado/);
+    const datos = solicitarApi.mock.calls.find(([ruta]) => ruta === "/api/radicados")[1].body;
+    expect(datos.has("dependencia_remitente_id")).toBe(false);
+    expect(datos.get("remitente_tipo_persona")).toBe("juridica");
+    expect(datos.get("remitente_nit")).toBe("123456789");
+    expect(crearPdfComprobante).toHaveBeenCalledWith(expect.objectContaining({ remitente_tipo_persona: "juridica" }));
+  }, 10_000);
 
   it.each(["generación", "descarga"])(
     "confirma el guardado si falla la %s y reintenta solo el comprobante",

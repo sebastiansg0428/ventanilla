@@ -46,6 +46,14 @@ function crearComprobantePDF(datosRadicado) {
 
     const itemsDetalle = [
         `Tipo de Comunicación: ${datosRadicado.tipo_comunicacion || 'No especificado'}`,
+        ...(datosRadicado.tipo_comunicacion === 'Interna'
+            ? [`Dependencia Remitente: ${datosRadicado.dependencia_remitente || 'No registrada'}`]
+            : datosRadicado.tipo_comunicacion === 'Externa' ? [
+                `Tipo de Persona: ${datosRadicado.remitente_tipo_persona === 'juridica' ? 'Jurídica' : datosRadicado.remitente_tipo_persona === 'natural' ? 'Natural' : 'No registrado'}`,
+                `Entidad / Razón Social: ${datosRadicado.remitente_entidad || 'No registrada'}`,
+                `NIT: ${datosRadicado.remitente_nit || 'No registrado'}`,
+                `Correo: ${datosRadicado.remitente_email || 'No registrado'}`,
+            ] : []),
         `Tipo de Trámite: ${datosRadicado.tipo_tramite || 'No registrado'}`,
         `Número de Radicado: ${datosRadicado.numero_radicado}`,
         `Número de Folios: ${datosRadicado.numero_folios || '1'}`,
