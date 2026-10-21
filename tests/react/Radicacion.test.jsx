@@ -38,9 +38,9 @@ function prepararCatalogos() {
 
 async function abrirRadicacion() {
   render(<PaginaRadicacion />);
-  await screen.findByRole("option", { name: "Solicitud general" });
-  await screen.findByRole("option", { name: "Secretaría de Gobierno" });
-  await screen.findByRole("option", { name: "Luis Gómez" });
+  await screen.findByText("Solicitud general", { selector: "option" });
+  await screen.findByText("Secretaría de Gobierno", { selector: "option" });
+  await screen.findByText("Luis Gómez", { selector: "option" });
 }
 
 async function completarFormulario(user, destino = "3") {
@@ -53,16 +53,15 @@ async function completarFormulario(user, destino = "3") {
     "Externa",
   );
   await user.selectOptions(screen.getByLabelText(/tipo de trámite/i), "10");
-  await user.type(
-    screen.getByLabelText(/nombre completo del remitente/i),
-    "María Torres",
-  );
-  await user.type(screen.getByLabelText(/cédula/i), "12345678");
-  await user.type(screen.getByLabelText(/teléfono/i), "3001234567");
-  await user.type(
-    screen.getByLabelText(/entidad \/ empresa/i),
-    "Persona natural",
-  );
+  for (const [etiqueta, valor] of [
+    [/nombre completo del remitente/i, "María Torres"],
+    [/cédula/i, "12345678"],
+    [/teléfono/i, "3001234567"],
+    [/entidad \/ empresa/i, "Persona natural"],
+  ]) {
+    await user.click(screen.getByLabelText(etiqueta));
+    await user.paste(valor);
+  }
   await user.selectOptions(
     screen.getByLabelText(/dependencia de destino/i),
     destino,
@@ -71,10 +70,8 @@ async function completarFormulario(user, destino = "3") {
     screen.getByLabelText(/funcionario \/ quién registra/i),
     "8",
   );
-  await user.type(
-    screen.getByLabelText(/asunto \/ resumen/i),
-    "Solicitud de información",
-  );
+  await user.click(screen.getByLabelText(/asunto \/ resumen/i));
+  await user.paste("Solicitud de información");
 }
 
 describe("radicación React", () => {

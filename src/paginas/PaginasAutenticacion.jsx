@@ -11,6 +11,7 @@ import {
   EncabezadoAplicacion,
   PiePagina,
 } from "../componentes/Compartidos";
+import { contrasenaValida, POLITICA_CONTRASENA } from "../servicios/contrasenas";
 
 export function PaginaInicioSesion() {
   const [enProceso, setEnProceso] = useState(false);
@@ -201,6 +202,11 @@ function GestionUsuarios({ usuario }) {
 
   async function enviarFormulario(evento) {
     evento.preventDefault();
+    if ((!usuarioEnEdicion || formulario.password !== "") &&
+        !contrasenaValida(formulario.password)) {
+      setMensaje({ texto: POLITICA_CONTRASENA, tono: "error" });
+      return;
+    }
     setEnProceso(true);
     setMensaje({
       texto: usuarioEnEdicion
@@ -366,7 +372,9 @@ function GestionUsuarios({ usuario }) {
                 onChange={actualizarCampo}
                 autoComplete="new-password"
                 minLength={formulario.password ? 10 : undefined}
-                maxLength="128"
+                maxLength="72"
+                aria-describedby="politica-contrasena"
+                aria-invalid={formulario.password !== "" && !contrasenaValida(formulario.password)}
                 required={!usuarioEnEdicion}
                 placeholder={
                   usuarioEnEdicion
@@ -374,9 +382,7 @@ function GestionUsuarios({ usuario }) {
                     : ""
                 }
               />
-              {!usuarioEnEdicion && (
-                <small>Debe tener entre 10 y 128 caracteres.</small>
-              )}
+              <small id="politica-contrasena">{POLITICA_CONTRASENA}</small>
             </div>
             <div className="auth-field auth-field--full">
               <label htmlFor="rol">Rol en el sistema *</label>

@@ -56,9 +56,9 @@ function respuestaJson(resultado) {
 
 async function abrirConsulta() {
   render(<PaginaConsultaRadicados />);
-  await screen.findByRole("button", { name: "RAD-001" });
-  await screen.findByRole("button", { name: "RAD-002" });
-  await screen.findByRole("button", { name: "RAD-003" });
+  await screen.findByText("RAD-001", { selector: "button" });
+  await screen.findByText("RAD-002", { selector: "button" });
+  await screen.findByText("RAD-003", { selector: "button" });
 }
 
 async function abrirRespuesta(user) {
@@ -68,7 +68,8 @@ async function abrirRespuesta(user) {
   dialogo.close = vi.fn(() => {
     dialogo.removeAttribute("open");
   });
-  await user.click(screen.getAllByRole("button", { name: "Responder" })[0]);
+  const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+  await user.click(within(fila).getByRole("button", { name: "Responder" }));
   return screen.findByLabelText(/Documentos de respuesta/);
 }
 
@@ -109,7 +110,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta(user);
 
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
@@ -125,7 +126,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("conserva y envía los PDFs anteriores al rechazar una selección nueva", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta(user);
     const valido = crearPdf("anterior.pdf", 32);
     await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
@@ -152,7 +153,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("acepta exactamente 10 MB y limpia el error al reemplazar la selección", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta(user);
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
     await user.upload(selector, crearPdf("limite.pdf", 10 * 1024 * 1024));
@@ -163,7 +164,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("rechaza más de cinco PDFs y extensiones inválidas sin borrar los anteriores", async () => {
-    const user = userEvent.setup({ applyAccept: false });
+    const user = userEvent.setup({ applyAccept: false, delay: null });
     const selector = await abrirRespuesta(user);
     await user.upload(selector, crearPdf("anterior.pdf", 32));
     await user.upload(selector, Array.from({ length: 6 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
@@ -176,7 +177,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("admite cinco PDFs, rechaza archivos vacíos y reinicia los adjuntos al reabrir", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta(user);
     await user.upload(selector, Array.from({ length: 5 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
     expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
@@ -201,7 +202,7 @@ describe("consulta de radicados React", () => {
       conAdjunto: true,
     },
   ])("mantiene visible el rechazo del servidor: $errorServidor", async ({ errorServidor, conAdjunto }) => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta(user);
     const adjuntos = conAdjunto ? [crearPdf("protegido.pdf", 32)] : [];
     if (conAdjunto) await user.upload(selector, adjuntos);
@@ -221,7 +222,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await abrirConsulta();
 
     await user.click(screen.getByRole("button", { name: /Registrados hoy/ }));
@@ -273,7 +274,7 @@ describe("consulta de radicados React", () => {
   });
 
   it("envía un cambio de estado y muestra el estado confirmado por el servidor", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await abrirConsulta();
     const selectorEstado = screen.getByRole("combobox", {
       name: "Estado de RAD-001",
@@ -303,7 +304,7 @@ describe("consulta de radicados React", () => {
       }
       throw new Error(`Ruta inesperada: ${ruta}`);
     });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await abrirConsulta();
     const selectorEstado = screen.getByRole("combobox", {
       name: "Estado de RAD-001",

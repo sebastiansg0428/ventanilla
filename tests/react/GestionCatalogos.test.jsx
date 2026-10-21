@@ -103,7 +103,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("carga los catálogos incluyendo inactivos y crea una dependencia", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
 
@@ -133,7 +133,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("crea un tipo de trámite con su término legal inicial", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
@@ -192,7 +192,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("conserva el código manual al seguir cambiando el nombre", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
@@ -216,7 +216,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("edita los datos del tipo sin intentar modificar el término legal", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
@@ -247,7 +247,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("inactiva la dependencia vía baja lógica y refleja el estado confirmado", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     vi.stubGlobal("confirm", vi.fn(() => true));
     render(<PaginaGestionCatalogos />);
     const row = (await screen.findByText("Planeación")).closest("tr");
@@ -269,7 +269,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("muestra el formulario al editar y acepta PUT confirmado con HTTP 204", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     const row = (await screen.findByText("Planeación")).closest("tr");
 
@@ -298,7 +298,7 @@ describe("gestión de catálogos React", () => {
   });
 
   it("registra una versión de término usando tipo_tramite_id", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));

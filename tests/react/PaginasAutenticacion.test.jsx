@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -11,6 +11,7 @@ import {
   limpiarSesion,
   solicitarApi,
 } from "../../src/servicios/api.js";
+import { contrasenaValida, POLITICA_CONTRASENA } from "../../src/servicios/contrasenas.js";
 
 vi.mock("../../src/servicios/api.js", () => ({
   confirmarSesion: vi.fn(),
@@ -173,6 +174,54 @@ describe("gestión de usuarios React", () => {
     vi.clearAllMocks();
     confirmarSesion.mockResolvedValue(administrador);
     configurarApiGestion();
+  });
+
+  it.each([
+    "abcdefghij1!", "ABCDEFGHIJ1!", "Abcdefghij!!", "Abcdefghij12",
+    "Abcdefghij12 ", "Abcdefghij1!\0", `Aa1!${"x".repeat(69)}`,
+    `Aa1!${"é".repeat(35)}`, "Aa1!😀😀😀😀😀",
+  ])("rechaza la contraseña inválida %j antes de enviar", async (password) => {
+    render(<PaginaRegistroUsuarios />);
+    await screen.findByText("Ana Perez");
+    const entrada = screen.getByLabelText("Contraseña *");
+    fireEvent.change(entrada, { target: { value: password } });
+    fireEvent.submit(entrada.closest("form"));
+    expect(screen.getByRole("status").textContent).toBe(POLITICA_CONTRASENA);
+    expect(entrada.getAttribute("aria-invalid")).toBe("true");
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+  });
+
+  it("acepta 72 bytes Unicode y rechaza 73 bytes sin truncar", async () => {
+    const password = `Aa1!${"é".repeat(34)}`;
+    expect(contrasenaValida(password)).toBe(true);
+    expect(contrasenaValida(`${password}x`)).toBe(false);
+    expect(contrasenaValida("Árbol-largo-123")).toBe(true);
+    render(<PaginaRegistroUsuarios />);
+    await screen.findByText("Ana Perez");
+    const entrada = screen.getByLabelText("Contraseña *");
+    fireEvent.change(entrada, { target: { value: password } });
+    fireEvent.submit(entrada.closest("form"));
+    await waitFor(() => {
+      const llamada = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
+      expect(JSON.parse(llamada[1].body).password).toBe(password);
+    });
+  });
+
+  it("rechaza una clave debil al editar pero permite dejarla vacia", async () => {
+    const user = userEvent.setup();
+    render(<PaginaRegistroUsuarios />);
+    const fila = (await screen.findByText("Ana Perez")).closest("tr");
+    await user.click(within(fila).getByRole("button", { name: "Editar" }));
+    const entrada = await screen.findByLabelText("Contraseña (opcional)");
+    fireEvent.change(entrada, { target: { value: "abcdefghijk" } });
+    fireEvent.submit(entrada.closest("form"));
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "PUT")).toBe(false);
+    fireEvent.change(entrada, { target: { value: "" } });
+    fireEvent.submit(entrada.closest("form"));
+    await waitFor(() => {
+      const llamada = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "PUT");
+      expect(JSON.parse(llamada[1].body).password).toBeUndefined();
+    });
   });
 
   it("crea un funcionario con dependencia y carga la lista desde respuesta.usuarios", async () => {

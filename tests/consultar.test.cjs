@@ -505,16 +505,19 @@ test('shared PDF generator preserves the reception date, wraps text and saves a 
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'legacy', 'js', 'comprobante.js'), 'utf8'), context);
     context.descargarComprobantePDF({
         numero_radicado: 'RAD-20261006-9287',
+        tipo_tramite: 'Consulta',
         fecha_hora: '6/10/2026, 12:12:28',
         asunto_documento: Array(90).fill('Detalle del documento').join('\n')
     });
     assert.ok(texts.some(text => text.value === '6/10/2026, 12:12:28'));
     assert.equal(saved, 'Comprobante_RAD-20261006-9287.pdf');
+    assert.ok(texts.some(text => text.value === '• Tipo de Trámite: Consulta'));
     assert.ok(pages > 1);
     assert.ok(texts.filter(text => text.value === 'Detalle del documento').every(text => text.y <= 255));
     saved = undefined;
     const preview = context.crearComprobantePDF({ numero_radicado: 'A', fecha_hora: 'Fecha registrada' });
     assert.equal(preview, doc);
+    assert.ok(texts.some(text => text.value === '• Tipo de Trámite: No registrado'));
     assert.equal(saved, undefined);
     context.window.jspdf = undefined;
     assert.throws(() => context.descargarComprobantePDF({}), /No se cargó jsPDF/);
