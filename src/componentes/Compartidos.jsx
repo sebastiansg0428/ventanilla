@@ -86,9 +86,18 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
   return (
     <>
       <header className="app-header">
-        <div>
-          <h1>Alcaldía Municipal</h1>
-          <p>Sistema de Gestión Documental y Ventanilla Única</p>
+        <div className="app-header__identidad">
+          <img
+            className="app-header__escudo"
+            src={`${import.meta.env.BASE_URL}img/escudo-miranda.png`}
+            alt="Escudo del municipio de Miranda"
+            width="350"
+            height="355"
+          />
+          <div className="app-header__texto">
+            <h1>Alcaldía Municipal</h1>
+            <p>Sistema de Gestión Documental y Ventanilla Única</p>
+          </div>
         </div>
         <span>
           Sesión: <strong>{usuario.nombre}</strong>

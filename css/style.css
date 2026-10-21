@@ -1291,11 +1291,28 @@ footer {
   background: #173c70;
   color: #fff;
 }
-.app-header > div {
+.app-header__identidad {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+.app-header__escudo {
+  display: block;
+  width: auto;
+  height: 4rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 20%;
+  background: #fff;
+}
+.app-header__texto {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .app-header h1 {
   margin: 0;
@@ -1309,6 +1326,8 @@ footer {
 .app-header > span {
   color: #fcd34d;
   font-size: 0.78rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .app-nav {
   display: flex;
@@ -2070,6 +2089,9 @@ button.dashboard-card {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .app-header__escudo {
+    height: 3rem;
   }
   .app-nav {
     flex-wrap: wrap;

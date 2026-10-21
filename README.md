@@ -133,6 +133,19 @@ Registrar una dependencia remitente no concede acceso a esa oficina: los
 permisos siguen dependiendo del destino. No se agregan dirección física ni
 destinatarios externos.
 
+## Escudo del encabezado
+
+El encabezado React compartido de Radicacion, Consulta, Usuarios y Catalogos
+usa `public/img/escudo-miranda.png`: copia recortada del escudo con sus ramas y
+cintas sobre fondo blanco. El archivo original del escritorio no se modifica
+ni se necesita en otros equipos. La ruta respeta la base de Vite y el recurso
+se copia a `dist/img` durante la compilacion.
+
+Para reemplazarlo, conserva ese nombre de archivo y la proporcion del escudo;
+actualiza las dimensiones intrinsecas del `<img>` si cambian. Los estilos
+mantienen una altura de 64 px en escritorio y 48 px en movil sin deformarlo.
+Incluye texto alternativo institucional. No modifica el login ni los PDF.
+
 ## Informativos y confirmacion Enterado
 
 Requiere la migracion backend 020 y despliegue coordinado de ambos clientes y
