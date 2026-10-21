@@ -39,6 +39,8 @@ function FormularioRadicacion({ usuario }) {
   const [errorArchivos, setErrorArchivos] = useState("");
   const [enProceso, setEnProceso] = useState(false);
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
+  const [datosComprobante, setDatosComprobante] = useState(null);
+  const [errorComprobante, setErrorComprobante] = useState("");
   const [longitudAsunto, setLongitudAsunto] = useState(0);
   const selectorArchivo = useRef(null);
   async function cargarTiposTramite() {
@@ -158,6 +160,16 @@ function FormularioRadicacion({ usuario }) {
     setArchivosSeleccionados(seleccion);
   }
 
+  function descargarComprobante(datos) {
+    try {
+      const pdf = crearPdfComprobante(datos);
+      pdf.save(`Comprobante_${datos.numero_radicado}.pdf`);
+      setErrorComprobante("");
+    } catch (error) {
+      setErrorComprobante(error.message);
+    }
+  }
+
   async function enviarFormulario(evento) {
     evento.preventDefault();
     const formulario = evento.currentTarget;
@@ -206,7 +218,7 @@ function FormularioRadicacion({ usuario }) {
           String(dep.id) ===
           String(datosFormulario.get("dependencia_destino_id")),
       );
-      const pdf = crearPdfComprobante({
+      const comprobante = {
         numero_radicado: String(resultado.radicado || ""),
         tipo_comunicacion: resultado.tipo_comunicacion,
         numero_folios: datosFormulario.get("numero_folios"),
@@ -219,8 +231,9 @@ function FormularioRadicacion({ usuario }) {
         remitente_documento: datosFormulario.get("remitente_documento"),
         asunto_documento: datosFormulario.get("asunto_documento"),
         fecha_hora: resultado.fecha_hora_recepcion_legible,
-      });
-      pdf.save(`Comprobante_${resultado.radicado}.pdf`);
+      };
+      setDatosComprobante(comprobante);
+      setErrorComprobante("");
       formulario.reset();
       setTipoTramiteIdSeleccionado("");
       setLongitudAsunto(0);
@@ -234,6 +247,7 @@ function FormularioRadicacion({ usuario }) {
         texto: `Radicado ${resultado.radicado} guardado. El comprobante incluye a ${resultado.usuario_recibe || usuario.nombre}.`,
         tono: "success",
       });
+      descargarComprobante(comprobante);
     } catch (error) {
       setMensaje({ texto: error.message, tono: "error" });
     } finally {
@@ -535,6 +549,23 @@ function FormularioRadicacion({ usuario }) {
                 : "Generar radicado y registrar"}
             </button>
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
+            {errorComprobante && datosComprobante && (
+              <div>
+                <p className="auth-message" data-state="error" role="alert">
+                  El radicado {datosComprobante.numero_radicado} ya está guardado,
+                  pero no se pudo generar o iniciar la descarga del comprobante.{" "}
+                  {errorComprobante} No vuelvas a registrar este documento.
+                  Puedes reintentar el comprobante o recuperarlo desde Consultar radicados.
+                </p>
+                <button
+                  type="button"
+                  disabled={enProceso}
+                  onClick={() => descargarComprobante(datosComprobante)}
+                >
+                  Reintentar comprobante
+                </button>
+              </div>
+            )}
           </form>
         </section>
       </main>

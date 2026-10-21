@@ -194,20 +194,30 @@ describe("consulta de radicados React", () => {
     expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
   });
 
-  it("permite responder sin adjuntos y mantiene visible un rechazo del servidor", async () => {
+  it.each([
+    { errorServidor: "Cada PDF debe pesar máximo 10 MB.", conAdjunto: false },
+    {
+      errorServidor: "El archivo PDF está cifrado o protegido con contraseña y no se puede validar. Adjunta una copia sin protección, si tienes autorización para hacerlo.",
+      conAdjunto: true,
+    },
+  ])("mantiene visible el rechazo del servidor: $errorServidor", async ({ errorServidor, conAdjunto }) => {
     const user = userEvent.setup();
-    await abrirRespuesta(user);
+    const selector = await abrirRespuesta(user);
+    const adjuntos = conAdjunto ? [crearPdf("protegido.pdf", 32)] : [];
+    if (conAdjunto) await user.upload(selector, adjuntos);
     await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
     const original = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
-      if (opciones.method === "POST") throw new Error("Cada PDF debe pesar máximo 10 MB.");
+      if (opciones.method === "POST") throw new Error(errorServidor);
       return original(ruta, opciones);
     });
     await user.click(screen.getByRole("button", { name: "Enviar respuesta" }));
-    const mensaje = await screen.findByText("Cada PDF debe pesar máximo 10 MB.");
+    const mensaje = await screen.findByText(errorServidor);
     expect(mensaje.closest(".modal-content")).toBeNull();
     const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
-    expect(envio[1].body.getAll("archivos")).toEqual([]);
+    expect(envio[1].body.getAll("archivos")).toEqual(adjuntos);
+    expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
+    if (conAdjunto) expect(screen.getByText(/protegido.pdf/)).toBeTruthy();
   });
 
   it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {

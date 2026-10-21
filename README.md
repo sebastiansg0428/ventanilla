@@ -43,5 +43,21 @@ de archivos seleccionados indica qué documentos se enviarán aunque el selector
 nativo quede vacío tras el rechazo. Una selección válida nueva reemplaza la
 anterior; los adjuntos siguen siendo opcionales.
 
+## Confirmacion de radicacion y comprobante
+
+Cuando el servidor confirma el registro, la pantalla muestra el numero guardado
+y reinicia el formulario aunque falle la generacion o el inicio de descarga del
+PDF. El error del comprobante se muestra por separado y permite usar
+**Reintentar comprobante** sin enviar otra solicitud de radicacion.
+
+El reintento usa los datos del ultimo comprobante guardados en memoria, no los
+campos que se esten diligenciando para otro documento. Esos datos se pierden al
+recargar o salir de la pagina; el comprobante tambien se puede obtener desde
+Consultar radicados. Una descarga iniciada no confirma que el usuario haya
+guardado el archivo en su equipo.
+
+Esto no agrega idempotencia: si se pierde la respuesta de red despues de guardar
+en el servidor, se debe comprobar el registro en Consulta antes de repetirlo.
+
 ## Código anterior
 Los scripts de la interfaz anterior se conservan en `legacy/js/`; las páginas actuales cargan los componentes de `src/`. Las pruebas en `tests/` mantienen cobertura de esos scripts anteriores y no representan todavía pruebas completas de la interfaz React.

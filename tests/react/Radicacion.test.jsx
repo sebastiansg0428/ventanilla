@@ -88,6 +88,72 @@ describe("radicación React", () => {
     crearPdfComprobante.mockReset().mockReturnValue({ save: guardarPdf });
   });
 
+  it.each(["generación", "descarga"])(
+    "confirma el guardado si falla la %s y reintenta solo el comprobante",
+    async (fallo) => {
+      const catalogos = solicitarApi.getMockImplementation();
+      solicitarApi.mockImplementation(async (ruta, opciones) => {
+        if (ruta === "/api/radicados") {
+          return { json: async () => ({
+            success: true, radicado: "RAD-PRUEBA-001",
+            tipo_comunicacion: "Externa", usuario_recibe: "Ana Pérez",
+          }) };
+        }
+        return catalogos(ruta, opciones);
+      });
+      const error = new Error("Fallo de PDF simulado");
+      if (fallo === "generación") crearPdfComprobante.mockImplementationOnce(() => { throw error; });
+      else guardarPdf.mockImplementationOnce(() => { throw error; });
+      const user = userEvent.setup();
+      await abrirRadicacion();
+      await completarFormulario(user);
+      await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+        new File(["PDF"], "solicitud.pdf", { type: "application/pdf" }));
+      await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+
+      expect(await screen.findByText(/Radicado RAD-PRUEBA-001 guardado/)).toBeTruthy();
+      expect(screen.getByRole("alert").textContent).toContain("Fallo de PDF simulado");
+      expect(screen.getByRole("alert").textContent).toContain("No vuelvas a registrar");
+      expect(screen.getByLabelText(/nombre completo del remitente/i).value).toBe("");
+      expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
+      const datos = crearPdfComprobante.mock.calls[0][0];
+      await user.type(screen.getByLabelText(/nombre completo del remitente/i), "Otro remitente");
+      crearPdfComprobante.mockImplementationOnce(() => { throw new Error("Fallo al reintentar"); });
+      await user.click(screen.getByRole("button", { name: "Reintentar comprobante" }));
+      expect(screen.getByRole("alert").textContent).toContain("Fallo al reintentar");
+      await user.click(screen.getByRole("button", { name: "Reintentar comprobante" }));
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      expect(crearPdfComprobante.mock.calls.at(-1)[0]).toEqual(datos);
+      expect(guardarPdf).toHaveBeenLastCalledWith("Comprobante_RAD-PRUEBA-001.pdf");
+      expect(solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados")).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "Reintentar comprobante" })).toBeNull();
+    }, 10_000,
+  );
+
+  it.each(["rechazo", "red", "cifrado"])("conserva el formulario ante un fallo de %s y no ofrece comprobante", async (fallo) => {
+    const mensajeCifrado = "El archivo PDF está cifrado o protegido con contraseña y no se puede validar. Adjunta una copia sin protección, si tienes autorización para hacerlo.";
+    const mensajeEsperado = fallo === "red" ? "Sin conexión" : fallo === "cifrado" ? mensajeCifrado : "Registro rechazado";
+    const catalogos = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/radicados") {
+        if (fallo === "red") throw new Error("Sin conexión");
+        if (fallo === "cifrado") throw new Error(mensajeCifrado);
+        return { json: async () => ({ success: false, message: "Registro rechazado" }) };
+      }
+      return catalogos(ruta, opciones);
+    });
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    await completarFormulario(user);
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "solicitud.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    expect(await screen.findByText(mensajeEsperado)).toBeTruthy();
+    expect(screen.getByLabelText(/nombre completo del remitente/i).value).toBe("María Torres");
+    expect(crearPdfComprobante).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Reintentar comprobante" })).toBeNull();
+  }, 10_000);
+
   it("carga los catálogos y exige adjuntar el PDF antes de registrar", async () => {
     const user = userEvent.setup();
     await abrirRadicacion();
