@@ -7,6 +7,7 @@ import {
 } from "../componentes/Compartidos";
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
+import { obtenerFechaBogota, obtenerDiaRadicacion, formatearFechaRadicacion } from "../servicios/fechas";
 
 const ESTADOS_POSIBLES = ["Recibido", "En trámite", "Pendiente"];
 const requiereRespuesta = (radicado) =>
@@ -22,30 +23,6 @@ const normalizarTexto = (valor) =>
 const convertirFechaLocal = (valor) => {
   const fecha = new Date(String(valor || "").replace(" ", "T"));
   return Number.isNaN(fecha.getTime()) ? null : fecha;
-};
-const obtenerFechaBogota = (valor) => {
-  if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor))
-    return valor;
-  const fechaEntrada = valor instanceof Date ? valor : String(valor || "");
-  const fecha =
-    fechaEntrada instanceof Date
-      ? fechaEntrada
-      : new Date(
-          /(?:Z|[+-]\d{2}:?\d{2})$/i.test(fechaEntrada)
-            ? fechaEntrada
-            : `${fechaEntrada.replace(" ", "T")}-05:00`,
-        );
-  if (Number.isNaN(fecha.getTime())) return null;
-  const partes = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(fecha);
-  const valores = Object.fromEntries(
-    partes.map(({ type, value }) => [type, value]),
-  );
-  return `${valores.year}-${valores.month}-${valores.day}`;
 };
 const estaEnEstadoCritico = (radicado) =>
   ["alerta", "vencido"].includes(normalizarTexto(radicado.semaforo?.nivel));
@@ -111,6 +88,48 @@ function VistaConsultaRadicados({ usuario }) {
   const dialogoComprobante = useRef(null);
   const dialogoRespuesta = useRef(null);
   const entradaArchivosRespuesta = useRef(null);
+  const solicitudDetalle = useRef(0);
+  const solicitudDocumento = useRef(0);
+  const solicitudRespuesta = useRef(0);
+  const respuestaEnProceso = useRef(false);
+  const urlsRespuestaEnCarga = useRef(new Set());
+
+  function liberarUrlsRespuestaEnCarga() {
+    urlsRespuestaEnCarga.current.forEach((url) => URL.revokeObjectURL(url));
+    urlsRespuestaEnCarga.current.clear();
+  }
+
+  useEffect(() => () => {
+    solicitudDetalle.current += 1;
+    solicitudDocumento.current += 1;
+    solicitudRespuesta.current += 1;
+    liberarUrlsRespuestaEnCarga();
+  }, []);
+
+  function cerrarDetalle() {
+    solicitudDetalle.current += 1;
+    solicitudDocumento.current += 1;
+    setRadicadoSeleccionado(null);
+    setArchivoAdjunto({ url: "", documentos: [], estado: "" });
+    if (dialogoDetalle.current?.open) dialogoDetalle.current.close();
+  }
+
+  function cerrarRespuesta() {
+    if (respuestaEnProceso.current) return;
+    solicitudRespuesta.current += 1;
+    liberarUrlsRespuestaEnCarga();
+    setRespuestaSeleccionada(null);
+    setRespuestaConsultada(null);
+    if (dialogoRespuesta.current?.open) dialogoRespuesta.current.close();
+  }
+
+  function cerrarComprobante() {
+    solicitudComprobante.current += 1;
+    comprobanteEnProceso.current = false;
+    setGenerandoComprobante(false);
+    setUrlComprobante("");
+    if (dialogoComprobante.current?.open) dialogoComprobante.current.close();
+  }
 
   useEffect(() => {
     let vigente = true;
@@ -153,7 +172,7 @@ function VistaConsultaRadicados({ usuario }) {
         "remitente_documento",
         "remitente_nit",
       ].some((key) => normalizarTexto(radicado[key]).includes(q));
-      const fecha = obtenerFechaBogota(radicado.fecha_creacion);
+      const fecha = obtenerDiaRadicacion(radicado);
       return (
         coincideBusqueda &&
         (!soloCriticos || estaEnEstadoCritico(radicado)) &&
@@ -250,6 +269,10 @@ function VistaConsultaRadicados({ usuario }) {
   );
 
   function abrirFormularioRespuesta(radicado) {
+    if (respuestaEnProceso.current) return;
+    solicitudRespuesta.current += 1;
+    liberarUrlsRespuestaEnCarga();
+    setRespuestaConsultada(null);
     setTextoRespuesta("");
     setPlantillaRespuesta("");
     setArchivosRespuesta([]);
@@ -287,7 +310,9 @@ function VistaConsultaRadicados({ usuario }) {
 
   async function enviarRespuesta(evento) {
     evento.preventDefault();
-    if (!respuestaSeleccionada || !textoRespuesta.trim()) return;
+    if (respuestaEnProceso.current || !respuestaSeleccionada || !textoRespuesta.trim()) return;
+    respuestaEnProceso.current = true;
+    const solicitud = solicitudRespuesta.current;
     setEnviandoRespuesta(true);
     setMensajeRespuesta("Enviando respuesta…");
     try {
@@ -306,6 +331,7 @@ function VistaConsultaRadicados({ usuario }) {
         { method: "POST", body: datos },
       );
       const resultado = await respuesta.json();
+      if (solicitud !== solicitudRespuesta.current) return;
       if (!respuesta.ok || resultado.success !== true)
         throw new Error(resultado.message || "No se pudo enviar la respuesta.");
       setRadicados((actual) =>
@@ -326,23 +352,32 @@ function VistaConsultaRadicados({ usuario }) {
         ),
       );
       setMensajeRespuesta("Respuesta enviada y registrada.");
-      setRespuestaSeleccionada(null);
-    } catch (error) {
-      setMensajeRespuesta(error.message);
-    } finally {
       setEnviandoRespuesta(false);
+      respuestaEnProceso.current = false;
+      cerrarRespuesta();
+    } catch (error) {
+      if (solicitud === solicitudRespuesta.current) setMensajeRespuesta(error.message);
+    } finally {
+      respuestaEnProceso.current = false;
+      if (solicitud === solicitudRespuesta.current)
+        setEnviandoRespuesta(false);
     }
   }
 
   async function consultarRespuesta(radicado) {
+    if (respuestaEnProceso.current) return;
+    const solicitud = ++solicitudRespuesta.current;
+    liberarUrlsRespuestaEnCarga();
     setRespuestaSeleccionada(null);
     setRespuestaConsultada({ radicado, cargando: true, documentos: [] });
     const documentosCargados = [];
+    let publicados = false;
     try {
       const respuestaApi = await solicitarApi(
         `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/respuesta${radicado.radicado_dependencia_id ? `?radicado_dependencia_id=${encodeURIComponent(radicado.radicado_dependencia_id)}` : ""}`,
       );
       const resultado = await respuestaApi.json();
+      if (solicitud !== solicitudRespuesta.current) return;
       // /uploads está protegido: cada PDF se obtiene con el token de sesión.
       const documentos = [];
       for (const documento of resultado.respuesta.documentos || []) {
@@ -352,8 +387,11 @@ function VistaConsultaRadicados({ usuario }) {
           .map(encodeURIComponent)
           .join("/");
         const archivo = await solicitarApi(`/uploads/${rutaArchivo}`);
-        const url = URL.createObjectURL(await archivo.blob());
+        const blob = await archivo.blob();
+        if (solicitud !== solicitudRespuesta.current) return;
+        const url = URL.createObjectURL(blob);
         documentosCargados.push(url);
+        urlsRespuestaEnCarga.current.add(url);
         documentos.push({ ...documento, url });
       }
       setRespuestaConsultada({
@@ -362,10 +400,16 @@ function VistaConsultaRadicados({ usuario }) {
         documentos,
         cargando: false,
       });
+      publicados = true;
+      documentosCargados.forEach((url) => urlsRespuestaEnCarga.current.delete(url));
     } catch (error) {
-      documentosCargados.forEach((url) => URL.revokeObjectURL(url));
+      if (solicitud !== solicitudRespuesta.current) return;
       setRespuestaConsultada(null);
       window.alert(`No se pudo consultar la respuesta. ${error.message}`);
+    } finally {
+      if (!publicados) documentosCargados.forEach((url) => {
+        if (urlsRespuestaEnCarga.current.delete(url)) URL.revokeObjectURL(url);
+      });
     }
   }
 
@@ -383,6 +427,8 @@ function VistaConsultaRadicados({ usuario }) {
   );
 
   async function abrirDetalle(radicado) {
+    const solicitud = ++solicitudDetalle.current;
+    solicitudDocumento.current += 1;
     setRadicadoSeleccionado(radicado);
     setArchivoAdjunto({
       url: "",
@@ -394,6 +440,7 @@ function VistaConsultaRadicados({ usuario }) {
         `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/documentos`,
       );
       const resultado = await respuesta.json();
+      if (solicitud !== solicitudDetalle.current) return;
       const documentos = resultado.documentos || [];
       setArchivoAdjunto({
         url: "",
@@ -403,6 +450,7 @@ function VistaConsultaRadicados({ usuario }) {
           : "Este radicado no tiene documentos adjuntos.",
       });
     } catch (error) {
+      if (solicitud !== solicitudDetalle.current) return;
       setArchivoAdjunto({
         url: "",
         documentos: [],
@@ -412,15 +460,17 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   async function abrirDocumentoAdjunto(documento) {
+    const solicitud = ++solicitudDocumento.current;
     try {
       const rutaArchivo = documento.ruta_archivo
         .split("/")
         .map(encodeURIComponent)
         .join("/");
       const respuesta = await solicitarApi(`/uploads/${rutaArchivo}`);
-      const url = URL.createObjectURL(await respuesta.blob());
+      const blob = await respuesta.blob();
+      if (solicitud !== solicitudDocumento.current) return;
+      const url = URL.createObjectURL(blob);
       setArchivoAdjunto((actual) => {
-        if (actual.url) URL.revokeObjectURL(actual.url);
         return {
           ...actual,
           url,
@@ -428,6 +478,7 @@ function VistaConsultaRadicados({ usuario }) {
         };
       });
     } catch (error) {
+      if (solicitud !== solicitudDocumento.current) return;
       setArchivoAdjunto((actual) => ({
         ...actual,
         estado: `No se pudo abrir el documento. ${error.message}`,
@@ -513,14 +564,12 @@ function VistaConsultaRadicados({ usuario }) {
     setGenerandoComprobante(true);
     const solicitud = ++solicitudComprobante.current;
     try {
-      const fecha = convertirFechaLocal(radicado.fecha_creacion);
-      if (!fecha) throw new Error("El radicado no tiene fecha válida.");
+      if (!obtenerDiaRadicacion(radicado)) throw new Error("El radicado no tiene fecha válida.");
       const pdf = await crearPdfComprobante({
         ...radicado,
-        fecha_hora: fecha.toLocaleString("es-CO"),
+        fecha_hora: formatearFechaRadicacion(radicado),
       });
       if (solicitud !== solicitudComprobante.current) return;
-      if (urlComprobante) URL.revokeObjectURL(urlComprobante);
       setUrlComprobante(URL.createObjectURL(pdf.output("blob")));
     } catch (error) {
       if (solicitud === solicitudComprobante.current) {
@@ -536,9 +585,7 @@ function VistaConsultaRadicados({ usuario }) {
 
   const radicadosHoy = radicados.filter(
     (radicado) =>
-      convertirFechaLocal(radicado.fecha_creacion)?.toLocaleDateString(
-        "en-CA",
-      ) === claveFechaHoy,
+      obtenerDiaRadicacion(radicado) === claveFechaHoy,
   ).length;
   const radicadosCriticos = radicados.filter(estaEnEstadoCritico).length;
   const hayFiltrosActivos =
@@ -748,9 +795,7 @@ function VistaConsultaRadicados({ usuario }) {
                           {obtenerTipoComunicacion(radicado)}
                         </span>
                         <small>
-                          {convertirFechaLocal(
-                            radicado.fecha_creacion,
-                          )?.toLocaleString("es-CO") || "Fecha no disponible"}
+                          {formatearFechaRadicacion(radicado)}
                         </small>
                       </td>
                       <td>
@@ -902,9 +947,11 @@ function VistaConsultaRadicados({ usuario }) {
         ref={dialogoDetalle}
         id="modal-detalle"
         onClose={() => {
-          setRadicadoSeleccionado(null);
-          if (archivoAdjunto.url) URL.revokeObjectURL(archivoAdjunto.url);
-          setArchivoAdjunto({ url: "", estado: "" });
+          if (!dialogoDetalle.current?.open) cerrarDetalle();
+        }}
+        onCancel={(evento) => {
+          evento.preventDefault();
+          cerrarDetalle();
         }}
       >
         {radicadoSeleccionado && (
@@ -916,7 +963,7 @@ function VistaConsultaRadicados({ usuario }) {
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => dialogoDetalle.current?.close()}
+                onClick={cerrarDetalle}
               >
                 ×
               </button>
@@ -924,9 +971,7 @@ function VistaConsultaRadicados({ usuario }) {
             <div className="modal-content">
               <CampoDetalle
                 etiqueta="Fecha de radicación"
-                valor={convertirFechaLocal(
-                  radicadoSeleccionado.fecha_creacion,
-                )?.toLocaleString("es-CO")}
+                valor={formatearFechaRadicacion(radicadoSeleccionado)}
               />
               <CampoDetalle
                 etiqueta="Estado"
@@ -1031,7 +1076,7 @@ function VistaConsultaRadicados({ usuario }) {
             <div className="modal-footer">
               <button
                 type="button"
-                onClick={() => dialogoDetalle.current?.close()}
+                onClick={cerrarDetalle}
               >
                 Cerrar
               </button>
@@ -1044,8 +1089,11 @@ function VistaConsultaRadicados({ usuario }) {
         ref={dialogoRespuesta}
         className="respuesta-dialog"
         onClose={() => {
-          setRespuestaSeleccionada(null);
-          setRespuestaConsultada(null);
+          if (!dialogoRespuesta.current?.open) cerrarRespuesta();
+        }}
+        onCancel={(evento) => {
+          evento.preventDefault();
+          cerrarRespuesta();
         }}
       >
         {respuestaConsultada && (
@@ -1059,7 +1107,7 @@ function VistaConsultaRadicados({ usuario }) {
                 type="button"
                 className="modal-close"
                 aria-label="Cerrar"
-                onClick={() => dialogoRespuesta.current?.close()}
+                onClick={cerrarRespuesta}
               >
                 ×
               </button>
@@ -1126,7 +1174,7 @@ function VistaConsultaRadicados({ usuario }) {
             <div className="modal-footer">
               <button
                 type="button"
-                onClick={() => dialogoRespuesta.current?.close()}
+                onClick={cerrarRespuesta}
               >
                 Cerrar
               </button>
@@ -1144,7 +1192,8 @@ function VistaConsultaRadicados({ usuario }) {
                 type="button"
                 className="modal-close"
                 aria-label="Cerrar"
-                onClick={() => dialogoRespuesta.current?.close()}
+                onClick={cerrarRespuesta}
+                disabled={enviandoRespuesta}
               >
                 ×
               </button>
@@ -1163,6 +1212,7 @@ function VistaConsultaRadicados({ usuario }) {
               </label>
               <select
                 id="plantilla-respuesta"
+                disabled={enviandoRespuesta}
                 value={plantillaRespuesta}
                 onChange={(e) => {
                   const plantilla = e.target.value;
@@ -1191,6 +1241,7 @@ function VistaConsultaRadicados({ usuario }) {
               </label>
               <textarea
                 id="contenido-respuesta"
+                disabled={enviandoRespuesta}
                 required
                 minLength={10}
                 maxLength={10000}
@@ -1205,6 +1256,7 @@ function VistaConsultaRadicados({ usuario }) {
               <input
                 ref={entradaArchivosRespuesta}
                 id="adjunto-respuesta"
+                disabled={enviandoRespuesta}
                 type="file"
                 accept="application/pdf,.pdf"
                 multiple
@@ -1244,7 +1296,8 @@ function VistaConsultaRadicados({ usuario }) {
             <div className="modal-footer">
               <button
                 type="button"
-                onClick={() => dialogoRespuesta.current?.close()}
+                onClick={cerrarRespuesta}
+                disabled={enviandoRespuesta}
               >
                 Cancelar
               </button>
@@ -1265,18 +1318,18 @@ function VistaConsultaRadicados({ usuario }) {
         ref={dialogoComprobante}
         className="receipt-dialog"
         onClose={() => {
-          solicitudComprobante.current += 1;
-          comprobanteEnProceso.current = false;
-          setGenerandoComprobante(false);
-          if (urlComprobante) URL.revokeObjectURL(urlComprobante);
-          setUrlComprobante("");
+          if (!dialogoComprobante.current?.open) cerrarComprobante();
+        }}
+        onCancel={(evento) => {
+          evento.preventDefault();
+          cerrarComprobante();
         }}
       >
         <div className="comprobante-cabecera">
           <h2>Comprobante de recepción</h2>
           <button
             type="button"
-            onClick={() => dialogoComprobante.current?.close()}
+            onClick={cerrarComprobante}
           >
             Cerrar
           </button>

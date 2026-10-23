@@ -36,7 +36,10 @@ hay acentos u otros caracteres multibyte. En edicion, dejar la clave vacia la
 conserva. El login no aplica esta complejidad retroactivamente a claves antiguas.
 La validacion del navegador es una ayuda; el servidor sigue validando siempre.
 
-Cuando el rol es `ventanilla`, el nombre del funcionario se toma de la sesión autenticada y el selector queda bloqueado. El backend registra `req.usuario.nombre` como responsable del radicado.
+Para `ventanilla` y `administrador`, el responsable se muestra en un campo de
+solo lectura con el nombre de la sesión autenticada, sin cargar ni seleccionar
+otro funcionario. El backend registra `req.usuario.nombre`, no un valor enviado
+por el formulario. El comprobante conserva el responsable confirmado por el servidor.
 
 La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo para administradores. Consume `GET/POST /api/usuarios`, `GET/PUT /api/usuarios/:id`, `PATCH /api/usuarios/:id/estado` y `GET /api/dependencias` mediante el servicio centralizado, que adjunta el token guardado en `sessionStorage`. Las cuentas se activan o inactivan (no se eliminan físicamente). Al editar la propia cuenta, el administrador cierra la sesión local porque el backend revoca sus sesiones. El backend debe tener aplicada la migración `006_usuarios_activos.sql` antes de usar estas funciones.
 
@@ -50,6 +53,30 @@ conserva los adjuntos válidos anteriores, el contenido y la plantilla. La lista
 de archivos seleccionados indica qué documentos se enviarán aunque el selector
 nativo quede vacío tras el rechazo. Una selección válida nueva reemplaza la
 anterior; los adjuntos siguen siendo opcionales.
+
+Mientras se envía la respuesta, se bloquean los campos, el cierre, Cancelar y
+Escape, y no se permite un segundo envío simultáneo. Si falla, se conservan el
+contenido, la plantilla y los PDFs para corregir o reintentar; si se confirma,
+se actualiza la asignación correspondiente y se cierra el modal.
+
+En Consulta, cerrar o cambiar un detalle o respuesta invalida sus lecturas
+pendientes: una solicitud tardía no puede reabrir el modal ni mostrar documentos
+de otra selección. Las URLs temporales de los PDFs se liberan al descartarlos,
+cerrar, reemplazar la vista o salir de la página.
+
+## Fecha de radicacion
+
+Tabla, detalle, contador y filtro de hoy y comprobante de Consulta usan
+`fecha_hora_recepcion` en `America/Bogota`. Un DATETIME sin zona se interpreta
+como hora de Bogotá; una fecha con `Z` u offset conserva su instante.
+`fecha_creacion` solo se usa como respaldo histórico cuando falta la recepción.
+Si la recepción existe pero es inválida, se muestra **Fecha no válida**, no
+cuenta como registro de hoy y no se genera un comprobante con otra fecha.
+La ausencia de ambas fechas se muestra como **Fecha no disponible**.
+
+El comprobante inicial conserva la fecha legible que confirma el servidor;
+Consulta usa la misma zona y formato. No se cambian registros existentes,
+plazos legales, semáforos ni fechas de respuesta o enterado.
 
 ## Confirmacion de radicacion y comprobante
 

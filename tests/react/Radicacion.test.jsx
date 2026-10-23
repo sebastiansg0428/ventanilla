@@ -40,7 +40,7 @@ async function abrirRadicacion() {
   render(<PaginaRadicacion />);
   await screen.findByText("Solicitud general", { selector: "option" });
   await screen.findByText("Secretaría de Gobierno", { selector: "option" });
-  await screen.findByText("Luis Gómez", { selector: "option" });
+  expect(screen.getByLabelText(/funcionario \/ quién registra/i).value).toBe(usuario.nombre);
 }
 
 async function completarFormulario(user, destino = "3") {
@@ -68,10 +68,6 @@ async function completarFormulario(user, destino = "3") {
     screen.getByLabelText(/dependencia de destino/i),
     destino,
   );
-  await user.selectOptions(
-    screen.getByLabelText(/funcionario \/ quién registra/i),
-    "8",
-  );
   await user.click(screen.getByLabelText(/asunto \/ resumen/i));
   await user.paste("Solicitud de información");
 }
@@ -85,6 +81,15 @@ describe("radicación React", () => {
     prepararCatalogos();
     guardarPdf = vi.fn();
     crearPdfComprobante.mockReset().mockReturnValue({ save: guardarPdf });
+  });
+
+  it.each(["administrador", "ventanilla"])("muestra responsable autenticado de solo lectura para %s", async (rol) => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol });
+    await abrirRadicacion();
+    const responsable = screen.getByLabelText(/funcionario \/ quién registra/i);
+    expect(responsable.readOnly).toBe(true);
+    expect(responsable.name).toBe("");
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta === "/api/usuarios/ventanilla")).toBe(false);
   });
 
   it("permite radicar tipo sin respuesta y sin término y usa la regla confirmada en el comprobante", async () => {
@@ -590,7 +595,7 @@ describe("radicación React", () => {
     expect(opcionesRegistro.body.get("tipo_tramite_id")).toBe("10");
     expect(opcionesRegistro.body.get("tipo_comunicacion")).toBe("Externa");
     expect(opcionesRegistro.body.get("dependencia_destino_id")).toBe("3");
-    expect(opcionesRegistro.body.get("usuario_recibe")).toBe("8");
+    expect(opcionesRegistro.body.has("usuario_recibe")).toBe(false);
     expect(opcionesRegistro.body.get("archivos").name).toBe("solicitud.pdf");
     expect(crearPdfComprobante).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -607,5 +612,6 @@ describe("radicación React", () => {
           .disabled,
       ).toBe(false),
     );
+    expect(screen.getByLabelText(/funcionario \/ quién registra/i).value).toBe(usuario.nombre);
   }, 10_000);
 });

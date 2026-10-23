@@ -32,12 +32,9 @@ function FormularioRadicacion({ usuario }) {
   const [dependenciaRemitente, setDependenciaRemitente] = useState("");
   const [tipoPersona, setTipoPersona] = useState("");
   const esJuridica = tipoComunicacion === "Externa" && tipoPersona === "juridica";
-  const [funcionarios, setFuncionarios] = useState([]);
-  const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState("");
   const [estadoCatalogos, setEstadoCatalogos] = useState({
     tiposTramite: "Cargando tipos de trámite…",
     dependencias: "Cargando dependencias…",
-    funcionarios: "",
   });
   const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
   const [errorArchivos, setErrorArchivos] = useState("");
@@ -101,42 +98,9 @@ function FormularioRadicacion({ usuario }) {
     }
   }
 
-  async function cargarFuncionariosVentanilla() {
-    // Ventanilla no puede atribuir un registro a otra cuenta: mostramos su identidad confirmada.
-    if (usuario.rol === "ventanilla") {
-      setFuncionarios([{ id: usuario.id, nombre: usuario.nombre }]);
-      setFuncionarioSeleccionado(String(usuario.id));
-      setEstadoCatalogos((estadoActual) => ({
-        ...estadoActual,
-        funcionarios: `Sesión iniciada como ${usuario.nombre}.`,
-      }));
-      return;
-    }
-    try {
-      const respuesta = await solicitarApi("/api/usuarios/ventanilla");
-      const resultado = await respuesta.json();
-      const personas = resultado.usuarios || [];
-      setFuncionarios(personas);
-      setFuncionarioSeleccionado("");
-      setEstadoCatalogos((estadoActual) => ({
-        ...estadoActual,
-        funcionarios: personas.length
-          ? `${personas.length} funcionario(s) disponible(s).`
-          : "No hay usuarios con rol de ventanilla.",
-      }));
-    } catch (error) {
-      setFuncionarios([]);
-      setEstadoCatalogos((estadoActual) => ({
-        ...estadoActual,
-        funcionarios: `No se pudo cargar el directorio. ${error.message}`,
-      }));
-    }
-  }
-
   useEffect(() => {
     cargarTiposTramite();
     cargarDependencias();
-    cargarFuncionariosVentanilla();
   }, [usuario.id, usuario.rol]);
 
   function aceptarArchivos(archivosCandidatos) {
@@ -263,9 +227,6 @@ function FormularioRadicacion({ usuario }) {
       setArchivosSeleccionados([]);
       setErrorArchivos("");
       if (selectorArchivo.current) selectorArchivo.current.value = "";
-      setFuncionarioSeleccionado(
-        usuario.rol === "ventanilla" ? String(usuario.id) : "",
-      );
       setMensaje({
         texto: `Radicado ${resultado.radicado} guardado. El comprobante incluye a ${resultado.usuario_recibe || usuario.nombre}.`,
         tono: "success",
@@ -506,30 +467,9 @@ function FormularioRadicacion({ usuario }) {
                   />
                 </CampoFormulario>
                 <CampoFormulario etiqueta="Funcionario / quién registra">
-                  <select
-                    name="usuario_recibe"
-                    required
-                    disabled={
-                      usuario.rol === "ventanilla" || !funcionarios.length
-                    }
-                    value={funcionarioSeleccionado}
-                    onChange={(evento) =>
-                      setFuncionarioSeleccionado(evento.target.value)
-                    }
-                  >
-                    <option value="" disabled>
-                      Selecciona el funcionario…
-                    </option>
-                    {funcionarios.map((funcionario) => (
-                      <option key={funcionario.id} value={funcionario.id}>
-                        {funcionario.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="text" value={usuario.nombre} readOnly />
                   <small role="status">
-                    {usuario.rol === "ventanilla"
-                      ? `Sesión iniciada como ${usuario.nombre}. Responsable automático.`
-                      : estadoCatalogos.funcionarios}
+                    Sesión iniciada como {usuario.nombre}. Responsable automático.
                   </small>
                 </CampoFormulario>
                 <CampoFormulario

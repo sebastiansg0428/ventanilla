@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaConsultaRadicados } from "../../src/paginas/ConsultaRadicados.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
 import { crearPdfComprobante } from "../../src/servicios/comprobante.js";
+import { formatearFechaRadicacion } from "../../src/servicios/fechas.js";
 
 vi.mock("../../src/servicios/api.js", () => ({
   confirmarSesion: vi.fn(),
@@ -59,10 +60,28 @@ function respuestaJson(resultado) {
 }
 
 async function abrirConsulta() {
-  render(<PaginaConsultaRadicados />);
+  const vista = render(<PaginaConsultaRadicados />);
   await screen.findByText("RAD-001", { selector: "button" });
   await screen.findByText("RAD-002", { selector: "button" });
   await screen.findByText("RAD-003", { selector: "button" });
+  return vista;
+}
+
+function prepararDialogos() {
+  document.querySelectorAll("dialog").forEach((dialogo) => {
+    dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
+    dialogo.close = vi.fn(() => {
+      dialogo.removeAttribute("open");
+      fireEvent(dialogo, new Event("close"));
+    });
+  });
+}
+
+function diferida() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
 }
 
 async function abrirRespuesta(user) {
@@ -264,6 +283,23 @@ describe("consulta de radicados React", () => {
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
+  it("descarta un comprobante pendiente si su dialogo se cierra antes de terminar", async () => {
+    const pendiente = diferida();
+    crearPdfComprobante.mockReturnValue(pendiente.promise);
+    simularUrlsBlob("blob:descartado");
+    await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const boton = within(fila).getByRole("button", { name: "Ver comprobante" });
+    fireEvent.click(boton);
+    const modal = document.querySelector(".receipt-dialog");
+    fireEvent(modal, new Event("close"));
+    await act(async () => pendiente.resolve({ output: () => new Blob(["PDF"]) }));
+    expect(modal.open).toBe(false);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(boton.disabled).toBe(false);
+  });
+
   it("presenta clasificación jurídica y contacto de una externa", async () => {
     const radicados = crearRadicados();
     Object.assign(radicados[0], {
@@ -400,6 +436,289 @@ describe("consulta de radicados React", () => {
     expect(envio[1].body.getAll("archivos")).toEqual(adjuntos);
     expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
     if (conAdjunto) expect(screen.getByText(/protegido.pdf/)).toBeTruthy();
+  });
+
+  it("descarta metadatos tardios al cambiar de radicado y al cerrar el detalle", async () => {
+    const primera = diferida();
+    const segunda = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/radicados/RAD-001/documentos") return primera.promise;
+      if (ruta === "/api/radicados/RAD-002/documentos") return segunda.promise;
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    fireEvent.click(screen.getByText("RAD-002", { selector: "button" }));
+    await act(async () => segunda.resolve(respuestaJson({ documentos: [
+      { id: 2, nombre_archivo: "segundo.pdf" },
+    ] })));
+    const modal = document.querySelector("#modal-detalle");
+    expect(within(modal).getByText("Ver segundo.pdf")).toBeTruthy();
+    await act(async () => primera.resolve(respuestaJson({ documentos: [
+      { id: 1, nombre_archivo: "primero.pdf" },
+    ] })));
+    expect(within(modal).queryByText("Ver primero.pdf")).toBeNull();
+    expect(within(modal).getByText("Ver segundo.pdf")).toBeTruthy();
+    fireEvent.click(within(modal).getByRole("button", { name: "Cerrar" }));
+    expect(modal.open).toBe(false);
+    const tercera = diferida();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.endsWith("/documentos") ? tercera.promise : base(ruta, opciones));
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    fireEvent(modal, new Event("cancel", { cancelable: true }));
+    await act(async () => tercera.reject(new Error("Fallo tardio")));
+    expect(modal.open).toBe(false);
+    expect(within(modal).queryByText(/Fallo tardio/)).toBeNull();
+  });
+
+  it("solo presenta el ultimo PDF solicitado y libera las vistas previas al cerrar", async () => {
+    const descargas = [diferida(), diferida(), diferida()];
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "uno.pdf", ruta_archivo: "uno.pdf" },
+        { id: 2, nombre_archivo: "dos.pdf", ruta_archivo: "dos.pdf" },
+      ] }));
+      if (ruta === "/uploads/uno.pdf") return descargas[0].promise;
+      if (ruta === "/uploads/dos.pdf") return descargas[1].promise;
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:ultimo");
+    const { unmount } = await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const modal = document.querySelector("#modal-detalle");
+    const uno = await within(modal).findByText("Ver uno.pdf");
+    fireEvent.click(uno);
+    fireEvent.click(within(modal).getByText("Ver dos.pdf"));
+    await act(async () => descargas[1].resolve({ blob: async () => new Blob(["dos"]) }));
+    expect(screen.getByTitle("Documento adjunto").getAttribute("src")).toBe("blob:ultimo");
+    await act(async () => descargas[0].resolve({ blob: async () => new Blob(["uno"]) }));
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    const revocar = URL.revokeObjectURL;
+    fireEvent.click(within(modal).getByRole("button", { name: "Cerrar" }));
+    expect(revocar).toHaveBeenCalledWith("blob:ultimo");
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    await within(modal).findByText("Ver uno.pdf");
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/uploads/") ? descargas[2].promise : base(ruta, opciones));
+    fireEvent.click(within(modal).getByText("Ver uno.pdf"));
+    unmount();
+    await act(async () => descargas[2].resolve({ blob: async () => new Blob(["tardio"]) }));
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignora respuestas tardias entre asignaciones globales y despues de cerrar", async () => {
+    const pendientes = [diferida(), diferida()];
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { estado: "Respondido", radicado_dependencia_id: 301, destino_todas_dependencias: 1 });
+    radicados[1] = { ...radicados[0], radicado_dependencia_id: 302 };
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.endsWith("radicado_dependencia_id=301")) return pendientes[0].promise;
+      if (ruta.endsWith("radicado_dependencia_id=302")) return pendientes[1].promise;
+      return base(ruta, opciones);
+    });
+    const alertar = simularAlerta();
+    render(<PaginaConsultaRadicados />);
+    await screen.findByText("RAD-003", { selector: "button" });
+    prepararDialogos();
+    const filas = screen.getAllByText("RAD-001", { selector: "button" }).map(boton => boton.closest("tr"));
+    fireEvent.click(within(filas[0]).getByRole("button", { name: "Ver respuesta" }));
+    fireEvent.click(within(filas[1]).getByRole("button", { name: "Ver respuesta" }));
+    await act(async () => pendientes[1].resolve(respuestaJson({ respuesta: {
+      contenido: "Respuesta de oficina B", documentos: [],
+    } })));
+    const modal = document.querySelector(".respuesta-dialog");
+    expect(within(modal).getByText("Respuesta de oficina B")).toBeTruthy();
+    await act(async () => pendientes[0].resolve(respuestaJson({ respuesta: {
+      contenido: "Respuesta de oficina A", documentos: [],
+    } })));
+    expect(within(modal).queryByText("Respuesta de oficina A")).toBeNull();
+    fireEvent.click(within(modal).getAllByRole("button", { name: "Cerrar", exact: true })[0]);
+    const tardia = diferida();
+    solicitarApi.mockImplementation(() => tardia.promise);
+    fireEvent.click(within(filas[0]).getByRole("button", { name: "Ver respuesta" }));
+    fireEvent(modal, new Event("cancel", { cancelable: true }));
+    await act(async () => tardia.reject(new Error("Error de consulta descartada")));
+    expect(modal.open).toBe(false);
+    expect(alertar).not.toHaveBeenCalled();
+  });
+
+  it("libera blobs parciales de una respuesta cerrada durante la siguiente descarga", async () => {
+    const segunda = diferida();
+    const base = solicitarApi.getMockImplementation();
+    const radicados = crearRadicados();
+    radicados[0].estado = "Respondido";
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({ respuesta: {
+        contenido: "Respuesta", documentos: [
+          { id: 1, ruta_archivo: "uno.pdf" }, { id: 2, ruta_archivo: "dos.pdf" },
+        ],
+      } }));
+      if (ruta === "/uploads/uno.pdf") return Promise.resolve({ blob: async () => new Blob(["uno"]) });
+      if (ruta === "/uploads/dos.pdf") return segunda.promise;
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:parcial");
+    await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    await waitFor(() => expect(solicitarApi).toHaveBeenCalledWith("/uploads/dos.pdf"));
+    const modal = document.querySelector(".respuesta-dialog");
+    fireEvent.click(within(modal).getAllByRole("button", { name: "Cerrar", exact: true })[0]);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:parcial");
+    await act(async () => segunda.resolve({ blob: async () => new Blob(["dos"]) }));
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:parcial");
+    expect(modal.open).toBe(false);
+  });
+
+  it.each(["publicada", "pendiente"])("limpia una descarga de respuesta %s al desmontar", async (estado) => {
+    const descarga = diferida();
+    const base = solicitarApi.getMockImplementation();
+    const radicados = crearRadicados();
+    radicados[0].estado = "Respondido";
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({ respuesta: {
+        contenido: "Respuesta", documentos: [{ id: 1, nombre_archivo: "respuesta.pdf", ruta_archivo: "respuesta.pdf" }],
+      } }));
+      if (ruta === "/uploads/respuesta.pdf") return descarga.promise;
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:publicado");
+    const vista = await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    if (estado === "publicada") {
+      await act(async () => descarga.resolve({ blob: async () => new Blob(["PDF"]) }));
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+      expect(screen.getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:publicado");
+      vista.unmount();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:publicado");
+    } else {
+      await waitFor(() => expect(solicitarApi).toHaveBeenCalledWith("/uploads/respuesta.pdf"));
+      vista.unmount();
+      await act(async () => descarga.resolve({ blob: async () => new Blob(["tardio"]) }));
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    }
+  });
+
+  it("bloquea cierre, Escape y doble envio; conserva borrador tras fallo y permite reintentar", async () => {
+    const peticion = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") return peticion.promise;
+      return base(ruta, opciones);
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRespuesta(user);
+    prepararDialogos();
+    const modal = document.querySelector(".respuesta-dialog");
+    const plantilla = within(modal).getByLabelText("Plantilla institucional");
+    fireEvent.change(plantilla, { target: { value: "general" } });
+    const contenido = within(modal).getByLabelText("Contenido de la respuesta *");
+    const texto = contenido.value;
+    const adjunto = within(modal).getByLabelText(/Documentos de respuesta/);
+    await user.upload(adjunto, crearPdf("conservar.pdf", 100));
+    const formulario = modal.querySelector("form");
+    fireEvent.submit(formulario);
+    fireEvent.submit(formulario);
+    const posts = () => solicitarApi.mock.calls.filter(([, opciones]) => opciones?.method === "POST");
+    expect(posts()).toHaveLength(1);
+    expect(within(modal).getByRole("button", { name: "Cerrar" }).disabled).toBe(true);
+    expect(within(modal).getByRole("button", { name: "Cancelar" }).disabled).toBe(true);
+    expect(plantilla.disabled).toBe(true);
+    expect(contenido.disabled).toBe(true);
+    expect(adjunto.disabled).toBe(true);
+    expect(fireEvent(modal, new Event("cancel", { cancelable: true }))).toBe(false);
+    expect(modal.open).toBe(true);
+    await act(async () => peticion.reject(new Error("Fallo al guardar")));
+    expect(within(modal).getByText("Fallo al guardar")).toBeTruthy();
+    expect(contenido.value).toBe(texto);
+    expect(plantilla.value).toBe("general");
+    expect(within(modal).getByText(/conservar.pdf/)).toBeTruthy();
+    expect(within(modal).getByRole("button", { name: "Cancelar" }).disabled).toBe(false);
+    solicitarApi.mockResolvedValue({ ok: true, json: async () => ({
+      success: true, estado: "Respondido", semaforo: { nivel: "completado" },
+    }) });
+    fireEvent.submit(formulario);
+    await waitFor(() => expect(modal.open).toBe(false));
+    expect(posts()).toHaveLength(2);
+    expect(posts()[1][1].body.getAll("archivos")[0].name).toBe("conservar.pdf");
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    expect(within(fila).getByRole("button", { name: "Ver respuesta" })).toBeTruthy();
+  });
+
+  it("usa recepcion Bogota en contador, filtro y detalle sin ocultar invalidos", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-02T04:30:00Z"));
+    try {
+      const radicados = crearRadicados();
+      Object.assign(radicados[0], { fecha_hora_recepcion: "2026-01-01 23:30:00", fecha_creacion: "2026-01-02 10:00:00" });
+      Object.assign(radicados[1], { fecha_creacion: "2026-01-01T23:30:00-05:00" });
+      Object.assign(radicados[2], { fecha_hora_recepcion: "2026-02-30", fecha_creacion: "2026-01-01 10:00:00" });
+      const base = solicitarApi.getMockImplementation();
+      solicitarApi.mockImplementation((ruta, opciones) => {
+        if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+        if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
+        return base(ruta, opciones);
+      });
+      await abrirConsulta();
+      prepararDialogos();
+      const hoy = within(screen.getByLabelText("Resumen y filtros")).getByRole("button", { name: /Registrados hoy/ });
+      expect(hoy.querySelector("strong").textContent).toBe("2");
+      fireEvent.click(hoy);
+      expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+      expect(screen.getByText("RAD-002", { selector: "button" })).toBeTruthy();
+      expect(screen.queryByText("RAD-003", { selector: "button" })).toBeNull();
+      fireEvent.click(hoy);
+      const boton = screen.getByText("RAD-001", { selector: "button" });
+      expect(boton.closest("tr").querySelector("td:nth-child(2) small").textContent)
+        .toBe(formatearFechaRadicacion(radicados[0]));
+      fireEvent.click(boton);
+      await screen.findByText("Este radicado no tiene documentos adjuntos.");
+      const detalle = document.querySelector("#modal-detalle");
+      expect(within(detalle).getByText("Fecha de radicación").closest(".modal-field").querySelector("p").textContent)
+        .toBe(formatearFechaRadicacion(radicados[0]));
+      fireEvent.click(within(detalle).getByRole("button", { name: "Cerrar" }));
+      const filaInvalida = screen.getByText("RAD-003", { selector: "button" }).closest("tr");
+      expect(within(filaInvalida).getByText("Fecha no válida")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("genera comprobante con recepcion y rechaza fechas invalidas aunque exista creacion", async () => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { fecha_hora_recepcion: "2026-01-01 23:30:00", fecha_creacion: "2026-01-02 10:00:00" });
+    Object.assign(radicados[2], { fecha_hora_recepcion: "2026-02-30", fecha_creacion: "2026-01-01 10:00:00" });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/radicados"
+      ? Promise.resolve(respuestaJson({ success: true, radicados })) : base(ruta, opciones));
+    crearPdfComprobante.mockResolvedValue({ output: () => new Blob(["PDF"]) });
+    simularUrlsBlob("blob:fecha");
+    const alertar = simularAlerta();
+    await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    await act(async () => fireEvent.click(within(fila).getByRole("button", { name: "Ver comprobante" })));
+    expect(crearPdfComprobante).toHaveBeenCalledWith(expect.objectContaining({
+      fecha_hora: formatearFechaRadicacion(radicados[0]),
+    }));
+    const recibo = document.querySelector(".receipt-dialog");
+    expect(recibo.open).toBe(true);
+    fireEvent.click(within(recibo).getByRole("button", { name: "Cerrar" }));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:fecha");
+    const filaInvalida = screen.getByText("RAD-003", { selector: "button" }).closest("tr");
+    fireEvent.click(within(filaInvalida).getByRole("button", { name: "Ver comprobante" }));
+    expect(alertar).toHaveBeenCalledWith(expect.stringContaining("no tiene fecha válida"));
+    expect(crearPdfComprobante).toHaveBeenCalledTimes(1);
   });
 
   it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {
