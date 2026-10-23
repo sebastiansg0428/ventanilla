@@ -38,6 +38,11 @@ function respuestaJson(resultado) {
   return { json: async () => resultado };
 }
 
+async function pegarTexto(user, control, texto) {
+  await user.click(control);
+  await user.paste(texto);
+}
+
 function prepararApi() {
   let dependencias = [{ ...dependencia }];
   solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
@@ -114,7 +119,7 @@ describe("gestión de catálogos React", () => {
       "/api/tipos-tramite?incluir_inactivos=1",
     );
 
-    await user.type(
+    await pegarTexto(user,
       screen.getByLabelText("Nombre de la dependencia *"),
       "Secretaría General",
     );
@@ -145,7 +150,7 @@ describe("gestión de catálogos React", () => {
       screen.getByText("Si la dejas vacía, el plazo aplicará desde hoy."),
     ).toBeTruthy();
 
-    await user.type(screen.getByLabelText("Nombre *"), "Petición consulta");
+    await pegarTexto(user, screen.getByLabelText("Nombre *"), "Petición consulta");
     expect(screen.getByLabelText("Código técnico *").value).toBe(
       "peticion_consulta",
     );
@@ -161,7 +166,7 @@ describe("gestión de catálogos React", () => {
       screen.getByLabelText("Cómo contar los días *"),
       "calendario",
     );
-    await user.type(
+    await pegarTexto(user,
       screen.getByLabelText("Norma que establece el plazo *"),
       "Ley aplicable",
     );
@@ -227,7 +232,7 @@ describe("gestión de catálogos React", () => {
     );
 
     await user.clear(screen.getByLabelText("Nombre *"));
-    await user.type(screen.getByLabelText("Nombre *"), "Petición actualizada");
+    await pegarTexto(user, screen.getByLabelText("Nombre *"), "Petición actualizada");
     await user.clear(screen.getByLabelText("Orden (opcional)"));
     await user.type(screen.getByLabelText("Orden (opcional)"), "4");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -304,7 +309,7 @@ describe("gestión de catálogos React", () => {
     expect(campoNombre).toBeTruthy();
     expect(document.activeElement).toBe(campoNombre);
     await user.clear(campoNombre);
-    await user.type(campoNombre, "Planeación actualizada");
+    await pegarTexto(user, campoNombre, "Planeación actualizada");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => {
@@ -333,7 +338,7 @@ describe("gestión de catálogos React", () => {
     );
     await user.type(screen.getByLabelText("Plazo (días) *"), "20");
     await user.selectOptions(document.getElementById("termino-tipo-dias"), "calendario");
-    await user.type(
+    await pegarTexto(user,
       document.getElementById("termino-fundamento"),
       "Nueva norma",
     );

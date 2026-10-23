@@ -255,7 +255,7 @@ describe("radicación React", () => {
       const error = new Error("Fallo de PDF simulado");
       if (fallo === "generación") crearPdfComprobante.mockRejectedValueOnce(error);
       else guardarPdf.mockImplementationOnce(() => { throw error; });
-      const user = userEvent.setup();
+      const user = userEvent.setup({ delay: null });
       await abrirRadicacion();
       await completarFormulario(user);
       await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
@@ -268,7 +268,8 @@ describe("radicación React", () => {
       expect(screen.getByLabelText(/nombre completo del remitente/i).value).toBe("");
       expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
       const datos = crearPdfComprobante.mock.calls[0][0];
-      await user.type(screen.getByLabelText(/nombre completo del remitente/i), "Otro remitente");
+      await user.click(screen.getByLabelText(/nombre completo del remitente/i));
+      await user.paste("Otro remitente");
       crearPdfComprobante.mockImplementationOnce(() => { throw new Error("Fallo al reintentar"); });
       await user.click(screen.getByRole("button", { name: "Reintentar comprobante" }));
       expect(screen.getByRole("alert").textContent).toContain("Fallo al reintentar");

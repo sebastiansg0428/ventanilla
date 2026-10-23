@@ -81,12 +81,15 @@ function crearPdf(nombre, tamano) {
   return new File([new Uint8Array(tamano)], nombre, { type: "application/pdf" });
 }
 
+function simularUrlsBlob(url) {
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL = vi.fn(() => url);
+    static revokeObjectURL = vi.fn();
+  });
+}
+
 function simularAlerta() {
-  const alertar = vi.fn();
-  const ventanaPrueba = Object.create(window);
-  Object.defineProperty(ventanaPrueba, "alert", { value: alertar });
-  vi.stubGlobal("window", ventanaPrueba);
-  return alertar;
+  return vi.spyOn(window, "alert").mockImplementation(() => {});
 }
 
 describe("consulta de radicados React", () => {
@@ -129,7 +132,7 @@ describe("consulta de radicados React", () => {
       if (ruta === "/uploads/respuestas/archivo.pdf") return { blob: async () => new Blob(["PDF"]) };
       return base(ruta, opciones);
     });
-    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:respuesta"), revokeObjectURL: vi.fn() });
+    simularUrlsBlob("blob:respuesta");
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
     document.querySelectorAll("dialog").forEach((dialogo) => {
@@ -200,7 +203,7 @@ describe("consulta de radicados React", () => {
     });
     const output = vi.fn(() => new Blob(["PDF"], { type: "application/pdf" }));
     crearPdfComprobante.mockReturnValue({ output });
-    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:comprobante"), revokeObjectURL: vi.fn() });
+    simularUrlsBlob("blob:comprobante");
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
     document.querySelectorAll("dialog").forEach((dialogo) => {
@@ -226,7 +229,7 @@ describe("consulta de radicados React", () => {
     crearPdfComprobante.mockReset().mockImplementationOnce(() => new Promise((_, reject) => { rechazar = reject; }));
     const output = vi.fn(() => new Blob(["PDF"]));
     crearPdfComprobante.mockResolvedValue({ output });
-    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:marca"), revokeObjectURL: vi.fn() });
+    simularUrlsBlob("blob:marca");
     await abrirConsulta();
     document.querySelector(".receipt-dialog").showModal = vi.fn();
     const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
@@ -250,7 +253,7 @@ describe("consulta de radicados React", () => {
     let terminar;
     crearPdfComprobante.mockReset().mockImplementation(() => new Promise(resolve => { terminar = resolve; }));
     const output = vi.fn();
-    vi.stubGlobal("URL", { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() });
+    simularUrlsBlob();
     const vista = render(<PaginaConsultaRadicados />);
     const fila = (await screen.findByText("RAD-001", { selector: "button" })).closest("tr");
     fireEvent.click(within(fila).getByRole("button", { name: "Ver comprobante" }));
@@ -402,50 +405,52 @@ describe("consulta de radicados React", () => {
   it("combina filtros, permite quitarlos por badge y reinicia todo con Total", async () => {
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
+    const resumen = within(screen.getByLabelText("Resumen y filtros"));
+    const registradosHoy = resumen.getByRole("button", { name: /Registrados hoy/ });
+    const criticos = resumen.getByRole("button", { name: /Críticos/ });
+    const total = resumen.getByRole("button", { name: /Total/ });
 
-    await user.click(screen.getByRole("button", { name: /Registrados hoy/ }));
-    expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "RAD-002" })).toBeNull();
-    expect(screen.getByRole("button", { name: "RAD-003" })).toBeTruthy();
+    await user.click(registradosHoy);
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText("RAD-002", { selector: "button" })).toBeNull();
+    expect(screen.getByText("RAD-003", { selector: "button" })).toBeTruthy();
     expect(
       screen.getByText("Mostrando 2 de 3. Hay filtros activos."),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Quitar filtro Fecha: hoy/ })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Registrados hoy/ }));
+    expect(screen.getByLabelText("Quitar filtro Fecha: hoy")).toBeTruthy();
+    await user.click(registradosHoy);
 
-    await user.type(
-      screen.getByRole("textbox", { name: "Buscar radicados" }),
-      "garcia",
-    );
+    await user.click(screen.getByLabelText("Buscar radicados"));
+    await user.paste("garcia");
     await user.selectOptions(
       screen.getByLabelText("Tipo de comunicación"),
       "externa",
     );
-    await user.click(screen.getByRole("button", { name: /Críticos/ }));
+    await user.click(criticos);
 
-    expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "RAD-002" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "RAD-003" })).toBeNull();
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText("RAD-002", { selector: "button" })).toBeNull();
+    expect(screen.queryByText("RAD-003", { selector: "button" })).toBeNull();
     expect(
       screen.getByText("Mostrando 1 de 3. Hay filtros activos."),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /Quitar filtro Críticos: alerta y vencido/ }),
+      screen.getByLabelText("Quitar filtro Críticos: alerta y vencido"),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Quitar filtro Tipo: Externa/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Quitar filtro Búsqueda: garcia/ })).toBeTruthy();
+    expect(screen.getByLabelText("Quitar filtro Tipo: Externa")).toBeTruthy();
+    expect(screen.getByLabelText("Quitar filtro Búsqueda: garcia")).toBeTruthy();
 
     await user.click(
-      screen.getByRole("button", { name: /Quitar filtro Búsqueda: garcia/ }),
+      screen.getByLabelText("Quitar filtro Búsqueda: garcia"),
     );
-    expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "RAD-003" })).toBeNull();
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText("RAD-003", { selector: "button" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: /Total/ }));
+    await user.click(total);
 
-    expect(screen.getByRole("button", { name: "RAD-001" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "RAD-002" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "RAD-003" })).toBeTruthy();
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+    expect(screen.getByText("RAD-002", { selector: "button" })).toBeTruthy();
+    expect(screen.getByText("RAD-003", { selector: "button" })).toBeTruthy();
     expect(
       screen.getByText("Mostrando 3 de 3. Sin filtros activos."),
     ).toBeTruthy();

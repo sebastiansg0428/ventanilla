@@ -84,6 +84,13 @@ npm run build
 comprobantes con React Testing Library y servicios simulados. Las pruebas
 legadas cubren `legacy/js/`; no sustituyen las pruebas React. Ninguna de estas
 suites constituye una prueba de extremo a extremo con el backend y MySQL reales.
+Para comprobar estabilidad, ejecuta `npm run test:react` dos veces consecutivas:
+ambas deben aprobar sin errores no controlados. Se conserva el aislamiento por
+archivo y no se amplian los timeouts globales. Las pruebas usan consultas
+acotadas al control o region y pegado para preparar textos; los casos que
+comprueban escritura manual siguen simulando las teclas. Los dobles de alerta
+y URLs de descarga conservan el objeto `window` y el constructor `URL`.
+
 Para preparar una base nueva consulta la secuencia 000-020 en el
 [README del backend](../backend/README.md); su ejecucion real en una base aislada
 sigue pendiente de validacion y no debe hacerse sobre la base de uso actual.
