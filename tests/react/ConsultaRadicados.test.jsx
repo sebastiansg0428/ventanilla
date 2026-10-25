@@ -124,6 +124,9 @@ describe("consulta de radicados React", () => {
           dependencias: [{ id: 3, nombre: "Secretaría de Gobierno" }],
         });
       }
+      if (/^\/api\/radicados\/[^/]+\/historial(?:\?|$)/.test(ruta)) {
+        return respuestaJson({ success: true, historial: [], siguiente_cursor: null });
+      }
       if (ruta.startsWith("/api/radicados/") && opciones.method === "PUT") {
         const { estado } = JSON.parse(opciones.body);
         return respuestaJson({
@@ -470,6 +473,49 @@ describe("consulta de radicados React", () => {
     await act(async () => tercera.reject(new Error("Fallo tardio")));
     expect(modal.open).toBe(false);
     expect(within(modal).queryByText(/Fallo tardio/)).toBeNull();
+  });
+
+  it("presenta el historial paginado y no muestra identificadores de red o sesión", async () => {
+    const primera = {
+      success: true,
+      historial: [{
+        id: 8, event_type: "estado_cambiado", valor_anterior: "Recibido",
+        valor_nuevo: "En trámite", actor_name: "María", dependencia_nombre: "Planeación",
+        ocurrido_en_utc: "2026-10-25 16:00:00.123000", ip_address: "192.0.2.1",
+        session_id: "secreto",
+      }],
+      next_cursor: 8, has_more: true,
+    };
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.endsWith("/historial?limite=25"))
+        return Promise.resolve(respuestaJson(primera));
+      if (ruta.endsWith("/historial?limite=25&cursor=8"))
+        return Promise.resolve(respuestaJson({
+          historial: [{ id: 7, event_type: "radicado_asignado", actor_name: "Luis",
+            dependencia_nombre: "Hacienda", ocurrido_en_utc: "2026-10-25 15:00:00.000000" }],
+          next_cursor: null, has_more: false,
+        }));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByText("RAD-001", { selector: "button" }));
+    const modal = document.querySelector("#modal-detalle");
+    const timeline = await within(modal).findByRole("list", { name: "Línea de tiempo del radicado" });
+    expect(within(timeline).getByText("Cambio de estado")).toBeTruthy();
+    expect(within(timeline).getByText("Recibido → En trámite")).toBeTruthy();
+    expect(within(timeline).getByText("Actor: María")).toBeTruthy();
+    expect(within(timeline).getByText("Dependencia: Planeación")).toBeTruthy();
+    expect(timeline.textContent).toContain("25/10/2026");
+    expect(timeline.textContent).not.toContain("192.0.2.1");
+    expect(timeline.textContent).not.toContain("secreto");
+    await userEvent.click(within(modal).getByRole("button", { name: "Cargar eventos anteriores" }));
+    expect(await within(timeline).findByText("Asignado a dependencia")).toBeTruthy();
+    expect(within(timeline).getByText("Dependencia: Hacienda")).toBeTruthy();
+    expect(timeline.querySelector("li").textContent).toContain("Asignado a dependencia");
+    expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/historial?limite=25&cursor=8");
   });
 
   it("solo presenta el ultimo PDF solicitado y libera las vistas previas al cerrar", async () => {

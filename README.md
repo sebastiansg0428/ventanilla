@@ -78,6 +78,18 @@ El comprobante inicial conserva la fecha legible que confirma el servidor;
 Consulta usa la misma zona y formato. No se cambian registros existentes,
 plazos legales, semáforos ni fechas de respuesta o enterado.
 
+## Trazabilidad del expediente
+
+El modal de detalle consulta `GET /api/radicados/:numero_radicado/historial` y
+muestra una línea de tiempo paginada de eventos de negocio. La API aplica los
+permisos existentes del radicado; el Timeline no muestra direcciones IP ni UUID
+de sesión. Las filas históricas anteriores a la migración 021 aparecen como
+eventos heredados y conservan su hora sin asumir que sea hora Bogotá. Los
+eventos nuevos se presentan en `America/Bogota`.
+
+Aplica `021_audit_log_radicados.sql` después de la migración 020 antes de
+esperar que el nuevo registro de eventos funcione en el backend.
+
 ## Confirmacion de radicacion y comprobante
 
 Cuando el servidor confirma el registro, la pantalla muestra el numero guardado

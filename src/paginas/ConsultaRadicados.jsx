@@ -36,6 +36,29 @@ const obtenerTipoComunicacion = (radicado) => {
       ? "externa"
       : "sin-tipo";
 };
+const ETIQUETAS_EVENTO = {
+  radicado_creado: "Radicado recibido",
+  radicado_asignado: "Asignado a dependencia",
+  documentos_radicado_adjuntados: "Documentos originales adjuntados",
+  estado_cambiado: "Cambio de estado",
+  respuesta_enviada: "Respuesta institucional enviada",
+  documentos_respuesta_adjuntados: "Documentos de respuesta adjuntados",
+  termino_ampliado: "Término ampliado",
+  regla_respuesta_aplicada: "Regla de respuesta aplicada",
+};
+function presentarFechaEvento(evento) {
+  if (evento.ocurrido_en_utc) {
+    const fechaUtc = new Date(`${String(evento.ocurrido_en_utc).replace(" ", "T")}Z`);
+    return Number.isNaN(fechaUtc.getTime())
+      ? "Fecha UTC inválida"
+      : new Intl.DateTimeFormat("es-CO", {
+          timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "medium",
+        }).format(fechaUtc);
+  }
+  return evento.creado_en
+    ? `${evento.creado_en} · zona horaria histórica no confirmada`
+    : "Fecha histórica no disponible";
+}
 
 export function PaginaConsultaRadicados() {
   return (
@@ -71,6 +94,9 @@ function VistaConsultaRadicados({ usuario }) {
     estado: "",
     documentos: [],
   });
+  const [historial, setHistorial] = useState({
+    eventos: [], cargando: false, error: "", cursor: null, hayMas: false,
+  });
   const [urlComprobante, setUrlComprobante] = useState("");
   const [generandoComprobante, setGenerandoComprobante] = useState(false);
   const solicitudComprobante = useRef(0);
@@ -89,6 +115,7 @@ function VistaConsultaRadicados({ usuario }) {
   const dialogoRespuesta = useRef(null);
   const entradaArchivosRespuesta = useRef(null);
   const solicitudDetalle = useRef(0);
+  const solicitudHistorial = useRef(0);
   const solicitudDocumento = useRef(0);
   const solicitudRespuesta = useRef(0);
   const respuestaEnProceso = useRef(false);
@@ -101,6 +128,7 @@ function VistaConsultaRadicados({ usuario }) {
 
   useEffect(() => () => {
     solicitudDetalle.current += 1;
+    solicitudHistorial.current += 1;
     solicitudDocumento.current += 1;
     solicitudRespuesta.current += 1;
     liberarUrlsRespuestaEnCarga();
@@ -108,9 +136,11 @@ function VistaConsultaRadicados({ usuario }) {
 
   function cerrarDetalle() {
     solicitudDetalle.current += 1;
+    solicitudHistorial.current += 1;
     solicitudDocumento.current += 1;
     setRadicadoSeleccionado(null);
     setArchivoAdjunto({ url: "", documentos: [], estado: "" });
+    setHistorial({ eventos: [], cargando: false, error: "", cursor: null, hayMas: false });
     if (dialogoDetalle.current?.open) dialogoDetalle.current.close();
   }
 
@@ -428,6 +458,7 @@ function VistaConsultaRadicados({ usuario }) {
 
   async function abrirDetalle(radicado) {
     const solicitud = ++solicitudDetalle.current;
+    const solicitudAuditoria = ++solicitudHistorial.current;
     solicitudDocumento.current += 1;
     setRadicadoSeleccionado(radicado);
     setArchivoAdjunto({
@@ -435,6 +466,8 @@ function VistaConsultaRadicados({ usuario }) {
       documentos: [],
       estado: "Cargando documentos…",
     });
+    setHistorial({ eventos: [], cargando: true, error: "", cursor: null, hayMas: false });
+    cargarHistorial(radicado, solicitudAuditoria, null, false);
     try {
       const respuesta = await solicitarApi(
         `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/documentos`,
@@ -457,6 +490,35 @@ function VistaConsultaRadicados({ usuario }) {
         estado: `No se pudo abrir el soporte. ${error.message}`,
       });
     }
+  }
+
+  async function cargarHistorial(radicado, solicitud, cursor, anexar) {
+    try {
+      const parametros = new URLSearchParams({ limite: "25" });
+      if (cursor) parametros.set("cursor", String(cursor));
+      const respuesta = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/historial?${parametros}`,
+      );
+      const resultado = await respuesta.json();
+      if (solicitud !== solicitudHistorial.current) return;
+      const eventos = resultado.historial || [];
+      setHistorial((actual) => ({
+        eventos: anexar ? [...actual.eventos, ...eventos] : eventos,
+        cargando: false,
+        error: "",
+        cursor: resultado.next_cursor ?? null,
+        hayMas: resultado.has_more === true,
+      }));
+    } catch (error) {
+      if (solicitud !== solicitudHistorial.current) return;
+      setHistorial((actual) => ({ ...actual, cargando: false, error: error.message }));
+    }
+  }
+
+  function cargarMasHistorial() {
+    if (!radicadoSeleccionado || historial.cargando || !historial.hayMas || !historial.cursor) return;
+    setHistorial((actual) => ({ ...actual, cargando: true, error: "" }));
+    cargarHistorial(radicadoSeleccionado, solicitudHistorial.current, historial.cursor, true);
   }
 
   async function abrirDocumentoAdjunto(documento) {
@@ -1070,6 +1132,47 @@ function VistaConsultaRadicados({ usuario }) {
                       src={archivoAdjunto.url}
                     />
                   </>
+                )}
+              </section>
+              <section aria-labelledby="historial-radicado-titulo">
+                <h3 id="historial-radicado-titulo">Trazabilidad del expediente</h3>
+                {historial.error && <p role="alert">{historial.error}</p>}
+                {historial.cargando && historial.eventos.length === 0 && (
+                  <p role="status">Cargando historial…</p>
+                )}
+                {!historial.cargando && !historial.error && historial.eventos.length === 0 && (
+                  <p>No hay eventos de trazabilidad registrados.</p>
+                )}
+                {historial.eventos.length > 0 && (
+                  <ol className="radicado-timeline" aria-label="Línea de tiempo del radicado">
+                    {[...historial.eventos].reverse().map((evento) => (
+                      <li key={evento.id}>
+                        <time>{presentarFechaEvento(evento)}</time>
+                        <strong>
+                          {ETIQUETAS_EVENTO[evento.event_type] ||
+                            (evento.campo_modificado === "estado"
+                              ? "Cambio de estado histórico"
+                              : "Evento histórico")}
+                        </strong>
+                        {evento.valor_anterior && evento.valor_nuevo && evento.event_type === "estado_cambiado" && (
+                          <span>{evento.valor_anterior} → {evento.valor_nuevo}</span>
+                        )}
+                        <span>Actor: {evento.actor_name || evento.usuario || "No identificado en el registro histórico"}</span>
+                        {evento.dependencia_nombre && (
+                          <span>Dependencia: {evento.dependencia_nombre}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {historial.hayMas && (
+                  <button
+                    type="button"
+                    onClick={cargarMasHistorial}
+                    disabled={historial.cargando}
+                  >
+                    {historial.cargando ? "Cargando…" : "Cargar eventos anteriores"}
+                  </button>
                 )}
               </section>
             </div>
