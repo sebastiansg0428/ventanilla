@@ -2052,6 +2052,9 @@ button.dashboard-card {
   background: rgb(15 23 42 / 60%);
 }
 #modal-detalle .modal-dialog {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -2066,8 +2069,79 @@ button.dashboard-card {
   border-bottom: 1px solid #e2e8f0;
 }
 #modal-detalle .modal-content {
+  min-height: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   overflow: auto;
   padding: 1rem;
+}
+#modal-detalle .modal-header,
+#modal-detalle .modal-footer {
+  flex-shrink: 0;
+}
+#modal-detalle .modal-header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#modal-detalle .modal-content > *,
+#modal-detalle .modal-content button {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+#modal-detalle .timeline-ayuda {
+  margin: 0.4rem 0 1rem;
+  color: #475569;
+}
+#modal-detalle .radicado-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.25rem;
+  border-left: 2px solid #cbd5e1;
+}
+#modal-detalle .radicado-timeline > li {
+  position: relative;
+  margin: 0 0 1rem;
+}
+#modal-detalle .radicado-timeline > li::before {
+  content: "";
+  position: absolute;
+  left: -1.65rem;
+  top: 1rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+#modal-detalle .timeline-evento {
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+#modal-detalle .timeline-fecha {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #475569;
+  font-size: 0.8rem;
+}
+#modal-detalle .timeline-evento h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+#modal-detalle .timeline-evento p {
+  margin: 0.5rem 0 0;
+  line-height: 1.5;
+}
+#modal-detalle .timeline-cambio {
+  padding: 0.5rem;
+  border-left: 3px solid #2563eb;
+  background: #eff6ff;
 }
 #modal-detalle iframe,
 .receipt-dialog iframe {
@@ -2394,7 +2468,7 @@ button.dashboard-card {
 @media (max-width: 640px) {
   #modal-detalle {
     align-items: flex-end;
-    padding: 0.5rem;
+    padding: 0;
   }
 
   .modal-dialog {

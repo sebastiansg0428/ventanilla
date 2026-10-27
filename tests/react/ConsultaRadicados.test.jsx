@@ -506,16 +506,82 @@ describe("consulta de radicados React", () => {
     const timeline = await within(modal).findByRole("list", { name: "Línea de tiempo del radicado" });
     expect(within(timeline).getByText("Cambio de estado")).toBeTruthy();
     expect(within(timeline).getByText("Recibido → En trámite")).toBeTruthy();
-    expect(within(timeline).getByText("Actor: María")).toBeTruthy();
-    expect(within(timeline).getByText("Dependencia: Planeación")).toBeTruthy();
+    expect(within(timeline).getByText("María").textContent).toBe("Actor: María");
+    expect(within(timeline).getByText("Planeación").textContent).toBe("Dependencia: Planeación");
+    expect(within(timeline).getByRole("heading", { name: "Cambio de estado", level: 4 })).toBeTruthy();
+    expect(within(timeline).getByText("Se actualizó el estado del expediente.")).toBeTruthy();
     expect(timeline.textContent).toContain("25/10/2026");
+    expect(timeline.textContent).toMatch(/11:00:00/);
     expect(timeline.textContent).not.toContain("192.0.2.1");
     expect(timeline.textContent).not.toContain("secreto");
     await userEvent.click(within(modal).getByRole("button", { name: "Cargar eventos anteriores" }));
     expect(await within(timeline).findByText("Asignado a dependencia")).toBeTruthy();
-    expect(within(timeline).getByText("Dependencia: Hacienda")).toBeTruthy();
+    expect(within(timeline).getByText("Hacienda").textContent).toBe("Dependencia: Hacienda");
     expect(timeline.querySelector("li").textContent).toContain("Asignado a dependencia");
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/historial?limite=25&cursor=8");
+  });
+
+  it("separa los eventos iniciales y describe cambios sin imprimir valores JSON", async () => {
+    const eventos = [
+      { id: 1, event_type: "regla_respuesta_aplicada",
+        valor_nuevo: '{"requiere_respuesta":true,"dias":15}',
+        motivo: "Regla de respuesta aplicada al crear el radicado." },
+      { id: 2, event_type: "radicado_creado", actor_name: "Ana",
+        dependencia_nombre: "Planeación", motivo: "Radicado recibido y registrado." },
+      { id: 3, event_type: "radicado_asignado", dependencia_nombre: "Planeación" },
+      { id: 4, event_type: "documentos_radicado_adjuntados",
+        motivo: "Se adjuntaron 2 documento(s) PDF al radicado." },
+      { id: 5, event_type: "termino_ampliado", valor_anterior: "2026-10-28",
+        valor_nuevo: "2026-11-03", motivo: "Ampliación justificada de prueba." },
+      { id: 6, event_type: "respuesta_enviada", valor_anterior: "En trámite",
+        valor_nuevo: "Respondido" },
+    ].map(evento => ({ ocurrido_en_utc: "2026-10-27 13:26:35.000000", ...evento }));
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.includes("/historial?"))
+        return Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }));
+      if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const lista = await screen.findByRole("list", { name: "Línea de tiempo del radicado" });
+    expect(within(lista).getAllByRole("article")).toHaveLength(6);
+    expect(within(lista).getAllByRole("heading", { level: 4 }).map(titulo => titulo.textContent))
+      .toEqual(["Regla de respuesta aplicada", "Radicado recibido", "Asignado a dependencia",
+        "Documentos originales adjuntados", "Término ampliado", "Respuesta institucional enviada"]);
+    expect(lista.textContent).toContain("Se adjuntaron 2 documento(s) PDF");
+    expect(lista.textContent).toContain("2026-10-28 → 2026-11-03");
+    expect(lista.textContent).toContain("En trámite → Respondido");
+    expect(lista.textContent).not.toContain('{"requiere_respuesta"');
+    expect(screen.getByText(/Las fechas nuevas se muestran en hora de Bogotá/)).toBeTruthy();
+  });
+
+  it("conserva eventos históricos y desconocidos sin inventar actor, dependencia ni zona horaria", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.includes("/historial?"))
+        return Promise.resolve(respuestaJson({ historial: [
+          { id: 3, event_type: "tipo_futuro", ocurrido_en_utc: "fecha-invalida" },
+          { id: 2, campo_modificado: "estado", creado_en: "2025-01-02 09:00:00",
+            usuario: "migracion_009", valor_anterior: "Recibido", valor_nuevo: "Pendiente" },
+          { id: 1, campo_modificado: "otro" },
+        ], has_more: false }));
+      if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const lista = await screen.findByRole("list", { name: "Línea de tiempo del radicado" });
+    expect(lista.textContent).toContain("zona horaria histórica no confirmada");
+    expect(lista.textContent).toContain("Fecha histórica no disponible");
+    expect(lista.textContent).toContain("Fecha UTC inválida");
+    expect(lista.textContent).toContain("No identificado en el registro histórico");
+    expect(lista.textContent).toContain("No registrada en este evento");
+    expect(lista.textContent).toContain("Recibido → Pendiente");
+    expect(within(lista).getByRole("heading", { name: "Cambio de estado histórico" })).toBeTruthy();
   });
 
   it("solo presenta el ultimo PDF solicitado y libera las vistas previas al cerrar", async () => {

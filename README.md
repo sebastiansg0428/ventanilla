@@ -87,6 +87,13 @@ de sesión. Las filas históricas anteriores a la migración 021 aparecen como
 eventos heredados y conservan su hora sin asumir que sea hora Bogotá. Los
 eventos nuevos se presentan en `America/Bogota`.
 
+Cada evento se presenta por separado en una tarjeta con acción, fecha y hora,
+descripción, actor y dependencia. Los cambios de estado y ampliaciones muestran
+sus valores anteriores y nuevos. La lista conserva el orden cronológico de los
+eventos cargados y permite solicitar los anteriores; no agrupa ni elimina eventos.
+El modal aprovecha su ancho disponible y mantiene el encabezado y cierre visibles
+mientras se desplaza el contenido, también en pantallas estrechas.
+
 Aplica `021_audit_log_radicados.sql` después de la migración 020 antes de
 esperar que el nuevo registro de eventos funcione en el backend.
 

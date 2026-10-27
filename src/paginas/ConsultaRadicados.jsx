@@ -46,6 +46,16 @@ const ETIQUETAS_EVENTO = {
   termino_ampliado: "Término ampliado",
   regla_respuesta_aplicada: "Regla de respuesta aplicada",
 };
+const DESCRIPCIONES_EVENTO = {
+  radicado_creado: "Se registró el ingreso del documento al sistema.",
+  radicado_asignado: "El expediente quedó asignado a la dependencia indicada.",
+  documentos_radicado_adjuntados: "Se incorporaron documentos originales al expediente.",
+  estado_cambiado: "Se actualizó el estado del expediente.",
+  respuesta_enviada: "Se registró el envío de la respuesta institucional.",
+  documentos_respuesta_adjuntados: "Se incorporaron documentos de soporte de la respuesta.",
+  termino_ampliado: "Se amplió la fecha límite de respuesta.",
+  regla_respuesta_aplicada: "Se configuró la regla de respuesta al registrar el radicado.",
+};
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
     const fechaUtc = new Date(`${String(evento.ocurrido_en_utc).replace(" ", "T")}Z`);
@@ -1136,6 +1146,9 @@ function VistaConsultaRadicados({ usuario }) {
               </section>
               <section aria-labelledby="historial-radicado-titulo">
                 <h3 id="historial-radicado-titulo">Trazabilidad del expediente</h3>
+                <p className="timeline-ayuda">
+                  Eventos cargados del más antiguo al más reciente. Las fechas nuevas se muestran en hora de Bogotá.
+                </p>
                 {historial.error && <p role="alert">{historial.error}</p>}
                 {historial.cargando && historial.eventos.length === 0 && (
                   <p role="status">Cargando historial…</p>
@@ -1147,20 +1160,39 @@ function VistaConsultaRadicados({ usuario }) {
                   <ol className="radicado-timeline" aria-label="Línea de tiempo del radicado">
                     {[...historial.eventos].reverse().map((evento) => (
                       <li key={evento.id}>
-                        <time>{presentarFechaEvento(evento)}</time>
-                        <strong>
-                          {ETIQUETAS_EVENTO[evento.event_type] ||
-                            (evento.campo_modificado === "estado"
-                              ? "Cambio de estado histórico"
-                              : "Evento histórico")}
-                        </strong>
-                        {evento.valor_anterior && evento.valor_nuevo && evento.event_type === "estado_cambiado" && (
-                          <span>{evento.valor_anterior} → {evento.valor_nuevo}</span>
-                        )}
-                        <span>Actor: {evento.actor_name || evento.usuario || "No identificado en el registro histórico"}</span>
-                        {evento.dependencia_nombre && (
-                          <span>Dependencia: {evento.dependencia_nombre}</span>
-                        )}
+                        <article className="timeline-evento">
+                          <time className="timeline-fecha">{presentarFechaEvento(evento)}</time>
+                          <h4>
+                            {ETIQUETAS_EVENTO[evento.event_type] ||
+                              (evento.campo_modificado === "estado"
+                                ? "Cambio de estado histórico"
+                                : "Evento histórico")}
+                          </h4>
+                          <p className="timeline-descripcion">
+                            {evento.motivo || DESCRIPCIONES_EVENTO[evento.event_type] ||
+                              "Registro conservado del historial del expediente."}
+                          </p>
+                          {(evento.event_type === "estado_cambiado" ||
+                            evento.event_type === "respuesta_enviada" ||
+                            evento.campo_modificado === "estado") &&
+                            evento.valor_anterior && evento.valor_nuevo && (
+                            <p className="timeline-cambio">
+                              <strong>Estado: </strong>{evento.valor_anterior} → {evento.valor_nuevo}
+                            </p>
+                          )}
+                          {evento.event_type === "termino_ampliado" && (
+                            <p className="timeline-cambio">
+                              <strong>Fecha límite: </strong>
+                              {evento.valor_anterior || "No registrada"} → {evento.valor_nuevo || "No registrada"}
+                            </p>
+                          )}
+                          <p className="timeline-dato">
+                            <strong>Actor: </strong>{evento.actor_name || evento.usuario || "No identificado en el registro histórico"}
+                          </p>
+                          <p className="timeline-dato">
+                            <strong>Dependencia: </strong>{evento.dependencia_nombre || "No registrada en este evento"}
+                          </p>
+                        </article>
                       </li>
                     ))}
                   </ol>
