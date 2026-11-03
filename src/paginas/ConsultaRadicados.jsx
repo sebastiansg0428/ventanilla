@@ -7,13 +7,19 @@ import {
 } from "../componentes/Compartidos";
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
-import { obtenerFechaBogota, obtenerDiaRadicacion, formatearFechaRadicacion } from "../servicios/fechas";
+import {
+  obtenerFechaBogota,
+  obtenerDiaRadicacion,
+  formatearFechaRadicacion,
+} from "../servicios/fechas";
 
 const ESTADOS_POSIBLES = ["Recibido", "En trámite", "Pendiente"];
 const requiereRespuesta = (radicado) =>
   radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
-const esFinal = (radicado) => ["Respondido", "Enterado"].includes(radicado.estado);
-const claveEstado = (radicado) => `${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`;
+const esFinal = (radicado) =>
+  ["Respondido", "Enterado"].includes(radicado.estado);
+const claveEstado = (radicado) =>
+  `${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`;
 const normalizarTexto = (valor) =>
   String(valor || "")
     // normalize es un método integrado de JavaScript para normalizar tildes.
@@ -49,20 +55,27 @@ const ETIQUETAS_EVENTO = {
 const DESCRIPCIONES_EVENTO = {
   radicado_creado: "Se registró el ingreso del documento al sistema.",
   radicado_asignado: "El expediente quedó asignado a la dependencia indicada.",
-  documentos_radicado_adjuntados: "Se incorporaron documentos originales al expediente.",
+  documentos_radicado_adjuntados:
+    "Se incorporaron documentos originales al expediente.",
   estado_cambiado: "Se actualizó el estado del expediente.",
   respuesta_enviada: "Se registró el envío de la respuesta institucional.",
-  documentos_respuesta_adjuntados: "Se incorporaron documentos de soporte de la respuesta.",
+  documentos_respuesta_adjuntados:
+    "Se incorporaron documentos de soporte de la respuesta.",
   termino_ampliado: "Se amplió la fecha límite de respuesta.",
-  regla_respuesta_aplicada: "Se configuró la regla de respuesta al registrar el radicado.",
+  regla_respuesta_aplicada:
+    "Se configuró la regla de respuesta al registrar el radicado.",
 };
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
-    const fechaUtc = new Date(`${String(evento.ocurrido_en_utc).replace(" ", "T")}Z`);
+    const fechaUtc = new Date(
+      `${String(evento.ocurrido_en_utc).replace(" ", "T")}Z`,
+    );
     return Number.isNaN(fechaUtc.getTime())
       ? "Fecha UTC inválida"
       : new Intl.DateTimeFormat("es-CO", {
-          timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "medium",
+          timeZone: "America/Bogota",
+          dateStyle: "medium",
+          timeStyle: "medium",
         }).format(fechaUtc);
   }
   return evento.creado_en
@@ -105,7 +118,11 @@ function VistaConsultaRadicados({ usuario }) {
     documentos: [],
   });
   const [historial, setHistorial] = useState({
-    eventos: [], cargando: false, error: "", cursor: null, hayMas: false,
+    eventos: [],
+    cargando: false,
+    error: "",
+    cursor: null,
+    hayMas: false,
   });
   const [urlComprobante, setUrlComprobante] = useState("");
   const [generandoComprobante, setGenerandoComprobante] = useState(false);
@@ -136,13 +153,16 @@ function VistaConsultaRadicados({ usuario }) {
     urlsRespuestaEnCarga.current.clear();
   }
 
-  useEffect(() => () => {
-    solicitudDetalle.current += 1;
-    solicitudHistorial.current += 1;
-    solicitudDocumento.current += 1;
-    solicitudRespuesta.current += 1;
-    liberarUrlsRespuestaEnCarga();
-  }, []);
+  useEffect(
+    () => () => {
+      solicitudDetalle.current += 1;
+      solicitudHistorial.current += 1;
+      solicitudDocumento.current += 1;
+      solicitudRespuesta.current += 1;
+      liberarUrlsRespuestaEnCarga();
+    },
+    [],
+  );
 
   function cerrarDetalle() {
     solicitudDetalle.current += 1;
@@ -150,7 +170,13 @@ function VistaConsultaRadicados({ usuario }) {
     solicitudDocumento.current += 1;
     setRadicadoSeleccionado(null);
     setArchivoAdjunto({ url: "", documentos: [], estado: "" });
-    setHistorial({ eventos: [], cargando: false, error: "", cursor: null, hayMas: false });
+    setHistorial({
+      eventos: [],
+      cargando: false,
+      error: "",
+      cursor: null,
+      hayMas: false,
+    });
     if (dialogoDetalle.current?.open) dialogoDetalle.current.close();
   }
 
@@ -326,9 +352,8 @@ function VistaConsultaRadicados({ usuario }) {
   function aceptarArchivosRespuesta(evento) {
     const seleccion = Array.from(evento.target.files || []);
     if (!seleccion.length) return;
-    let error = seleccion.length > 5
-      ? "Puedes adjuntar máximo 5 archivos PDF."
-      : "";
+    let error =
+      seleccion.length > 5 ? "Puedes adjuntar máximo 5 archivos PDF." : "";
     for (const archivo of seleccion) {
       if (error) break;
       if (!archivo.name.toLowerCase().endsWith(".pdf")) {
@@ -350,7 +375,12 @@ function VistaConsultaRadicados({ usuario }) {
 
   async function enviarRespuesta(evento) {
     evento.preventDefault();
-    if (respuestaEnProceso.current || !respuestaSeleccionada || !textoRespuesta.trim()) return;
+    if (
+      respuestaEnProceso.current ||
+      !respuestaSeleccionada ||
+      !textoRespuesta.trim()
+    )
+      return;
     respuestaEnProceso.current = true;
     const solicitud = solicitudRespuesta.current;
     setEnviandoRespuesta(true);
@@ -396,11 +426,11 @@ function VistaConsultaRadicados({ usuario }) {
       respuestaEnProceso.current = false;
       cerrarRespuesta();
     } catch (error) {
-      if (solicitud === solicitudRespuesta.current) setMensajeRespuesta(error.message);
+      if (solicitud === solicitudRespuesta.current)
+        setMensajeRespuesta(error.message);
     } finally {
       respuestaEnProceso.current = false;
-      if (solicitud === solicitudRespuesta.current)
-        setEnviandoRespuesta(false);
+      if (solicitud === solicitudRespuesta.current) setEnviandoRespuesta(false);
     }
   }
 
@@ -441,15 +471,19 @@ function VistaConsultaRadicados({ usuario }) {
         cargando: false,
       });
       publicados = true;
-      documentosCargados.forEach((url) => urlsRespuestaEnCarga.current.delete(url));
+      documentosCargados.forEach((url) =>
+        urlsRespuestaEnCarga.current.delete(url),
+      );
     } catch (error) {
       if (solicitud !== solicitudRespuesta.current) return;
       setRespuestaConsultada(null);
       window.alert(`No se pudo consultar la respuesta. ${error.message}`);
     } finally {
-      if (!publicados) documentosCargados.forEach((url) => {
-        if (urlsRespuestaEnCarga.current.delete(url)) URL.revokeObjectURL(url);
-      });
+      if (!publicados)
+        documentosCargados.forEach((url) => {
+          if (urlsRespuestaEnCarga.current.delete(url))
+            URL.revokeObjectURL(url);
+        });
     }
   }
 
@@ -476,7 +510,13 @@ function VistaConsultaRadicados({ usuario }) {
       documentos: [],
       estado: "Cargando documentos…",
     });
-    setHistorial({ eventos: [], cargando: true, error: "", cursor: null, hayMas: false });
+    setHistorial({
+      eventos: [],
+      cargando: true,
+      error: "",
+      cursor: null,
+      hayMas: false,
+    });
     cargarHistorial(radicado, solicitudAuditoria, null, false);
     try {
       const respuesta = await solicitarApi(
@@ -521,14 +561,29 @@ function VistaConsultaRadicados({ usuario }) {
       }));
     } catch (error) {
       if (solicitud !== solicitudHistorial.current) return;
-      setHistorial((actual) => ({ ...actual, cargando: false, error: error.message }));
+      setHistorial((actual) => ({
+        ...actual,
+        cargando: false,
+        error: error.message,
+      }));
     }
   }
 
   function cargarMasHistorial() {
-    if (!radicadoSeleccionado || historial.cargando || !historial.hayMas || !historial.cursor) return;
+    if (
+      !radicadoSeleccionado ||
+      historial.cargando ||
+      !historial.hayMas ||
+      !historial.cursor
+    )
+      return;
     setHistorial((actual) => ({ ...actual, cargando: true, error: "" }));
-    cargarHistorial(radicadoSeleccionado, solicitudHistorial.current, historial.cursor, true);
+    cargarHistorial(
+      radicadoSeleccionado,
+      solicitudHistorial.current,
+      historial.cursor,
+      true,
+    );
   }
 
   async function abrirDocumentoAdjunto(documento) {
@@ -589,7 +644,8 @@ function VistaConsultaRadicados({ usuario }) {
         },
       );
       const resultado = await respuesta.json();
-      if (resultado.success === false || !resultado.estado) throw new Error(resultado.message || "No se pudo guardar el estado.");
+      if (resultado.success === false || !resultado.estado)
+        throw new Error(resultado.message || "No se pudo guardar el estado.");
       setRadicados((actual) =>
         actual.map((fila) =>
           (
@@ -628,7 +684,12 @@ function VistaConsultaRadicados({ usuario }) {
     }
   }
 
-  useEffect(() => () => { solicitudComprobante.current += 1; }, []);
+  useEffect(
+    () => () => {
+      solicitudComprobante.current += 1;
+    },
+    [],
+  );
 
   async function mostrarComprobante(radicado) {
     if (comprobanteEnProceso.current) return;
@@ -636,7 +697,8 @@ function VistaConsultaRadicados({ usuario }) {
     setGenerandoComprobante(true);
     const solicitud = ++solicitudComprobante.current;
     try {
-      if (!obtenerDiaRadicacion(radicado)) throw new Error("El radicado no tiene fecha válida.");
+      if (!obtenerDiaRadicacion(radicado))
+        throw new Error("El radicado no tiene fecha válida.");
       const pdf = await crearPdfComprobante({
         ...radicado,
         fecha_hora: formatearFechaRadicacion(radicado),
@@ -656,8 +718,7 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   const radicadosHoy = radicados.filter(
-    (radicado) =>
-      obtenerDiaRadicacion(radicado) === claveFechaHoy,
+    (radicado) => obtenerDiaRadicacion(radicado) === claveFechaHoy,
   ).length;
   const radicadosCriticos = radicados.filter(estaEnEstadoCritico).length;
   const hayFiltrosActivos =
@@ -843,7 +904,9 @@ function VistaConsultaRadicados({ usuario }) {
                     >
                       <td>
                         <small className="regla-respuesta">
-                          {requiereRespuesta(radicado) ? "Requiere respuesta" : "No requiere respuesta"}
+                          {requiereRespuesta(radicado)
+                            ? "Requiere respuesta"
+                            : "No requiere respuesta"}
                         </small>
                         <button
                           className="ver-detalle"
@@ -866,9 +929,7 @@ function VistaConsultaRadicados({ usuario }) {
                         >
                           {obtenerTipoComunicacion(radicado)}
                         </span>
-                        <small>
-                          {formatearFechaRadicacion(radicado)}
-                        </small>
+                        <small>{formatearFechaRadicacion(radicado)}</small>
                       </td>
                       <td>
                         <strong>
@@ -890,27 +951,59 @@ function VistaConsultaRadicados({ usuario }) {
                         </span>
                       </td>
                       <td>
-                        {esFinal(radicado) && !guardandoEstados[claveEstado(radicado)] ? (
-                          <span className="estado-final" aria-label={`Estado de ${radicado.numero_radicado}: ${radicado.estado}`}>
+                        {esFinal(radicado) &&
+                        !guardandoEstados[claveEstado(radicado)] ? (
+                          <span
+                            className="estado-final"
+                            aria-label={`Estado de ${radicado.numero_radicado}: ${radicado.estado}`}
+                          >
                             {radicado.estado}
                           </span>
-                        ) : <select
-                          id={`estado-radicado-${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "-")}-${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "-")}`}
-                          name={`estado_radicado_${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "_")}_${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "_")}`}
-                          aria-label={`Estado de ${radicado.numero_radicado}`}
-                          disabled={usuario.rol === "ventanilla" || guardandoEstados[claveEstado(radicado)]}
-                          value={radicado.estado || "Recibido"}
-                          onChange={(evento) =>
-                            cambiarEstado(radicado, evento.target.value)
-                          }
-                        >
-                          {[...ESTADOS_POSIBLES, ...(!requiereRespuesta(radicado) ? ["Enterado"] : []),
-                            ...(![...ESTADOS_POSIBLES, "Enterado"].includes(radicado.estado || "Recibido") ? [radicado.estado] : [])].map((estadoPosible) => (
-                            <option key={estadoPosible} disabled={!ESTADOS_POSIBLES.includes(estadoPosible) && estadoPosible !== "Enterado"}>{estadoPosible}</option>
-                          ))}
-                        </select>}
-                        {guardandoEstados[claveEstado(radicado)] && <small role="status">Guardando estado…</small>}
-                        {erroresEstado[claveEstado(radicado)] && <small role="alert">{erroresEstado[claveEstado(radicado)]}</small>}
+                        ) : (
+                          <select
+                            id={`estado-radicado-${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "-")}-${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "-")}`}
+                            name={`estado_radicado_${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "_")}_${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "_")}`}
+                            aria-label={`Estado de ${radicado.numero_radicado}`}
+                            disabled={
+                              usuario.rol === "ventanilla" ||
+                              guardandoEstados[claveEstado(radicado)]
+                            }
+                            value={radicado.estado || "Recibido"}
+                            onChange={(evento) =>
+                              cambiarEstado(radicado, evento.target.value)
+                            }
+                          >
+                            {[
+                              ...ESTADOS_POSIBLES,
+                              ...(!requiereRespuesta(radicado)
+                                ? ["Enterado"]
+                                : []),
+                              ...(![...ESTADOS_POSIBLES, "Enterado"].includes(
+                                radicado.estado || "Recibido",
+                              )
+                                ? [radicado.estado]
+                                : []),
+                            ].map((estadoPosible) => (
+                              <option
+                                key={estadoPosible}
+                                disabled={
+                                  !ESTADOS_POSIBLES.includes(estadoPosible) &&
+                                  estadoPosible !== "Enterado"
+                                }
+                              >
+                                {estadoPosible}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {guardandoEstados[claveEstado(radicado)] && (
+                          <small role="status">Guardando estado…</small>
+                        )}
+                        {erroresEstado[claveEstado(radicado)] && (
+                          <small role="alert">
+                            {erroresEstado[claveEstado(radicado)]}
+                          </small>
+                        )}
                       </td>
                       <td>
                         <button
@@ -922,7 +1015,8 @@ function VistaConsultaRadicados({ usuario }) {
                           Ver comprobante
                         </button>
                         {usuario.rol !== "ventanilla" &&
-                          requiereRespuesta(radicado) && !esFinal(radicado) && (
+                          requiereRespuesta(radicado) &&
+                          !esFinal(radicado) && (
                             <button
                               type="button"
                               className="generar-comprobante"
@@ -1049,11 +1143,21 @@ function VistaConsultaRadicados({ usuario }) {
                 etiqueta="Estado"
                 valor={radicadoSeleccionado.estado || "Recibido"}
               />
-              <CampoDetalle etiqueta="Requisito de respuesta"
-                valor={requiereRespuesta(radicadoSeleccionado) ? "Requiere respuesta" : "No requiere respuesta"} />
+              <CampoDetalle
+                etiqueta="Requisito de respuesta"
+                valor={
+                  requiereRespuesta(radicadoSeleccionado)
+                    ? "Requiere respuesta"
+                    : "No requiere respuesta"
+                }
+              />
               {radicadoSeleccionado.fecha_enterado && (
-                <CampoDetalle etiqueta="Fecha de enterado"
-                  valor={convertirFechaLocal(radicadoSeleccionado.fecha_enterado)?.toLocaleString("es-CO")} />
+                <CampoDetalle
+                  etiqueta="Fecha de enterado"
+                  valor={convertirFechaLocal(
+                    radicadoSeleccionado.fecha_enterado,
+                  )?.toLocaleString("es-CO")}
+                />
               )}
               <CampoDetalle
                 etiqueta="Remitente"
@@ -1071,17 +1175,35 @@ function VistaConsultaRadicados({ usuario }) {
                 valor={radicadoSeleccionado.dependencia_destino}
               />
               {radicadoSeleccionado.tipo_comunicacion === "Interna" && (
-                <CampoDetalle etiqueta="Dependencia remitente"
-                  valor={radicadoSeleccionado.dependencia_remitente || "No registrada"} />
+                <CampoDetalle
+                  etiqueta="Dependencia remitente"
+                  valor={
+                    radicadoSeleccionado.dependencia_remitente ||
+                    "No registrada"
+                  }
+                />
               )}
               {radicadoSeleccionado.tipo_comunicacion === "Externa" && (
                 <>
-                  <CampoDetalle etiqueta="Tipo de persona"
-                    valor={radicadoSeleccionado.remitente_tipo_persona === "juridica"
-                      ? "Jurídica" : radicadoSeleccionado.remitente_tipo_persona === "natural"
-                        ? "Natural" : "No registrado"} />
-                  <CampoDetalle etiqueta="Entidad / razón social" valor={radicadoSeleccionado.remitente_entidad} />
-                  <CampoDetalle etiqueta="NIT" valor={radicadoSeleccionado.remitente_nit} />
+                  <CampoDetalle
+                    etiqueta="Tipo de persona"
+                    valor={
+                      radicadoSeleccionado.remitente_tipo_persona === "juridica"
+                        ? "Jurídica"
+                        : radicadoSeleccionado.remitente_tipo_persona ===
+                            "natural"
+                          ? "Natural"
+                          : "No registrado"
+                    }
+                  />
+                  <CampoDetalle
+                    etiqueta="Entidad / razón social"
+                    valor={radicadoSeleccionado.remitente_entidad}
+                  />
+                  <CampoDetalle
+                    etiqueta="NIT"
+                    valor={radicadoSeleccionado.remitente_nit}
+                  />
                 </>
               )}
               <CampoDetalle
@@ -1094,7 +1216,11 @@ function VistaConsultaRadicados({ usuario }) {
               />
               <CampoDetalle
                 etiqueta="Fecha límite"
-                valor={requiereRespuesta(radicadoSeleccionado) ? radicadoSeleccionado.fecha_limite_actual : "No aplica"}
+                valor={
+                  requiereRespuesta(radicadoSeleccionado)
+                    ? radicadoSeleccionado.fecha_limite_actual
+                    : "No aplica"
+                }
               />
               <CampoDetalle
                 etiqueta="Fundamento legal"
@@ -1145,23 +1271,33 @@ function VistaConsultaRadicados({ usuario }) {
                 )}
               </section>
               <section aria-labelledby="historial-radicado-titulo">
-                <h3 id="historial-radicado-titulo">Trazabilidad del expediente</h3>
+                <h3 id="historial-radicado-titulo">
+                  Trazabilidad del expediente
+                </h3>
                 <p className="timeline-ayuda">
-                  Eventos cargados del más antiguo al más reciente. Las fechas nuevas se muestran en hora de Bogotá.
+                  Eventos cargados del más antiguo al más reciente. Las fechas
+                  nuevas se muestran en hora de Bogotá.
                 </p>
                 {historial.error && <p role="alert">{historial.error}</p>}
                 {historial.cargando && historial.eventos.length === 0 && (
                   <p role="status">Cargando historial…</p>
                 )}
-                {!historial.cargando && !historial.error && historial.eventos.length === 0 && (
-                  <p>No hay eventos de trazabilidad registrados.</p>
-                )}
+                {!historial.cargando &&
+                  !historial.error &&
+                  historial.eventos.length === 0 && (
+                    <p>No hay eventos de trazabilidad registrados.</p>
+                  )}
                 {historial.eventos.length > 0 && (
-                  <ol className="radicado-timeline" aria-label="Línea de tiempo del radicado">
+                  <ol
+                    className="radicado-timeline"
+                    aria-label="Línea de tiempo del radicado"
+                  >
                     {[...historial.eventos].reverse().map((evento) => (
                       <li key={evento.id}>
                         <article className="timeline-evento">
-                          <time className="timeline-fecha">{presentarFechaEvento(evento)}</time>
+                          <time className="timeline-fecha">
+                            {presentarFechaEvento(evento)}
+                          </time>
                           <h4>
                             {ETIQUETAS_EVENTO[evento.event_type] ||
                               (evento.campo_modificado === "estado"
@@ -1169,28 +1305,37 @@ function VistaConsultaRadicados({ usuario }) {
                                 : "Evento histórico")}
                           </h4>
                           <p className="timeline-descripcion">
-                            {evento.motivo || DESCRIPCIONES_EVENTO[evento.event_type] ||
+                            {evento.motivo ||
+                              DESCRIPCIONES_EVENTO[evento.event_type] ||
                               "Registro conservado del historial del expediente."}
                           </p>
                           {(evento.event_type === "estado_cambiado" ||
                             evento.event_type === "respuesta_enviada" ||
                             evento.campo_modificado === "estado") &&
-                            evento.valor_anterior && evento.valor_nuevo && (
-                            <p className="timeline-cambio">
-                              <strong>Estado: </strong>{evento.valor_anterior} → {evento.valor_nuevo}
-                            </p>
-                          )}
+                            evento.valor_anterior &&
+                            evento.valor_nuevo && (
+                              <p className="timeline-cambio">
+                                <strong>Estado: </strong>
+                                {evento.valor_anterior} → {evento.valor_nuevo}
+                              </p>
+                            )}
                           {evento.event_type === "termino_ampliado" && (
                             <p className="timeline-cambio">
                               <strong>Fecha límite: </strong>
-                              {evento.valor_anterior || "No registrada"} → {evento.valor_nuevo || "No registrada"}
+                              {evento.valor_anterior || "No registrada"} →{" "}
+                              {evento.valor_nuevo || "No registrada"}
                             </p>
                           )}
                           <p className="timeline-dato">
-                            <strong>Actor: </strong>{evento.actor_name || evento.usuario || "No identificado en el registro histórico"}
+                            <strong>Actor: </strong>
+                            {evento.actor_name ||
+                              evento.usuario ||
+                              "No identificado en el registro histórico"}
                           </p>
                           <p className="timeline-dato">
-                            <strong>Dependencia: </strong>{evento.dependencia_nombre || "No registrada en este evento"}
+                            <strong>Dependencia: </strong>
+                            {evento.dependencia_nombre ||
+                              "No registrada en este evento"}
                           </p>
                         </article>
                       </li>
@@ -1203,16 +1348,15 @@ function VistaConsultaRadicados({ usuario }) {
                     onClick={cargarMasHistorial}
                     disabled={historial.cargando}
                   >
-                    {historial.cargando ? "Cargando…" : "Cargar eventos anteriores"}
+                    {historial.cargando
+                      ? "Cargando…"
+                      : "Cargar eventos anteriores"}
                   </button>
                 )}
               </section>
             </div>
             <div className="modal-footer">
-              <button
-                type="button"
-                onClick={cerrarDetalle}
-              >
+              <button type="button" onClick={cerrarDetalle}>
                 Cerrar
               </button>
             </div>
@@ -1258,7 +1402,10 @@ function VistaConsultaRadicados({ usuario }) {
                   />
                   <CampoDetalle
                     etiqueta="Dependencia responsable"
-                    valor={respuestaConsultada.dependencia_responsable || "No registrada"}
+                    valor={
+                      respuestaConsultada.dependencia_responsable ||
+                      "No registrada"
+                    }
                   />
                   <CampoDetalle
                     etiqueta="Fecha de envío"
@@ -1307,10 +1454,7 @@ function VistaConsultaRadicados({ usuario }) {
               )}
             </div>
             <div className="modal-footer">
-              <button
-                type="button"
-                onClick={cerrarRespuesta}
-              >
+              <button type="button" onClick={cerrarRespuesta}>
                 Cerrar
               </button>
             </div>
@@ -1396,7 +1540,11 @@ function VistaConsultaRadicados({ usuario }) {
                 accept="application/pdf,.pdf"
                 multiple
                 aria-invalid={Boolean(errorArchivosRespuesta)}
-                aria-describedby={errorArchivosRespuesta ? "error-archivos-respuesta" : undefined}
+                aria-describedby={
+                  errorArchivosRespuesta
+                    ? "error-archivos-respuesta"
+                    : undefined
+                }
                 onChange={aceptarArchivosRespuesta}
               />
               {archivosRespuesta.length > 0 && (
@@ -1425,7 +1573,9 @@ function VistaConsultaRadicados({ usuario }) {
                       : "No se ha adjuntado ningún archivo."}
                   </p>
                 )}
-                <p role="status" aria-live="polite">{mensajeRespuesta}</p>
+                <p role="status" aria-live="polite">
+                  {mensajeRespuesta}
+                </p>
               </div>
             )}
             <div className="modal-footer">
@@ -1462,10 +1612,7 @@ function VistaConsultaRadicados({ usuario }) {
       >
         <div className="comprobante-cabecera">
           <h2>Comprobante de recepción</h2>
-          <button
-            type="button"
-            onClick={cerrarComprobante}
-          >
+          <button type="button" onClick={cerrarComprobante}>
             Cerrar
           </button>
         </div>
