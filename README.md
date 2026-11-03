@@ -78,6 +78,25 @@ El comprobante inicial conserva la fecha legible que confirma el servidor;
 Consulta usa la misma zona y formato. No se cambian registros existentes,
 plazos legales, semáforos ni fechas de respuesta o enterado.
 
+## Consulta paginada y alertas
+
+Consulta carga hasta 25 filas por pagina y envia los filtros al backend.
+La busqueda espera 250 ms despues de escribir (maximo 150 caracteres).
+Cambiar filtros vuelve a la primera pagina; los contadores Total, Criticos y
+Registrados hoy provienen del conjunto autorizado completo, no de la pagina.
+El total filtrado se muestra por separado. Los globales mantienen una fila por
+asignacion autorizada. Consultas tardias no sustituyen filtros mas recientes.
+
+Alertas tiene paginacion independiente por dependencia. Sus grupos muestran
+solo la pagina actual, mientras el mensaje informa el total real. Cambiar de
+dependencia descarta respuestas pendientes de la oficina anterior. Una respuesta
+o cambio de estado exitoso recarga Consulta y las alertas seleccionadas; errores
+de carga se muestran explicitamente y Consulta permite reintentar.
+
+Reinicia el backend actualizado antes de usar esta interfaz: necesita los campos
+de paginacion y resumen nuevos de `/api/radicados` y `/api/alertas`. No requiere
+migracion ni envio automatico al ciudadano.
+
 ## Trazabilidad del expediente
 
 El modal de detalle consulta `GET /api/radicados/:numero_radicado/historial` y

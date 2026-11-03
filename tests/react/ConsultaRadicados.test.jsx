@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaConsultaRadicados } from "../../src/paginas/ConsultaRadicados.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
 import { crearPdfComprobante } from "../../src/servicios/comprobante.js";
-import { formatearFechaRadicacion } from "../../src/servicios/fechas.js";
+import { formatearFechaRadicacion, obtenerDiaRadicacion, obtenerFechaBogota } from "../../src/servicios/fechas.js";
 
 vi.mock("../../src/servicios/api.js", () => ({
   confirmarSesion: vi.fn(),
@@ -20,6 +20,7 @@ const usuario = {
   rol: "administrador",
   dependencia_id: null,
 };
+let registrosSimulados;
 
 function crearRadicados() {
   const hoy = new Date().toISOString();
@@ -57,6 +58,30 @@ function crearRadicados() {
 
 function respuestaJson(resultado) {
   return { json: async () => resultado };
+}
+
+function paginaRadicados(radicados, ruta) {
+  const parametros = new URLSearchParams(ruta.split("?")[1]);
+  const normalizar = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const hoy = obtenerFechaBogota(new Date());
+  const critico = r => ["alerta", "vencido"].includes(r.semaforo?.nivel);
+  const clase = r => {
+    const valor = normalizar(r.tipo_comunicacion || r.tipo_documento);
+    return valor.includes("interna") ? "interna" : valor.includes("externa") ? "externa" : "sin-tipo";
+  };
+  const filtrados = radicados.filter(r =>
+    (!parametros.get("busqueda") || ["numero_radicado", "remitente_nombre", "remitente_documento", "remitente_nit"]
+      .some(campo => normalizar(r[campo]).includes(normalizar(parametros.get("busqueda"))))) &&
+    (parametros.get("hoy") !== "1" || obtenerDiaRadicacion(r) === hoy) &&
+    (parametros.get("criticos") !== "1" || critico(r)) &&
+    (!parametros.get("tipo_comunicacion") || clase(r) === parametros.get("tipo_comunicacion")));
+  const pagina = Number(parametros.get("pagina"));
+  const limite = Number(parametros.get("limite"));
+  return respuestaJson({ success: true, total: filtrados.length, pagina, limite,
+    paginas: Math.ceil(filtrados.length / limite),
+    resumen: { total: radicados.length, hoy: radicados.filter(r => obtenerDiaRadicacion(r) === hoy).length,
+      criticos: radicados.filter(critico).length },
+    radicados: filtrados.slice((pagina - 1) * limite, pagina * limite) });
 }
 
 async function abrirConsulta() {
@@ -113,10 +138,12 @@ function simularAlerta() {
 
 describe("consulta de radicados React", () => {
   beforeEach(() => {
+    const registros = crearRadicados();
+    registrosSimulados = registros;
     confirmarSesion.mockReset().mockResolvedValue(usuario);
     solicitarApi.mockReset().mockImplementation(async (ruta, opciones = {}) => {
-      if (ruta === "/api/radicados" && !opciones.method) {
-        return respuestaJson({ success: true, radicados: crearRadicados() });
+      if (ruta.startsWith("/api/radicados?") && !opciones.method) {
+        return paginaRadicados(registros, ruta);
       }
       if (ruta === "/api/dependencias") {
         return respuestaJson({
@@ -129,6 +156,9 @@ describe("consulta de radicados React", () => {
       }
       if (ruta.startsWith("/api/radicados/") && opciones.method === "PUT") {
         const { estado } = JSON.parse(opciones.body);
+        Object.assign(registros.find(r => ruta.includes(r.numero_radicado)), {
+          estado, semaforo: { nivel: "completado", texto: "Completado" },
+        });
         return respuestaJson({
           estado,
           semaforo: { nivel: "completado", texto: "Completado" },
@@ -144,7 +174,7 @@ describe("consulta de radicados React", () => {
     radicados[0].estado = "Respondido";
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
-      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
       if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
       if (ruta.endsWith("/respuesta")) return respuestaJson({ success: true, respuesta: {
         funcionario_nombre: "Brandon Grajales", dependencia_responsable: "Talento Humano",
@@ -155,7 +185,6 @@ describe("consulta de radicados React", () => {
       return base(ruta, opciones);
     });
     simularUrlsBlob("blob:respuesta");
-    const user = userEvent.setup({ delay: null });
     await abrirConsulta();
     document.querySelectorAll("dialog").forEach((dialogo) => {
       dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
@@ -165,7 +194,7 @@ describe("consulta de radicados React", () => {
       });
     });
     const boton = screen.getByText("RAD-001", { selector: "button" });
-    await user.click(boton);
+    await act(async () => fireEvent.click(boton));
     await screen.findByText("Este radicado no tiene documentos adjuntos.");
     const detalle = document.querySelector("#modal-detalle");
     expect(within(detalle).queryByText("Respuesta institucional")).toBeNull();
@@ -173,8 +202,10 @@ describe("consulta de radicados React", () => {
     expect(within(detalle).getByText("Estado")).toBeTruthy();
     expect(solicitarApi.mock.calls.some(([ruta]) => ruta.startsWith("/uploads/") || ruta.endsWith("/respuesta"))).toBe(false);
     expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("/respuesta/resumen"))).toBe(false);
-    detalle.close();
-    await user.click(within(boton.closest("tr")).getByRole("button", { name: "Ver respuesta" }));
+    await act(async () => detalle.close());
+    await act(async () => fireEvent.click(
+      within(boton.closest("tr")).getByRole("button", { name: "Ver respuesta" }),
+    ));
     const modalRespuesta = document.querySelector(".respuesta-dialog");
     expect(await within(modalRespuesta).findByText("Brandon Grajales")).toBeTruthy();
     expect(within(modalRespuesta).getByText("Talento Humano")).toBeTruthy();
@@ -195,7 +226,7 @@ describe("consulta de radicados React", () => {
     Object.assign(radicados[0], { estado: "Respondido", destino_todas_dependencias: 1, radicado_dependencia_id: 301 });
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
-      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
       if (ruta === "/api/radicados/RAD-001/respuesta?radicado_dependencia_id=301") {
         return respuestaJson({ success: true, respuesta: {
           funcionario_nombre: "Andrea", dependencia_responsable: dependencia,
@@ -224,7 +255,7 @@ describe("consulta de radicados React", () => {
     });
     const catalogos = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
-      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
       if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
       return catalogos(ruta, opciones);
     });
@@ -316,7 +347,7 @@ describe("consulta de radicados React", () => {
     });
     const catalogos = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
-      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados });
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
       if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
       return catalogos(ruta, opciones);
     });
@@ -612,7 +643,7 @@ describe("consulta de radicados React", () => {
     Object.assign(radicados[0], { estado: "En trámite", asunto_documento: "Línea 1\nLínea 2" });
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation((ruta, opciones) => {
-      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.startsWith("/api/radicados?")) return Promise.resolve(paginaRadicados(radicados, ruta));
       if (ruta.includes("/historial?"))
         return Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }));
       if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
@@ -685,7 +716,7 @@ describe("consulta de radicados React", () => {
     radicados[1] = { ...radicados[0], radicado_dependencia_id: 302 };
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation((ruta, opciones) => {
-      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.startsWith("/api/radicados?")) return Promise.resolve(paginaRadicados(radicados, ruta));
       if (ruta.endsWith("radicado_dependencia_id=301")) return pendientes[0].promise;
       if (ruta.endsWith("radicado_dependencia_id=302")) return pendientes[1].promise;
       return base(ruta, opciones);
@@ -722,7 +753,7 @@ describe("consulta de radicados React", () => {
     const radicados = crearRadicados();
     radicados[0].estado = "Respondido";
     solicitarApi.mockImplementation((ruta, opciones) => {
-      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.startsWith("/api/radicados?")) return Promise.resolve(paginaRadicados(radicados, ruta));
       if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({ respuesta: {
         contenido: "Respuesta", documentos: [
           { id: 1, ruta_archivo: "uno.pdf" }, { id: 2, ruta_archivo: "dos.pdf" },
@@ -753,7 +784,7 @@ describe("consulta de radicados React", () => {
     const radicados = crearRadicados();
     radicados[0].estado = "Respondido";
     solicitarApi.mockImplementation((ruta, opciones) => {
-      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.startsWith("/api/radicados?")) return Promise.resolve(paginaRadicados(radicados, ruta));
       if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({ respuesta: {
         contenido: "Respuesta", documentos: [{ id: 1, nombre_archivo: "respuesta.pdf", ruta_archivo: "respuesta.pdf" }],
       } }));
@@ -814,14 +845,21 @@ describe("consulta de radicados React", () => {
     expect(plantilla.value).toBe("general");
     expect(within(modal).getByText(/conservar.pdf/)).toBeTruthy();
     expect(within(modal).getByRole("button", { name: "Cancelar" }).disabled).toBe(false);
-    solicitarApi.mockResolvedValue({ ok: true, json: async () => ({
-      success: true, estado: "Respondido", semaforo: { nivel: "completado" },
-    }) });
+    const baseConsulta = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") {
+        Object.assign(registrosSimulados[0], { estado: "Respondido", semaforo: { nivel: "completado" } });
+        return Promise.resolve({ ok: true, json: async () => ({
+          success: true, estado: "Respondido", semaforo: { nivel: "completado" },
+        }) });
+      }
+      return baseConsulta(ruta, opciones);
+    });
     fireEvent.submit(formulario);
     await waitFor(() => expect(modal.open).toBe(false));
     expect(posts()).toHaveLength(2);
     expect(posts()[1][1].body.getAll("archivos")[0].name).toBe("conservar.pdf");
-    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const fila = (await screen.findByText("RAD-001", { selector: "button" })).closest("tr");
     expect(within(fila).getByRole("button", { name: "Ver respuesta" })).toBeTruthy();
   });
 
@@ -835,7 +873,7 @@ describe("consulta de radicados React", () => {
       Object.assign(radicados[2], { fecha_hora_recepcion: "2026-02-30", fecha_creacion: "2026-01-01 10:00:00" });
       const base = solicitarApi.getMockImplementation();
       solicitarApi.mockImplementation((ruta, opciones) => {
-        if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+        if (ruta.startsWith("/api/radicados?")) return Promise.resolve(paginaRadicados(radicados, ruta));
         if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
         return base(ruta, opciones);
       });
@@ -843,11 +881,11 @@ describe("consulta de radicados React", () => {
       prepararDialogos();
       const hoy = within(screen.getByLabelText("Resumen y filtros")).getByRole("button", { name: /Registrados hoy/ });
       expect(hoy.querySelector("strong").textContent).toBe("2");
-      fireEvent.click(hoy);
+      await act(async () => fireEvent.click(hoy));
       expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
       expect(screen.getByText("RAD-002", { selector: "button" })).toBeTruthy();
       expect(screen.queryByText("RAD-003", { selector: "button" })).toBeNull();
-      fireEvent.click(hoy);
+      await act(async () => fireEvent.click(hoy));
       const boton = screen.getByText("RAD-001", { selector: "button" });
       expect(boton.closest("tr").querySelector("td:nth-child(2) small").textContent)
         .toBe(formatearFechaRadicacion(radicados[0]));
@@ -869,8 +907,8 @@ describe("consulta de radicados React", () => {
     Object.assign(radicados[0], { fecha_hora_recepcion: "2026-01-01 23:30:00", fecha_creacion: "2026-01-02 10:00:00" });
     Object.assign(radicados[2], { fecha_hora_recepcion: "2026-02-30", fecha_creacion: "2026-01-01 10:00:00" });
     const base = solicitarApi.getMockImplementation();
-    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/radicados"
-      ? Promise.resolve(respuestaJson({ success: true, radicados })) : base(ruta, opciones));
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? Promise.resolve(paginaRadicados(radicados, ruta)) : base(ruta, opciones));
     crearPdfComprobante.mockResolvedValue({ output: () => new Blob(["PDF"]) });
     simularUrlsBlob("blob:fecha");
     const alertar = simularAlerta();
@@ -945,6 +983,89 @@ describe("consulta de radicados React", () => {
     ).toBeTruthy();
   });
 
+  it("pagina en servidor, conserva contadores globales y reinicia pagina al filtrar", async () => {
+    const filas = Array.from({ length: 53 }, (_, i) => ({
+      ...crearRadicados()[0], numero_radicado: `RAD-${String(i + 1).padStart(3, "0")}`,
+      remitente_nombre: i === 52 ? "Remitente final" : "Otra persona",
+    }));
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? Promise.resolve(paginaRadicados(filas, ruta)) : base(ruta, opciones));
+    await abrirConsulta();
+    const navegacion = within(screen.getByRole("navigation", { name: "Paginación de radicados" }));
+    expect(screen.getByText("Página 1 de 3")).toBeTruthy();
+    expect(within(screen.getByLabelText("Resumen y filtros")).getByRole("button", { name: /Total/ }).textContent).toContain("53");
+    expect(screen.queryByText("RAD-026", { selector: "button" })).toBeNull();
+    await act(async () => fireEvent.click(navegacion.getByRole("button", { name: "Siguiente" })));
+    expect(screen.getByText("RAD-026", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText("RAD-001", { selector: "button" })).toBeNull();
+    expect(screen.getByText("Página 2 de 3")).toBeTruthy();
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByLabelText("Buscar radicados"));
+    await user.paste("final");
+    expect(await screen.findByText("RAD-053", { selector: "button" })).toBeTruthy();
+    expect(navegacion.getByText("Página 1 de 1")).toBeTruthy();
+    expect(navegacion.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("pagina=1") && ruta.includes("busqueda=final"))).toBe(true);
+  });
+
+  it("descarta una consulta tardia cuando se cambian los filtros", async () => {
+    const pendiente = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) =>
+      ruta.startsWith("/api/radicados?") && ruta.includes("criticos=1")
+        ? pendiente.promise : base(ruta, opciones));
+    await abrirConsulta();
+    const resumen = within(screen.getByLabelText("Resumen y filtros"));
+    fireEvent.click(resumen.getByRole("button", { name: /Críticos/ }));
+    await act(async () => fireEvent.click(resumen.getByRole("button", { name: /Total/ })));
+    await act(async () => pendiente.resolve(respuestaJson({ success: false, message: "Resultado obsoleto" })));
+    expect(screen.getByText("RAD-002", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText(/Resultado obsoleto/)).toBeNull();
+  });
+
+  it("muestra error de contrato sin inventar totales y permite reintentar", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let fallo = true;
+    solicitarApi.mockImplementation((ruta, opciones) =>
+      ruta.startsWith("/api/radicados?") && fallo
+        ? Promise.resolve(respuestaJson({ success: true, radicados: [] })) : base(ruta, opciones));
+    render(<PaginaConsultaRadicados />);
+    const boton = await screen.findByRole("button", { name: "Reintentar consulta" });
+    fallo = false;
+    await act(async () => fireEvent.click(boton));
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+  });
+
+  it("pagina alertas y no muestra resultados tardios de otra dependencia", async () => {
+    const base = solicitarApi.getMockImplementation();
+    const pendiente = diferida();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/dependencias") return Promise.resolve(respuestaJson({ success: true,
+        dependencias: [{ id: 3, nombre: "Gobierno" }, { id: 4, nombre: "Planeación" }] }));
+      if (ruta.startsWith("/api/alertas?")) {
+        if (ruta.includes("dependencia_id=4")) return pendiente.promise;
+        const pagina = Number(new URLSearchParams(ruta.split("?")[1]).get("pagina"));
+        return Promise.resolve(respuestaJson({ success: true, total: 26, paginas: 2,
+          alertas: [{ ...crearRadicados()[0], numero_radicado: pagina === 1 ? "ALERTA-1" : "ALERTA-26" }] }));
+      }
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    expect(screen.getByText(/26 alertas encontradas/)).toBeTruthy();
+    const navegacion = within(screen.getByRole("navigation", { name: "Paginación de alertas" }));
+    await act(async () => fireEvent.click(navegacion.getByRole("button", { name: "Siguientes" })));
+    expect(screen.getByText(/ALERTA-26/)).toBeTruthy();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "4" } }));
+    expect(screen.queryByText(/ALERTA-26/)).toBeNull();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    await act(async () => pendiente.resolve(respuestaJson({ success: true, total: 1, paginas: 1,
+      alertas: [{ ...crearRadicados()[0], numero_radicado: "ALERTA-AJENA" }] })));
+    expect(screen.queryByText(/ALERTA-AJENA/)).toBeNull();
+    expect(screen.getByText(/ALERTA-1/)).toBeTruthy();
+  });
+
   it("envía un cambio de estado y muestra el estado confirmado por el servidor", async () => {
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
@@ -965,8 +1086,8 @@ describe("consulta de radicados React", () => {
   it("revierte el estado y muestra el error si el servidor rechaza el cambio", async () => {
     const alertar = simularAlerta();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
-      if (ruta === "/api/radicados" && !opciones.method) {
-        return respuestaJson({ success: true, radicados: crearRadicados() });
+      if (ruta.startsWith("/api/radicados?") && !opciones.method) {
+        return paginaRadicados(crearRadicados(), ruta);
       }
       if (ruta === "/api/dependencias") {
         return respuestaJson({ success: true, dependencias: [] });
@@ -994,7 +1115,7 @@ describe("consulta de radicados React", () => {
     let confirmar;
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
-      if (ruta === "/api/radicados") return respuestaJson({ success: true, radicados: filas });
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(filas, ruta);
       if (ruta.endsWith("/estado")) return new Promise(resolve => { confirmar = resolve; });
       return base(ruta, opciones);
     });
@@ -1006,6 +1127,7 @@ describe("consulta de radicados React", () => {
     fireEvent.change(selector, { target: { value: "Enterado" } });
     expect(selector.disabled).toBe(true);
     expect(within(fila).getByText("Guardando estado…")).toBeTruthy();
+    Object.assign(filas[0], { estado: "Enterado", semaforo: { nivel: "completado", texto: "Enterado" } });
     confirmar(respuestaJson({ success: true, estado: "Enterado",
       fecha_enterado: "2026-10-21 15:30:00", semaforo: { nivel: "completado", texto: "Enterado" } }));
     await waitFor(() => expect(within(fila).queryByRole("combobox")).toBeNull());
@@ -1017,8 +1139,8 @@ describe("consulta de radicados React", () => {
     const filas = crearRadicados();
     filas[1].estado = "Respondido";
     const base = solicitarApi.getMockImplementation();
-    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
-      ? respuestaJson({ success: true, radicados: filas }) : base(ruta, opciones));
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? paginaRadicados(filas, ruta) : base(ruta, opciones));
     await abrirConsulta();
     const selector = screen.getByLabelText("Estado de RAD-001");
     expect(Array.from(selector.options).map(o => o.value)).toEqual(["Recibido", "En trámite", "Pendiente"]);
@@ -1033,8 +1155,8 @@ describe("consulta de radicados React", () => {
       { ...global, radicado_dependencia_id: 51, seguimiento_dependencia_nombre: "Talento Humano" },
     ];
     const base = solicitarApi.getMockImplementation();
-    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
-      ? respuestaJson({ success: true, radicados: [...asignaciones, ...filas.slice(1)] }) : base(ruta, opciones));
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? paginaRadicados([...asignaciones, ...filas.slice(1)], ruta) : base(ruta, opciones));
     render(<PaginaConsultaRadicados />);
     const botones = await screen.findAllByText("RAD-001", { selector: "button" });
     const primera = botones[0].closest("tr");

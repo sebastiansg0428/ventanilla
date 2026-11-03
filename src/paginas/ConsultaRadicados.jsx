@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   EncabezadoAplicacion,
   PiePagina,
@@ -35,8 +35,6 @@ const convertirFechaLocal = (valor) => {
   const fecha = new Date(String(valor || "").replace(" ", "T"));
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 };
-const estaEnEstadoCritico = (radicado) =>
-  ["alerta", "vencido"].includes(normalizarTexto(radicado.semaforo?.nivel));
 const obtenerTipoComunicacion = (radicado) => {
   const valor = normalizarTexto(
     radicado.tipo_comunicacion || radicado.tipo_documento,
@@ -136,6 +134,11 @@ function VistaConsultaRadicados({ usuario }) {
   const [soloCriticos, setSoloCriticos] = useState(false);
   const [soloHoy, setSoloHoy] = useState(false);
   const [filtroComunicacion, setFiltroComunicacion] = useState("");
+  const [busquedaConsulta, setBusquedaConsulta] = useState("");
+  const [navegacion, setNavegacion] = useState({ filtros: "", pagina: 1 });
+  const [revisionConsulta, setRevisionConsulta] = useState(0);
+  const [paginacion, setPaginacion] = useState({ total: 0, paginas: 0 });
+  const [resumenConsulta, setResumenConsulta] = useState({ total: 0, hoy: 0, criticos: 0 });
   const [cargando, setCargando] = useState(true);
   const [mensajeError, setMensajeError] = useState("");
   const [guardandoEstados, setGuardandoEstados] = useState({});
@@ -149,6 +152,11 @@ function VistaConsultaRadicados({ usuario }) {
   const [estadoAlertas, setEstadoAlertas] = useState(
     "Elige una dependencia para consultar alertas.",
   );
+  const [paginaAlertas, setPaginaAlertas] = useState(1);
+  const [paginacionAlertas, setPaginacionAlertas] = useState({ paginas: 0 });
+  const [cargandoAlertas, setCargandoAlertas] = useState(false);
+  const [consultaAlertasValida, setConsultaAlertasValida] = useState(false);
+  const solicitudAlertas = useRef(0);
   const [radicadoSeleccionado, setRadicadoSeleccionado] = useState(null);
   const [archivoAdjunto, setArchivoAdjunto] = useState({
     url: "",
@@ -236,24 +244,58 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   useEffect(() => {
+    const temporizador = setTimeout(
+      () => setBusquedaConsulta(textoBusqueda.trim()),
+      250,
+    );
+    return () => clearTimeout(temporizador);
+  }, [textoBusqueda]);
+
+  const claveFechaHoy = obtenerFechaBogota(new Date());
+  const filtrosConsulta = new URLSearchParams({
+    busqueda: busquedaConsulta,
+    criticos: soloCriticos ? "1" : "0",
+    hoy: soloHoy ? "1" : "0",
+    tipo_comunicacion: filtroComunicacion,
+  }).toString();
+  const paginaConsulta =
+    navegacion.filtros === filtrosConsulta ? navegacion.pagina : 1;
+
+  useEffect(() => {
     let vigente = true;
-    Promise.all([
-      solicitarApi("/api/radicados").then((respuesta) => respuesta.json()),
-      solicitarApi("/api/dependencias").then((respuesta) => respuesta.json()),
-    ])
-      .then(([resultadoRadicados, resultadoDependencias]) => {
+    setCargando(true);
+    setMensajeError("");
+    solicitarApi(
+      `/api/radicados?pagina=${paginaConsulta}&limite=25&${filtrosConsulta}`,
+    )
+      .then((respuesta) => respuesta.json())
+      .then((resultadoRadicados) => {
         if (!vigente) return;
         if (
           resultadoRadicados.success !== true ||
-          !Array.isArray(resultadoRadicados.radicados)
+          !Array.isArray(resultadoRadicados.radicados) ||
+          !Number.isInteger(resultadoRadicados.total) ||
+          !Number.isInteger(resultadoRadicados.paginas) ||
+          !resultadoRadicados.resumen ||
+          !["total", "hoy", "criticos"].every((campo) =>
+            Number.isInteger(resultadoRadicados.resumen[campo]),
+          )
         )
           throw new Error(
             "La respuesta de radicados no tiene el formato esperado.",
           );
         setRadicados(resultadoRadicados.radicados);
-        setDependencias(resultadoDependencias.dependencias || []);
-        if (usuario.rol === "funcionario")
-          setDependenciaAlertas(String(usuario.dependencia_id));
+        setPaginacion({
+          total: resultadoRadicados.total,
+          paginas: resultadoRadicados.paginas,
+        });
+        setResumenConsulta(resultadoRadicados.resumen);
+        if (paginaConsulta > Math.max(1, resultadoRadicados.paginas)) {
+          setNavegacion({
+            filtros: filtrosConsulta,
+            pagina: Math.max(1, resultadoRadicados.paginas),
+          });
+        }
         setCargando(false);
       })
       .catch((error) => {
@@ -264,66 +306,90 @@ function VistaConsultaRadicados({ usuario }) {
     return () => {
       vigente = false;
     };
+  }, [
+    usuario.id, usuario.rol, usuario.dependencia_id, paginaConsulta,
+    filtrosConsulta, revisionConsulta, claveFechaHoy,
+  ]);
+
+  useEffect(() => {
+    let vigente = true;
+    solicitarApi("/api/dependencias")
+      .then((respuesta) => respuesta.json())
+      .then((resultadoDependencias) => {
+        if (!vigente) return;
+        if (
+          resultadoDependencias.success !== true ||
+          !Array.isArray(resultadoDependencias.dependencias)
+        )
+          throw new Error("No se pudieron cargar las dependencias.");
+        setDependencias(resultadoDependencias.dependencias);
+        if (usuario.rol === "funcionario")
+          setDependenciaAlertas(String(usuario.dependencia_id));
+      })
+      .catch((error) => {
+        if (!vigente) return;
+        setEstadoAlertas(error.message);
+      });
+    return () => {
+      vigente = false;
+    };
   }, [usuario.id, usuario.rol, usuario.dependencia_id]);
 
-  const claveFechaHoy = obtenerFechaBogota(new Date());
-  const radicadosVisibles = useMemo(() => {
-    const q = normalizarTexto(textoBusqueda.trim());
-    return radicados.filter((radicado) => {
-      const coincideBusqueda = [
-        "numero_radicado",
-        "remitente_nombre",
-        "remitente_documento",
-        "remitente_nit",
-      ].some((key) => normalizarTexto(radicado[key]).includes(q));
-      const fecha = obtenerDiaRadicacion(radicado);
-      return (
-        coincideBusqueda &&
-        (!soloCriticos || estaEnEstadoCritico(radicado)) &&
-        (!soloHoy || fecha === claveFechaHoy) &&
-        (!filtroComunicacion ||
-          obtenerTipoComunicacion(radicado) === filtroComunicacion)
-      );
-    });
-  }, [
-    radicados,
-    textoBusqueda,
-    soloCriticos,
-    soloHoy,
-    filtroComunicacion,
-    claveFechaHoy,
-  ]);
+  const radicadosVisibles = radicados;
 
   async function cargarAlertas() {
     if (!dependenciaAlertas) {
       setEstadoAlertas("Elige una dependencia para consultar alertas.");
       return;
     }
+    const solicitud = ++solicitudAlertas.current;
+    setCargandoAlertas(true);
+    setConsultaAlertasValida(false);
+    setResumenAlertas({ porVencer: [], vencidos: [] });
     setEstadoAlertas("Consultando alertas…");
     try {
       const respuesta = await solicitarApi(
-        `/api/alertas?dependencia_id=${encodeURIComponent(dependenciaAlertas)}`,
+        `/api/alertas?dependencia_id=${encodeURIComponent(dependenciaAlertas)}&pagina=${paginaAlertas}&limite=25`,
       );
       const resultado = await respuesta.json();
+      if (solicitud !== solicitudAlertas.current) return;
+      if (
+        resultado.success !== true ||
+        !Array.isArray(resultado.alertas) ||
+        !Number.isInteger(resultado.total) ||
+        !Number.isInteger(resultado.paginas)
+      )
+        throw new Error(
+          resultado.message || "La respuesta de alertas no tiene el formato esperado.",
+        );
       setResumenAlertas({
-        porVencer: (resultado.alertas || []).filter(
+        porVencer: resultado.alertas.filter(
           (radicado) => radicado.semaforo?.nivel === "alerta",
         ),
-        vencidos: (resultado.alertas || []).filter(
+        vencidos: resultado.alertas.filter(
           (radicado) => radicado.semaforo?.nivel === "vencido",
         ),
       });
       setEstadoAlertas(
-        `${resultado.alertas?.length || 0} alertas encontradas.`,
+        `${resultado.total} alertas encontradas. Mostrando ${resultado.alertas.length}.`,
       );
+      setPaginacionAlertas({ paginas: resultado.paginas });
+      setConsultaAlertasValida(true);
+      if (paginaAlertas > Math.max(1, resultado.paginas))
+        setPaginaAlertas(Math.max(1, resultado.paginas));
     } catch (error) {
-      setEstadoAlertas(error.message);
+      if (solicitud === solicitudAlertas.current) setEstadoAlertas(error.message);
+    } finally {
+      if (solicitud === solicitudAlertas.current) setCargandoAlertas(false);
     }
   }
 
   useEffect(() => {
     if (dependenciaAlertas) cargarAlertas();
-  }, [usuario.rol, dependenciaAlertas]);
+    return () => {
+      solicitudAlertas.current += 1;
+    };
+  }, [usuario.rol, dependenciaAlertas, paginaAlertas, revisionConsulta]);
 
   useEffect(() => {
     if (
@@ -460,6 +526,7 @@ function VistaConsultaRadicados({ usuario }) {
         ),
       );
       setMensajeRespuesta("Respuesta enviada y registrada.");
+      setRevisionConsulta((valor) => valor + 1);
       setEnviandoRespuesta(false);
       respuestaEnProceso.current = false;
       cerrarRespuesta();
@@ -701,6 +768,7 @@ function VistaConsultaRadicados({ usuario }) {
             : fila,
         ),
       );
+      setRevisionConsulta((valor) => valor + 1);
     } catch (error) {
       setRadicados((actual) =>
         actual.map((fila) =>
@@ -755,10 +823,8 @@ function VistaConsultaRadicados({ usuario }) {
     }
   }
 
-  const radicadosHoy = radicados.filter(
-    (radicado) => obtenerDiaRadicacion(radicado) === claveFechaHoy,
-  ).length;
-  const radicadosCriticos = radicados.filter(estaEnEstadoCritico).length;
+  const radicadosHoy = resumenConsulta.hoy;
+  const radicadosCriticos = resumenConsulta.criticos;
   const hayFiltrosActivos =
     soloCriticos || soloHoy || filtroComunicacion || textoBusqueda.trim();
   const filtrosActivos = [
@@ -794,6 +860,7 @@ function VistaConsultaRadicados({ usuario }) {
 
   function limpiarFiltros() {
     setTextoBusqueda("");
+    setBusquedaConsulta("");
     setSoloCriticos(false);
     setSoloHoy(false);
     setFiltroComunicacion("");
@@ -818,7 +885,7 @@ function VistaConsultaRadicados({ usuario }) {
             onClick={limpiarFiltros}
           >
             <span>Total</span>
-            <strong>{radicados.length}</strong>
+            <strong>{resumenConsulta.total}</strong>
             <small>Mostrar todos los registros</small>
           </button>
           <button
@@ -884,8 +951,8 @@ function VistaConsultaRadicados({ usuario }) {
             id="busqueda-radicados"
             name="busqueda_radicados"
             value={textoBusqueda}
+            maxLength={150}
             onChange={(evento) => setTextoBusqueda(evento.target.value)}
-            disabled={cargando}
             placeholder="Buscar por radicado, documento o remitente…"
             aria-label="Buscar radicados"
           />
@@ -895,8 +962,9 @@ function VistaConsultaRadicados({ usuario }) {
                 ? "Cargando radicados…"
                 : mensajeError
                   ? `No se pudieron cargar radicados. ${mensajeError}`
-                  : `Mostrando ${radicadosVisibles.length} de ${radicados.length}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
+                  : `Mostrando ${radicadosVisibles.length} de ${resumenConsulta.total}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
             </p>
+            {!cargando && !mensajeError && <p>{paginacion.total} registros coinciden con los filtros.</p>}
             <button
               type="button"
               onClick={limpiarFiltros}
@@ -904,6 +972,11 @@ function VistaConsultaRadicados({ usuario }) {
             >
               Limpiar filtros
             </button>
+            {mensajeError && (
+              <button type="button" onClick={() => setRevisionConsulta((valor) => valor + 1)}>
+                Reintentar consulta
+              </button>
+            )}
           </div>
         </section>
 
@@ -1081,6 +1154,27 @@ function VistaConsultaRadicados({ usuario }) {
           </div>
         </section>
 
+        <nav className="alerts-controls" aria-label="Paginación de radicados">
+          <button
+            type="button"
+            disabled={cargando || paginaConsulta <= 1}
+            onClick={() => setNavegacion({
+              filtros: filtrosConsulta, pagina: paginaConsulta - 1,
+            })}
+          >
+            Anterior
+          </button>
+          <span>Página {paginaConsulta} de {Math.max(1, paginacion.paginas)}</span>
+          <button
+            type="button"
+            disabled={cargando || paginaConsulta >= paginacion.paginas}
+            onClick={() => setNavegacion({
+              filtros: filtrosConsulta, pagina: paginaConsulta + 1,
+            })}
+          >
+            Siguiente
+          </button>
+        </nav>
         <section
           id="seccion-alertas"
           className="alerts-card"
@@ -1094,7 +1188,15 @@ function VistaConsultaRadicados({ usuario }) {
               name="dependencia_alertas"
               value={dependenciaAlertas}
               disabled={usuario.rol === "funcionario"}
-              onChange={(evento) => setDependenciaAlertas(evento.target.value)}
+              onChange={(evento) => {
+                setPaginaAlertas(1);
+                setCargandoAlertas(false);
+                setDependenciaAlertas(evento.target.value);
+                setResumenAlertas({ porVencer: [], vencidos: [] });
+                setPaginacionAlertas({ paginas: 0 });
+                setConsultaAlertasValida(false);
+                setEstadoAlertas("Elige una dependencia para consultar alertas.");
+              }}
             >
               <option value="">Selecciona una dependencia</option>
               {dependencias.map((dep) => (
@@ -1105,7 +1207,7 @@ function VistaConsultaRadicados({ usuario }) {
             </select>
             <button
               type="button"
-              disabled={!dependenciaAlertas}
+              disabled={!dependenciaAlertas || cargandoAlertas}
               onClick={cargarAlertas}
             >
               Actualizar alertas
@@ -1117,13 +1219,13 @@ function VistaConsultaRadicados({ usuario }) {
               <h3>Próximos a vencer</h3>
               <ul>
                 {resumenAlertas.porVencer.map((radicado) => (
-                  <li key={radicado.numero_radicado}>
+                  <li key={claveEstado(radicado)}>
                     {radicado.numero_radicado} · {radicado.remitente_nombre} ·{" "}
                     {radicado.semaforo?.texto}
                   </li>
                 ))}
-                {resumenAlertas.porVencer.length === 0 && (
-                  <li>Sin alertas en este grupo.</li>
+                {consultaAlertasValida && resumenAlertas.porVencer.length === 0 && (
+                  <li>Sin alertas de este grupo en esta página.</li>
                 )}
               </ul>
             </div>
@@ -1131,17 +1233,34 @@ function VistaConsultaRadicados({ usuario }) {
               <h3>Vencidos</h3>
               <ul>
                 {resumenAlertas.vencidos.map((radicado) => (
-                  <li key={radicado.numero_radicado}>
+                  <li key={claveEstado(radicado)}>
                     {radicado.numero_radicado} · {radicado.remitente_nombre} ·{" "}
                     {radicado.semaforo?.texto}
                   </li>
                 ))}
-                {resumenAlertas.vencidos.length === 0 && (
-                  <li>Sin alertas en este grupo.</li>
+                {consultaAlertasValida && resumenAlertas.vencidos.length === 0 && (
+                  <li>Sin alertas de este grupo en esta página.</li>
                 )}
               </ul>
             </div>
           </div>
+          <nav className="alerts-controls" aria-label="Paginación de alertas">
+            <button
+              type="button"
+              disabled={!consultaAlertasValida || cargandoAlertas || paginaAlertas <= 1}
+              onClick={() => setPaginaAlertas((valor) => valor - 1)}
+            >
+              Anteriores
+            </button>
+            <span>Página {paginaAlertas} de {Math.max(1, paginacionAlertas.paginas)}</span>
+            <button
+              type="button"
+              disabled={!consultaAlertasValida || cargandoAlertas || paginaAlertas >= paginacionAlertas.paginas}
+              onClick={() => setPaginaAlertas((valor) => valor + 1)}
+            >
+              Siguientes
+            </button>
+          </nav>
         </section>
       </main>
       <PiePagina />
