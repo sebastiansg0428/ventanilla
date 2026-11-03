@@ -179,6 +179,11 @@ describe("consulta de radicados React", () => {
     expect(await within(modalRespuesta).findByText("Brandon Grajales")).toBeTruthy();
     expect(within(modalRespuesta).getByText("Talento Humano")).toBeTruthy();
     expect(within(modalRespuesta).getByText("Fecha de envío").closest(".modal-field").textContent).toContain("2026");
+    expect(within(modalRespuesta).getByRole("region", { name: "Resumen de la respuesta" })).toBeTruthy();
+    expect(within(modalRespuesta).getByText("Sin plantilla").className).toContain("detalle-badge--plantilla");
+    expect(within(modalRespuesta).getByRole("region", { name: "Contenido de la respuesta" }).textContent)
+      .toContain("Respuesta oficial registrada");
+    expect(within(modalRespuesta).getByRole("region", { name: "Documentos adjuntos" }).textContent).toContain("0.0 MB");
     expect(within(modalRespuesta).getByText("Respuesta oficial registrada")).toBeTruthy();
     expect(within(modalRespuesta).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
     expect(within(modalRespuesta).getAllByText("Respondida por")).toHaveLength(1);
@@ -357,6 +362,12 @@ describe("consulta de radicados React", () => {
     expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getByText(/anterior.pdf/)).toBeTruthy();
     expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
     expect(screen.getByLabelText(/Contenido de la respuesta/).value).toContain("En atención");
+    expect(screen.getByRole("region", { name: "Radicado a responder" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Redacción" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Adjuntos de la respuesta" })).toBeTruthy();
+    const contador = document.getElementById("contador-respuesta");
+    expect(contador.textContent).toContain(`${screen.getByLabelText(/Contenido de la respuesta/).value.length} / 10.000`);
+    expect(screen.getByLabelText(/Contenido de la respuesta/).getAttribute("aria-describedby")).toBe("contador-respuesta");
 
     const original = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
@@ -582,6 +593,53 @@ describe("consulta de radicados React", () => {
     expect(lista.textContent).toContain("No registrada en este evento");
     expect(lista.textContent).toContain("Recibido → Pendiente");
     expect(within(lista).getByRole("heading", { name: "Cambio de estado histórico" })).toBeTruthy();
+  });
+
+  it("agrupa acciones simultáneas del mismo actor y organiza el detalle en secciones", async () => {
+    const eventos = [
+      { id: 1, event_type: "regla_respuesta_aplicada", actor_name: "Karime",
+        ocurrido_en_utc: "2026-11-03 15:44:59.000000" },
+      { id: 2, event_type: "radicado_creado", actor_name: "Karime", dependencia_nombre: "Planeación",
+        ocurrido_en_utc: "2026-11-03 15:44:59.100000" },
+      { id: 3, event_type: "radicado_asignado", actor_name: "Karime", dependencia_nombre: "Planeación",
+        ocurrido_en_utc: "2026-11-03 15:44:59.200000" },
+      { id: 4, event_type: "estado_cambiado", actor_name: "Andrea", dependencia_nombre: "Planeación",
+        valor_anterior: "Recibido", valor_nuevo: "Pendiente", ocurrido_en_utc: "2026-11-03 15:50:21.000000" },
+      { id: 5, event_type: "estado_cambiado", actor_name: "Andrea", dependencia_nombre: "Hacienda",
+        valor_anterior: "Pendiente", valor_nuevo: "En trámite", ocurrido_en_utc: "2026-11-03 15:58:00.000000" },
+    ];
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { estado: "En trámite", asunto_documento: "Línea 1\nLínea 2" });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta === "/api/radicados") return Promise.resolve(respuestaJson({ success: true, radicados }));
+      if (ruta.includes("/historial?"))
+        return Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }));
+      if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const modal = document.querySelector("#modal-detalle");
+    const lista = await within(modal).findByRole("list", { name: "Línea de tiempo del radicado" });
+    const grupos = lista.querySelectorAll(":scope > li");
+    expect(grupos).toHaveLength(3);
+    expect(grupos[0].classList.contains("timeline-grupo")).toBe(true);
+    expect(grupos[0].querySelectorAll("article")).toHaveLength(3);
+    expect(grupos[0].textContent).toContain("3 acciones registradas en el mismo momento");
+    expect(within(grupos[0]).getAllByText(/^Actor:/)).toHaveLength(1);
+    expect(within(grupos[0]).getByText("Planeación").textContent).toBe("Dependencia: Planeación");
+    expect(grupos[1].querySelectorAll("article")).toHaveLength(1);
+    expect(grupos[2].textContent).toContain("Dependencia: Hacienda");
+
+    const resumen = within(modal).getByRole("region", { name: "Resumen del radicado" });
+    const estado = within(resumen).getByText("En trámite");
+    expect(estado.className).toContain("detalle-badge--estado-en-tramite");
+    expect(within(resumen).getByText("Requiere respuesta").className).toContain("detalle-badge--requiere");
+    expect(within(modal).getByRole("region", { name: "Remitente" })).toBeTruthy();
+    expect(within(modal).getByRole("region", { name: "Trámite" })).toBeTruthy();
+    expect(within(modal).getByRole("region", { name: "Asunto" }).textContent).toContain("Línea 1\nLínea 2");
   });
 
   it("solo presenta el ultimo PDF solicitado y libera las vistas previas al cerrar", async () => {

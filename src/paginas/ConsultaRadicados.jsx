@@ -14,6 +14,11 @@ import {
 } from "../servicios/fechas";
 
 const ESTADOS_POSIBLES = ["Recibido", "En trámite", "Pendiente"];
+const NOMBRES_PLANTILLA = {
+  general: "Respuesta general",
+  informacion: "Entrega de información",
+  traslado: "Traslado por competencia",
+};
 const requiereRespuesta = (radicado) =>
   radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
 const esFinal = (radicado) =>
@@ -81,6 +86,39 @@ function presentarFechaEvento(evento) {
   return evento.creado_en
     ? `${evento.creado_en} · zona horaria histórica no confirmada`
     : "Fecha histórica no disponible";
+}
+const nombreActor = (evento) =>
+  evento.actor_name ||
+  evento.usuario ||
+  "No identificado en el registro histórico";
+const claseEstadoDetalle = (estado) =>
+  normalizarTexto(estado || "Recibido").replace(/[^a-z0-9]+/g, "-");
+function minutoEvento(evento) {
+  // El minuto UTC coincide con el de Bogotá porque su desfase es de horas completas.
+  const valor = evento.ocurrido_en_utc || evento.creado_en;
+  return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(String(valor || ""))
+    ? `${evento.ocurrido_en_utc ? "utc" : "local"}:${String(valor).slice(0, 16)}`
+    : null;
+}
+// Agrupa solo para presentación eventos consecutivos del mismo actor identificado en el mismo minuto.
+function agruparEventos(eventos) {
+  return eventos.reduce((grupos, evento) => {
+    const anterior = grupos.at(-1)?.at(-1);
+    const actor = evento.actor_name || evento.usuario;
+    const minuto = minutoEvento(evento);
+    if (
+      anterior &&
+      actor &&
+      minuto &&
+      (anterior.actor_name || anterior.usuario) === actor &&
+      minutoEvento(anterior) === minuto
+    ) {
+      grupos.at(-1).push(evento);
+    } else {
+      grupos.push([evento]);
+    }
+    return grupos;
+  }, []);
 }
 
 export function PaginaConsultaRadicados() {
@@ -1135,113 +1173,143 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
             </div>
             <div className="modal-content">
-              <CampoDetalle
-                etiqueta="Fecha de radicación"
-                valor={formatearFechaRadicacion(radicadoSeleccionado)}
-              />
-              <CampoDetalle
-                etiqueta="Estado"
-                valor={radicadoSeleccionado.estado || "Recibido"}
-              />
-              <CampoDetalle
-                etiqueta="Requisito de respuesta"
-                valor={
-                  requiereRespuesta(radicadoSeleccionado)
-                    ? "Requiere respuesta"
-                    : "No requiere respuesta"
-                }
-              />
-              {radicadoSeleccionado.fecha_enterado && (
+              <section
+                className="detalle-resumen"
+                aria-label="Resumen del radicado"
+              >
+                <CampoDetalle etiqueta="Estado">
+                  <span
+                    className={`detalle-badge detalle-badge--estado-${claseEstadoDetalle(radicadoSeleccionado.estado)}`}
+                  >
+                    {radicadoSeleccionado.estado || "Recibido"}
+                  </span>
+                </CampoDetalle>
+                <CampoDetalle etiqueta="Requisito de respuesta">
+                  <span
+                    className={`detalle-badge ${requiereRespuesta(radicadoSeleccionado) ? "detalle-badge--requiere" : "detalle-badge--no-requiere"}`}
+                  >
+                    {requiereRespuesta(radicadoSeleccionado)
+                      ? "Requiere respuesta"
+                      : "No requiere respuesta"}
+                  </span>
+                </CampoDetalle>
                 <CampoDetalle
-                  etiqueta="Fecha de enterado"
-                  valor={convertirFechaLocal(
-                    radicadoSeleccionado.fecha_enterado,
-                  )?.toLocaleString("es-CO")}
+                  etiqueta="Fecha de radicación"
+                  valor={formatearFechaRadicacion(radicadoSeleccionado)}
                 />
-              )}
-              <CampoDetalle
-                etiqueta="Remitente"
-                valor={radicadoSeleccionado.remitente_nombre}
-              />
-              <CampoDetalle
-                etiqueta="Documento"
-                valor={
-                  radicadoSeleccionado.remitente_documento ||
-                  radicadoSeleccionado.remitente_nit
-                }
-              />
-              <CampoDetalle
-                etiqueta="Dependencia destino"
-                valor={radicadoSeleccionado.dependencia_destino}
-              />
-              {radicadoSeleccionado.tipo_comunicacion === "Interna" && (
                 <CampoDetalle
-                  etiqueta="Dependencia remitente"
+                  etiqueta="Fecha límite"
                   valor={
-                    radicadoSeleccionado.dependencia_remitente ||
-                    "No registrada"
+                    requiereRespuesta(radicadoSeleccionado)
+                      ? radicadoSeleccionado.fecha_limite_actual
+                      : "No aplica"
                   }
                 />
-              )}
-              {radicadoSeleccionado.tipo_comunicacion === "Externa" && (
-                <>
+                <CampoDetalle
+                  etiqueta="Tiempo de respuesta"
+                  valor={radicadoSeleccionado.tiempo_de_respuesta}
+                />
+                {radicadoSeleccionado.fecha_enterado && (
                   <CampoDetalle
-                    etiqueta="Tipo de persona"
+                    etiqueta="Fecha de enterado"
+                    valor={convertirFechaLocal(
+                      radicadoSeleccionado.fecha_enterado,
+                    )?.toLocaleString("es-CO")}
+                  />
+                )}
+              </section>
+              <section
+                className="detalle-seccion"
+                aria-labelledby="detalle-remitente-titulo"
+              >
+                <h3 id="detalle-remitente-titulo">Remitente</h3>
+                <div className="detalle-grid">
+                  <CampoDetalle
+                    etiqueta="Remitente"
+                    valor={radicadoSeleccionado.remitente_nombre}
+                  />
+                  <CampoDetalle
+                    etiqueta="Documento"
                     valor={
-                      radicadoSeleccionado.remitente_tipo_persona === "juridica"
-                        ? "Jurídica"
-                        : radicadoSeleccionado.remitente_tipo_persona ===
-                            "natural"
-                          ? "Natural"
-                          : "No registrado"
+                      radicadoSeleccionado.remitente_documento ||
+                      radicadoSeleccionado.remitente_nit
                     }
                   />
+                  {radicadoSeleccionado.tipo_comunicacion === "Externa" && (
+                    <>
+                      <CampoDetalle
+                        etiqueta="Tipo de persona"
+                        valor={
+                          radicadoSeleccionado.remitente_tipo_persona ===
+                          "juridica"
+                            ? "Jurídica"
+                            : radicadoSeleccionado.remitente_tipo_persona ===
+                                "natural"
+                              ? "Natural"
+                              : "No registrado"
+                        }
+                      />
+                      <CampoDetalle
+                        etiqueta="Entidad / razón social"
+                        valor={radicadoSeleccionado.remitente_entidad}
+                      />
+                      <CampoDetalle
+                        etiqueta="NIT"
+                        valor={radicadoSeleccionado.remitente_nit}
+                      />
+                    </>
+                  )}
                   <CampoDetalle
-                    etiqueta="Entidad / razón social"
-                    valor={radicadoSeleccionado.remitente_entidad}
+                    etiqueta="Teléfono"
+                    valor={radicadoSeleccionado.remitente_telefono}
                   />
                   <CampoDetalle
-                    etiqueta="NIT"
-                    valor={radicadoSeleccionado.remitente_nit}
+                    etiqueta="Correo"
+                    valor={radicadoSeleccionado.remitente_email}
                   />
-                </>
-              )}
-              <CampoDetalle
-                etiqueta="Tipo de tramite"
-                valor={radicadoSeleccionado.tipo_tramite}
-              />
-              <CampoDetalle
-                etiqueta="Tiempo de respuesta"
-                valor={radicadoSeleccionado.tiempo_de_respuesta}
-              />
-              <CampoDetalle
-                etiqueta="Fecha límite"
-                valor={
-                  requiereRespuesta(radicadoSeleccionado)
-                    ? radicadoSeleccionado.fecha_limite_actual
-                    : "No aplica"
-                }
-              />
-              <CampoDetalle
-                etiqueta="Fundamento legal"
-                valor={radicadoSeleccionado.fundamento_legal_aplicado}
-              />
-              <CampoDetalle
-                etiqueta="Teléfono"
-                valor={radicadoSeleccionado.remitente_telefono}
-              />
-              <CampoDetalle
-                etiqueta="Correo"
-                valor={radicadoSeleccionado.remitente_email}
-              />
-              <div className="modal-field">
-                <strong>Asunto</strong>
-                <p>
+                </div>
+              </section>
+              <section
+                className="detalle-seccion"
+                aria-labelledby="detalle-tramite-titulo"
+              >
+                <h3 id="detalle-tramite-titulo">Trámite</h3>
+                <div className="detalle-grid">
+                  <CampoDetalle
+                    etiqueta="Dependencia destino"
+                    valor={radicadoSeleccionado.dependencia_destino}
+                  />
+                  {radicadoSeleccionado.tipo_comunicacion === "Interna" && (
+                    <CampoDetalle
+                      etiqueta="Dependencia remitente"
+                      valor={
+                        radicadoSeleccionado.dependencia_remitente ||
+                        "No registrada"
+                      }
+                    />
+                  )}
+                  <CampoDetalle
+                    etiqueta="Tipo de tramite"
+                    valor={radicadoSeleccionado.tipo_tramite}
+                  />
+                  <CampoDetalle
+                    etiqueta="Fundamento legal"
+                    valor={radicadoSeleccionado.fundamento_legal_aplicado}
+                    ancho
+                  />
+                </div>
+              </section>
+              <section
+                className="detalle-seccion"
+                aria-labelledby="detalle-asunto-titulo"
+              >
+                <h3 id="detalle-asunto-titulo">Asunto</h3>
+                <p className="detalle-asunto">
                   {radicadoSeleccionado.asunto_documento ||
                     "Sin observaciones."}
                 </p>
-              </div>
-              <section>
+              </section>
+              <section className="detalle-seccion detalle-documentos">
                 <h3>Documentos adjuntos</h3>
                 <p role="status">{archivoAdjunto.estado}</p>
                 {archivoAdjunto.documentos.map((documento) => (
@@ -1292,54 +1360,108 @@ function VistaConsultaRadicados({ usuario }) {
                     className="radicado-timeline"
                     aria-label="Línea de tiempo del radicado"
                   >
-                    {[...historial.eventos].reverse().map((evento) => (
-                      <li key={evento.id}>
-                        <article className="timeline-evento">
-                          <time className="timeline-fecha">
-                            {presentarFechaEvento(evento)}
-                          </time>
-                          <h4>
-                            {ETIQUETAS_EVENTO[evento.event_type] ||
-                              (evento.campo_modificado === "estado"
-                                ? "Cambio de estado histórico"
-                                : "Evento histórico")}
-                          </h4>
-                          <p className="timeline-descripcion">
-                            {evento.motivo ||
-                              DESCRIPCIONES_EVENTO[evento.event_type] ||
-                              "Registro conservado del historial del expediente."}
-                          </p>
-                          {(evento.event_type === "estado_cambiado" ||
-                            evento.event_type === "respuesta_enviada" ||
-                            evento.campo_modificado === "estado") &&
-                            evento.valor_anterior &&
-                            evento.valor_nuevo && (
-                              <p className="timeline-cambio">
-                                <strong>Estado: </strong>
-                                {evento.valor_anterior} → {evento.valor_nuevo}
+                    {agruparEventos([...historial.eventos].reverse()).map(
+                      (grupo) => {
+                        const fechaGrupo = presentarFechaEvento(grupo[0]);
+                        const dependenciaComun = grupo.every(
+                          (evento) =>
+                            evento.dependencia_nombre ===
+                            grupo[0].dependencia_nombre,
+                        );
+                        const dependenciaGrupo = grupo.find(
+                          (evento) => evento.dependencia_nombre,
+                        )?.dependencia_nombre;
+                        return (
+                          <li
+                            key={grupo[0].id}
+                            className={
+                              grupo.length > 1 ? "timeline-grupo" : undefined
+                            }
+                          >
+                            <div className="timeline-cabecera">
+                              <time className="timeline-fecha">
+                                {fechaGrupo}
+                              </time>
+                              <p className="timeline-dato">
+                                <strong>Actor: </strong>
+                                {nombreActor(grupo[0])}
                               </p>
-                            )}
-                          {evento.event_type === "termino_ampliado" && (
-                            <p className="timeline-cambio">
-                              <strong>Fecha límite: </strong>
-                              {evento.valor_anterior || "No registrada"} →{" "}
-                              {evento.valor_nuevo || "No registrada"}
-                            </p>
-                          )}
-                          <p className="timeline-dato">
-                            <strong>Actor: </strong>
-                            {evento.actor_name ||
-                              evento.usuario ||
-                              "No identificado en el registro histórico"}
-                          </p>
-                          <p className="timeline-dato">
-                            <strong>Dependencia: </strong>
-                            {evento.dependencia_nombre ||
-                              "No registrada en este evento"}
-                          </p>
-                        </article>
-                      </li>
-                    ))}
+                              <p className="timeline-dato">
+                                <strong>Dependencia: </strong>
+                                {(dependenciaComun
+                                  ? grupo[0].dependencia_nombre
+                                  : dependenciaGrupo) ||
+                                  "No registrada en este evento"}
+                              </p>
+                              {grupo.length > 1 && (
+                                <p className="timeline-resumen-grupo">
+                                  {grupo.length} acciones registradas en el
+                                  mismo momento
+                                </p>
+                              )}
+                            </div>
+                            <ul className="timeline-subeventos">
+                              {grupo.map((evento) => (
+                                <li key={evento.id}>
+                                  <article className="timeline-evento">
+                                    {presentarFechaEvento(evento) !==
+                                      fechaGrupo && (
+                                      <time className="timeline-fecha">
+                                        {presentarFechaEvento(evento)}
+                                      </time>
+                                    )}
+                                    <h4>
+                                      {ETIQUETAS_EVENTO[evento.event_type] ||
+                                        (evento.campo_modificado === "estado"
+                                          ? "Cambio de estado histórico"
+                                          : "Evento histórico")}
+                                    </h4>
+                                    <p className="timeline-descripcion">
+                                      {evento.motivo ||
+                                        DESCRIPCIONES_EVENTO[
+                                          evento.event_type
+                                        ] ||
+                                        "Registro conservado del historial del expediente."}
+                                    </p>
+                                    {(evento.event_type === "estado_cambiado" ||
+                                      evento.event_type ===
+                                        "respuesta_enviada" ||
+                                      evento.campo_modificado === "estado") &&
+                                      evento.valor_anterior &&
+                                      evento.valor_nuevo && (
+                                        <p className="timeline-cambio">
+                                          <strong>Estado: </strong>
+                                          {evento.valor_anterior} →{" "}
+                                          {evento.valor_nuevo}
+                                        </p>
+                                      )}
+                                    {evento.event_type ===
+                                      "termino_ampliado" && (
+                                      <p className="timeline-cambio">
+                                        <strong>Fecha límite: </strong>
+                                        {evento.valor_anterior ||
+                                          "No registrada"}{" "}
+                                        →{" "}
+                                        {evento.valor_nuevo || "No registrada"}
+                                      </p>
+                                    )}
+                                    {!dependenciaComun &&
+                                      evento.dependencia_nombre &&
+                                      evento.dependencia_nombre !==
+                                        dependenciaGrupo && (
+                                        <p className="timeline-dato">
+                                          <strong>Dependencia: </strong>
+                                          {evento.dependencia_nombre}
+                                        </p>
+                                      )}
+                                  </article>
+                                </li>
+                              ))}
+                            </ul>
+                          </li>
+                        );
+                      },
+                    )}
                   </ol>
                 )}
                 {historial.hayMas && (
@@ -1396,37 +1518,63 @@ function VistaConsultaRadicados({ usuario }) {
                 <p role="status">Cargando respuesta y documentos…</p>
               ) : (
                 <>
-                  <CampoDetalle
-                    etiqueta="Respondida por"
-                    valor={respuestaConsultada.funcionario_nombre}
-                  />
-                  <CampoDetalle
-                    etiqueta="Dependencia responsable"
-                    valor={
-                      respuestaConsultada.dependencia_responsable ||
-                      "No registrada"
-                    }
-                  />
-                  <CampoDetalle
-                    etiqueta="Fecha de envío"
-                    valor={convertirFechaLocal(
-                      respuestaConsultada.fecha_envio,
-                    )?.toLocaleString("es-CO")}
-                  />
-                  <CampoDetalle
-                    etiqueta="Plantilla"
-                    valor={respuestaConsultada.plantilla || "Sin plantilla"}
-                  />
-                  <div className="modal-field">
-                    <strong>Contenido de la respuesta</strong>
-                    <p>{respuestaConsultada.contenido}</p>
-                  </div>
-                  <section>
-                    <h3>Documentos adjuntos</h3>
+                  <section
+                    className="detalle-resumen"
+                    aria-label="Resumen de la respuesta"
+                  >
+                    <CampoDetalle
+                      etiqueta="Respondida por"
+                      valor={respuestaConsultada.funcionario_nombre}
+                    />
+                    <CampoDetalle
+                      etiqueta="Dependencia responsable"
+                      valor={
+                        respuestaConsultada.dependencia_responsable ||
+                        "No registrada"
+                      }
+                    />
+                    <CampoDetalle
+                      etiqueta="Fecha de envío"
+                      valor={convertirFechaLocal(
+                        respuestaConsultada.fecha_envio,
+                      )?.toLocaleString("es-CO")}
+                    />
+                    <CampoDetalle etiqueta="Plantilla">
+                      <span className="detalle-badge detalle-badge--plantilla">
+                        {NOMBRES_PLANTILLA[respuestaConsultada.plantilla] ||
+                          respuestaConsultada.plantilla ||
+                          "Sin plantilla"}
+                      </span>
+                    </CampoDetalle>
+                  </section>
+                  <section
+                    className="detalle-seccion"
+                    aria-labelledby="respuesta-contenido-titulo"
+                  >
+                    <h3 id="respuesta-contenido-titulo">
+                      Contenido de la respuesta
+                    </h3>
+                    <p className="detalle-asunto">
+                      {respuestaConsultada.contenido}
+                    </p>
+                  </section>
+                  <section
+                    className="detalle-seccion"
+                    aria-labelledby="respuesta-documentos-titulo"
+                  >
+                    <h3 id="respuesta-documentos-titulo">
+                      Documentos adjuntos
+                    </h3>
                     {respuestaConsultada.documentos.length ? (
-                      <ul>
+                      <ul className="detalle-archivos">
                         {respuestaConsultada.documentos.map((documento) => (
                           <li key={documento.id}>
+                            <span
+                              className="detalle-archivo-icono"
+                              aria-hidden="true"
+                            >
+                              PDF
+                            </span>
                             <a
                               href={documento.url}
                               target="_blank"
@@ -1434,9 +1582,7 @@ function VistaConsultaRadicados({ usuario }) {
                             >
                               {documento.nombre_archivo}
                             </a>
-                            <span>
-                              {" "}
-                              ·{" "}
+                            <span className="detalle-archivo-tamano">
                               {(
                                 Number(documento.tamano_bytes) /
                                 (1024 * 1024)
@@ -1478,85 +1624,121 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
             </div>
             <div className="modal-content">
-              <p>
-                <strong>Asunto:</strong>{" "}
-                {respuestaSeleccionada.asunto_documento || "Sin asunto"}
-              </p>
-              <p>
-                <strong>Remitente:</strong>{" "}
-                {respuestaSeleccionada.remitente_nombre || "No registrado"}
-              </p>
-              <label htmlFor="plantilla-respuesta">
-                Plantilla institucional
-              </label>
-              <select
-                id="plantilla-respuesta"
-                disabled={enviandoRespuesta}
-                value={plantillaRespuesta}
-                onChange={(e) => {
-                  const plantilla = e.target.value;
-                  setPlantillaRespuesta(plantilla);
-                  if (plantilla === "general")
-                    setTextoRespuesta(
-                      "En atención a su solicitud, nos permitimos informarle que ",
-                    );
-                  else if (plantilla === "informacion")
-                    setTextoRespuesta(
-                      "En atención a su solicitud, adjuntamos la información requerida. ",
-                    );
-                  else if (plantilla === "traslado")
-                    setTextoRespuesta(
-                      "De acuerdo con nuestras competencias, su solicitud fue trasladada a la dependencia correspondiente. ",
-                    );
-                }}
+              <section
+                className="detalle-resumen"
+                aria-label="Radicado a responder"
               >
-                <option value="">Sin plantilla</option>
-                <option value="general">Respuesta general</option>
-                <option value="informacion">Entrega de información</option>
-                <option value="traslado">Traslado por competencia</option>
-              </select>
-              <label htmlFor="contenido-respuesta">
-                Contenido de la respuesta *
-              </label>
-              <textarea
-                id="contenido-respuesta"
-                disabled={enviandoRespuesta}
-                required
-                minLength={10}
-                maxLength={10000}
-                rows={8}
-                value={textoRespuesta}
-                onChange={(e) => setTextoRespuesta(e.target.value)}
-                placeholder="Redacta la respuesta para el remitente…"
-              />
-              <label htmlFor="adjunto-respuesta">
-                Documentos de respuesta (hasta 5 PDF, máximo 10 MB cada uno)
-              </label>
-              <input
-                ref={entradaArchivosRespuesta}
-                id="adjunto-respuesta"
-                disabled={enviandoRespuesta}
-                type="file"
-                accept="application/pdf,.pdf"
-                multiple
-                aria-invalid={Boolean(errorArchivosRespuesta)}
-                aria-describedby={
-                  errorArchivosRespuesta
-                    ? "error-archivos-respuesta"
-                    : undefined
-                }
-                onChange={aceptarArchivosRespuesta}
-              />
-              {archivosRespuesta.length > 0 && (
-                <ul aria-label="Archivos seleccionados">
-                  {archivosRespuesta.map((archivo) => (
-                    <li key={`${archivo.name}-${archivo.lastModified}`}>
-                      {archivo.name} (
-                      {(archivo.size / (1024 * 1024)).toFixed(1)} MB)
-                    </li>
-                  ))}
-                </ul>
-              )}
+                <CampoDetalle
+                  etiqueta="Asunto"
+                  valor={respuestaSeleccionada.asunto_documento || "Sin asunto"}
+                  ancho
+                />
+                <CampoDetalle
+                  etiqueta="Remitente"
+                  valor={respuestaSeleccionada.remitente_nombre}
+                />
+              </section>
+              <section
+                className="detalle-seccion respuesta-grupo"
+                aria-labelledby="respuesta-redaccion-titulo"
+              >
+                <h3 id="respuesta-redaccion-titulo">Redacción</h3>
+                <label htmlFor="plantilla-respuesta">
+                  Plantilla institucional
+                </label>
+                <select
+                  id="plantilla-respuesta"
+                  disabled={enviandoRespuesta}
+                  value={plantillaRespuesta}
+                  onChange={(e) => {
+                    const plantilla = e.target.value;
+                    setPlantillaRespuesta(plantilla);
+                    if (plantilla === "general")
+                      setTextoRespuesta(
+                        "En atención a su solicitud, nos permitimos informarle que ",
+                      );
+                    else if (plantilla === "informacion")
+                      setTextoRespuesta(
+                        "En atención a su solicitud, adjuntamos la información requerida. ",
+                      );
+                    else if (plantilla === "traslado")
+                      setTextoRespuesta(
+                        "De acuerdo con nuestras competencias, su solicitud fue trasladada a la dependencia correspondiente. ",
+                      );
+                  }}
+                >
+                  <option value="">Sin plantilla</option>
+                  <option value="general">Respuesta general</option>
+                  <option value="informacion">Entrega de información</option>
+                  <option value="traslado">Traslado por competencia</option>
+                </select>
+                <label htmlFor="contenido-respuesta">
+                  Contenido de la respuesta *
+                </label>
+                <textarea
+                  id="contenido-respuesta"
+                  disabled={enviandoRespuesta}
+                  required
+                  minLength={10}
+                  maxLength={10000}
+                  rows={8}
+                  value={textoRespuesta}
+                  onChange={(e) => setTextoRespuesta(e.target.value)}
+                  placeholder="Redacta la respuesta para el remitente…"
+                  aria-describedby="contador-respuesta"
+                />
+                <p
+                  id="contador-respuesta"
+                  className={`respuesta-contador${textoRespuesta.trim().length < 10 ? " respuesta-contador--corto" : ""}`}
+                >
+                  {textoRespuesta.length.toLocaleString("es-CO")} / 10.000
+                  caracteres
+                  {textoRespuesta.trim().length < 10 && " · mínimo 10"}
+                </p>
+              </section>
+              <section
+                className="detalle-seccion respuesta-grupo"
+                aria-labelledby="respuesta-adjuntos-titulo"
+              >
+                <h3 id="respuesta-adjuntos-titulo">Adjuntos de la respuesta</h3>
+                <label htmlFor="adjunto-respuesta">
+                  Documentos de respuesta (hasta 5 PDF, máximo 10 MB cada uno)
+                </label>
+                <input
+                  ref={entradaArchivosRespuesta}
+                  id="adjunto-respuesta"
+                  disabled={enviandoRespuesta}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  aria-invalid={Boolean(errorArchivosRespuesta)}
+                  aria-describedby={
+                    errorArchivosRespuesta
+                      ? "error-archivos-respuesta"
+                      : undefined
+                  }
+                  onChange={aceptarArchivosRespuesta}
+                />
+                {archivosRespuesta.length > 0 && (
+                  <ul
+                    className="detalle-archivos"
+                    aria-label="Archivos seleccionados"
+                  >
+                    {archivosRespuesta.map((archivo) => (
+                      <li key={`${archivo.name}-${archivo.lastModified}`}>
+                        <span
+                          className="detalle-archivo-icono"
+                          aria-hidden="true"
+                        >
+                          PDF
+                        </span>
+                        {archivo.name} (
+                        {(archivo.size / (1024 * 1024)).toFixed(1)} MB)
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </div>
             {(errorArchivosRespuesta || mensajeRespuesta) && (
               <div className="respuesta-mensajes">
@@ -1624,11 +1806,11 @@ function VistaConsultaRadicados({ usuario }) {
   );
 }
 
-function CampoDetalle({ etiqueta, valor }) {
+function CampoDetalle({ etiqueta, valor, ancho = false, children }) {
   return (
-    <div className="modal-field">
+    <div className={`modal-field${ancho ? " modal-field--ancho" : ""}`}>
       <strong>{etiqueta}</strong>
-      <p>{valor || "No registrado"}</p>
+      <p>{children || valor || "No registrado"}</p>
     </div>
   );
 }

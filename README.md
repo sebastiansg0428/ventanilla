@@ -87,12 +87,25 @@ de sesión. Las filas históricas anteriores a la migración 021 aparecen como
 eventos heredados y conservan su hora sin asumir que sea hora Bogotá. Los
 eventos nuevos se presentan en `America/Bogota`.
 
-Cada evento se presenta por separado en una tarjeta con acción, fecha y hora,
-descripción, actor y dependencia. Los cambios de estado y ampliaciones muestran
-sus valores anteriores y nuevos. La lista conserva el orden cronológico de los
-eventos cargados y permite solicitar los anteriores; no agrupa ni elimina eventos.
+El detalle inicia con un resumen (estado y requisito de respuesta como etiquetas
+de color, fecha de radicación, fecha límite y tiempo de respuesta) y organiza el
+resto en las secciones Remitente, Trámite, Asunto y Documentos adjuntos.
+
+Cada evento muestra acción, fecha y hora, descripción, actor y dependencia. Los
+cambios de estado y ampliaciones muestran sus valores anteriores y nuevos. Los
+eventos consecutivos del mismo actor identificado ocurridos en el mismo minuto se
+agrupan en una sola tarjeta (por ejemplo, los registrados al crear el radicado);
+la agrupación es solo visual: cada evento sigue listado y no se modifica la base.
+La lista conserva el orden cronológico de los eventos cargados y permite
+solicitar los anteriores.
 El modal aprovecha su ancho disponible y mantiene el encabezado y cierre visibles
 mientras se desplaza el contenido, también en pantallas estrechas.
+
+El modal de respuesta usa el mismo ancho y estilo. En modo consulta muestra un
+resumen (responsable, dependencia, fecha de envío y plantilla como etiqueta), el
+contenido de la respuesta y los PDF adjuntos con su tamaño. En modo redacción
+resume el radicado a responder (asunto y remitente) y separa las secciones
+Redacción, con contador de caracteres, y Adjuntos de la respuesta.
 
 Aplica `021_audit_log_radicados.sql` después de la migración 020 antes de
 esperar que el nuevo registro de eventos funcione en el backend.
