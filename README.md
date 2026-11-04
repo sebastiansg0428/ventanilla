@@ -45,6 +45,43 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
+## Traslados mediados por Ventanilla
+
+Requiere backend con la migracion **023** aplicada antes de iniciar esta version.
+Desde Consulta, el funcionario puede **Solicitar traslado** solo para radicados
+individuales abiertos. Indica motivo y dependencia activa sugerida; no cambia
+directamente el destino. Mientras se revisa, su dependencia sigue responsable,
+puede responder o registrar Enterado si corresponde y el plazo continua.
+
+Los selectores de solicitud y aprobacion usan `/api/traslados/dependencias`,
+independiente del catalogo limitado de alertas. Ofrecen todas las dependencias
+activas excepto el origen actual (por ejemplo, SEDAM si esta activa). Muestran
+carga, error con reintento o ausencia de destinos disponibles, sin permitir
+enviar una solicitud o aprobacion sin destino valido. Un fallo del catalogo no
+impide rechazar una solicitud con justificacion. El catalogo se consulta al
+abrir el modal o la bandeja central y no concede acceso a expedientes ajenos.
+
+**Mis solicitudes de traslado** conserva comprobantes de la dependencia de
+origen aunque el expediente deje de aparecer. **Gestionar traslados**, para
+Ventanilla/administrador, abre la bandeja paginada de 25 con filtro, contador
+de pendientes y decision justificada. Al aprobar se confirma el destino; al
+rechazar A conserva la asignacion. El control central debe explicar tambien
+cualquier cambio frente al destino sugerido. Una finalizacion previa cancela
+automaticamente la solicitud pendiente.
+
+Se mantienen numero, fechas, documentos, estado operativo y vencimiento.
+No aplica a globales ni radicados finalizados. El origen pierde acceso al
+expediente tras aprobar; el comprobante no incluye PDFs ni respuestas posteriores.
+No confundir con la plantilla de respuesta "Traslado por competencia".
+
+Los envios bloquean doble clic y controles durante confirmacion. Ante resultado
+incierto se conserva el intento y se bloquea su edicion para repetir exactamente
+los datos. La clave vive solo mientras sigue abierto el formulario: si se
+recarga o cierra, consultar la bandeja antes de iniciar otra solicitud. Los errores se muestran,
+sin anunciar exito antes de confirmarlo. No hay correo ni notificaciones push.
+Las vistas temporales se limpian al recibir un rechazo de acceso 403/404;
+no se pueden revocar copias ya descargadas en otro dispositivo.
+
 ## Interfaz adaptable
 
 Las cinco pantallas (login, radicacion, consulta, usuarios y catalogos) ajustan

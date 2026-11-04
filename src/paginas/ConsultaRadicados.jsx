@@ -8,6 +8,7 @@ import {
 } from "../componentes/Compartidos";
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
+import { BandejaTraslados, SolicitudTraslado } from "../componentes/Traslados";
 import {
   obtenerFechaBogota,
   obtenerDiaRadicacion,
@@ -55,6 +56,10 @@ const ETIQUETAS_EVENTO = {
   documentos_respuesta_adjuntados: "Documentos de respuesta adjuntados",
   termino_ampliado: "Término ampliado",
   regla_respuesta_aplicada: "Regla de respuesta aplicada",
+  traslado_solicitado: "Traslado solicitado a Ventanilla",
+  traslado_aprobado: "Traslado aprobado por Ventanilla",
+  traslado_rechazado: "Traslado rechazado",
+  traslado_cancelado: "Traslado cancelado por finalización",
 };
 const DESCRIPCIONES_EVENTO = {
   radicado_creado: "Se registró el ingreso del documento al sistema.",
@@ -68,6 +73,10 @@ const DESCRIPCIONES_EVENTO = {
   termino_ampliado: "Se amplió la fecha límite de respuesta.",
   regla_respuesta_aplicada:
     "Se configuró la regla de respuesta al registrar el radicado.",
+  traslado_solicitado: "La dependencia solicitó la revisión de su asignación; el plazo continúa.",
+  traslado_aprobado: "El control central cambió la dependencia responsable sin reiniciar plazos.",
+  traslado_rechazado: "La dependencia de origen conserva la responsabilidad.",
+  traslado_cancelado: "El expediente finalizó antes de resolver la solicitud.",
 };
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
@@ -129,6 +138,9 @@ export function PaginaConsultaRadicados() {
 }
 
 function VistaConsultaRadicados({ usuario }) {
+  const [solicitudTraslado, setSolicitudTraslado] = useState(null);
+  const [mensajeTraslado, setMensajeTraslado] = useState("");
+  const botonTraslado = useRef(null);
   const [radicados, setRadicados] = useState([]);
   const [dependencias, setDependencias] = useState([]);
   const [textoBusqueda, setTextoBusqueda] = useState("");
@@ -242,6 +254,18 @@ function VistaConsultaRadicados({ usuario }) {
     setGenerandoComprobante(false);
     setUrlComprobante("");
     if (dialogoComprobante.current?.open) dialogoComprobante.current.close();
+  }
+
+  function retirarVistasSinAcceso(error) {
+    if (![403, 404].includes(error.status)) return false;
+    respuestaEnProceso.current = false;
+    setEnviandoRespuesta(false);
+    cerrarDetalle();
+    cerrarRespuesta();
+    cerrarComprobante();
+    setRevisionConsulta((valor) => valor + 1);
+    window.alert(`El expediente o documento ya no está disponible para esta sesión. ${error.message}`);
+    return true;
   }
 
   useEffect(() => {
@@ -532,6 +556,7 @@ function VistaConsultaRadicados({ usuario }) {
       respuestaEnProceso.current = false;
       cerrarRespuesta();
     } catch (error) {
+      if (solicitud === solicitudRespuesta.current && retirarVistasSinAcceso(error)) return;
       if (solicitud === solicitudRespuesta.current)
         setMensajeRespuesta(error.message);
     } finally {
@@ -582,6 +607,7 @@ function VistaConsultaRadicados({ usuario }) {
       );
     } catch (error) {
       if (solicitud !== solicitudRespuesta.current) return;
+      if (retirarVistasSinAcceso(error)) return;
       setRespuestaConsultada(null);
       window.alert(`No se pudo consultar la respuesta. ${error.message}`);
     } finally {
@@ -640,6 +666,7 @@ function VistaConsultaRadicados({ usuario }) {
       });
     } catch (error) {
       if (solicitud !== solicitudDetalle.current) return;
+      if (retirarVistasSinAcceso(error)) return;
       setArchivoAdjunto({
         url: "",
         documentos: [],
@@ -667,6 +694,7 @@ function VistaConsultaRadicados({ usuario }) {
       }));
     } catch (error) {
       if (solicitud !== solicitudHistorial.current) return;
+      if (retirarVistasSinAcceso(error)) return;
       setHistorial((actual) => ({
         ...actual,
         cargando: false,
@@ -712,6 +740,7 @@ function VistaConsultaRadicados({ usuario }) {
       });
     } catch (error) {
       if (solicitud !== solicitudDocumento.current) return;
+      if (retirarVistasSinAcceso(error)) return;
       setArchivoAdjunto((actual) => ({
         ...actual,
         estado: `No se pudo abrir el documento. ${error.message}`,
@@ -771,6 +800,7 @@ function VistaConsultaRadicados({ usuario }) {
       );
       setRevisionConsulta((valor) => valor + 1);
     } catch (error) {
+      if (retirarVistasSinAcceso(error)) return;
       setRadicados((actual) =>
         actual.map((fila) =>
           (
@@ -867,6 +897,15 @@ function VistaConsultaRadicados({ usuario }) {
     setFiltroComunicacion("");
   }
 
+  function trasladoGuardado() {
+    setSolicitudTraslado(null);
+    botonTraslado.current?.focus();
+    cerrarDetalle();
+    cerrarRespuesta();
+    cerrarComprobante();
+    setRevisionConsulta((valor) => valor + 1);
+  }
+
   return (
     <div className="page-consult app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="consultar" />
@@ -877,6 +916,16 @@ function VistaConsultaRadicados({ usuario }) {
             <a href="index.html">← Registrar nuevo radicado</a>
           )}
         </div>
+
+        <BandejaTraslados usuario={usuario}
+          revision={revisionConsulta} alGuardar={trasladoGuardado} />
+        {mensajeTraslado && <MensajeEstado tono="success">{mensajeTraslado}</MensajeEstado>}
+        {solicitudTraslado && <SolicitudTraslado key={solicitudTraslado.numero_radicado}
+          radicado={solicitudTraslado}
+          alCerrar={() => { setSolicitudTraslado(null); botonTraslado.current?.focus(); }} alGuardar={(resultado) => {
+            setMensajeTraslado(`Solicitud confirmada para ${resultado.numero_radicado}. Consulta Mis solicitudes de traslado para ver su estado.`);
+            trasladoGuardado();
+          }} />}
 
         <section className="dashboard-cards" aria-label="Resumen y filtros">
           <button
@@ -1120,6 +1169,14 @@ function VistaConsultaRadicados({ usuario }) {
                         )}
                       </CeldaAdaptable>
                       <CeldaAdaptable etiqueta="Acciones">
+                        {usuario.rol === "funcionario" && !radicado.destino_todas_dependencias &&
+                          radicado.dependencia_destino_id && !esFinal(radicado) && (
+                            <button type="button" className="generar-comprobante"
+                              onClick={(evento) => {
+                                botonTraslado.current = evento.currentTarget;
+                                setSolicitudTraslado(radicado);
+                              }}>Solicitar traslado</button>
+                          )}
                         <button
                           className="generar-comprobante"
                           disabled={generandoComprobante}
@@ -1565,6 +1622,12 @@ function VistaConsultaRadicados({ usuario }) {
                                           "No registrada"}{" "}
                                         →{" "}
                                         {evento.valor_nuevo || "No registrada"}
+                                      </p>
+                                    )}
+                                    {["traslado_solicitado", "traslado_aprobado"].includes(evento.event_type) && (
+                                      <p className="timeline-cambio">
+                                        <strong>{evento.event_type === "traslado_solicitado" ? "Destino propuesto: " : "Reasignación: "}</strong>
+                                        {evento.valor_anterior} → {evento.valor_nuevo}
                                       </p>
                                     )}
                                     {!dependenciaComun &&

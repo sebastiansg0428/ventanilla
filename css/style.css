@@ -1755,6 +1755,57 @@ button.dashboard-card {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.traslados-panel {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+.traslados-panel button {
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+.traslados-panel > button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #2563eb;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+}
+.traslados-panel :is(button, select, textarea):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+.traslados-panel h2 {
+  margin: 1rem 0;
+}
+.traslados-listado {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.traslados-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1rem;
+}
+.traslados-datos > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.traslados-datos dt {
+  color: #64748b;
+  font-weight: 700;
+}
+.traslados-datos dd {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+}
+.traslados-panel .auth-form {
+  margin-top: 1rem;
+}
 .tabla-ayuda {
   margin: 0;
   padding: 0.6rem 0.8rem;

@@ -289,6 +289,92 @@ describe("consulta de radicados React", () => {
     expect(output).toHaveBeenCalledWith("blob");
   });
 
+  it("presenta origen y destino del traslado en el historial sin confundirlo con una respuesta", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.includes("/historial")) return respuestaJson({ success: true, historial: [{
+        id: 501, event_type: "traslado_aprobado", actor_name: "Ventanilla fixture",
+        dependencia_nombre: "Origen fixture", valor_anterior: "Origen fixture", valor_nuevo: "Destino fixture",
+        motivo: "Solicitud de traslado #1: Nueva dependencia competente.",
+        ocurrido_en_utc: "2026-11-04 15:00:00",
+      }] });
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [] });
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByRole("button", { name: "RAD-001" }));
+    await screen.findByText("Traslado aprobado por Ventanilla");
+    const cambio = screen.getByText("Reasignación:").closest("p");
+    expect(cambio.textContent).toContain("Origen fixture → Destino fixture");
+    expect(screen.queryByText("Respuesta institucional enviada")).toBeNull();
+  });
+
+  it("ofrece traslado solo al funcionario sobre individuales abiertos", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    registrosSimulados.forEach((radicado) => { radicado.dependencia_destino_id = 3; });
+    registrosSimulados[1].destino_todas_dependencias = 1;
+    registrosSimulados[2].estado = "Enterado";
+    await abrirConsulta();
+    expect(screen.getAllByRole("button", { name: "Solicitar traslado" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Solicitar traslado" }).closest("tr").textContent).toContain("RAD-001");
+    expect(screen.getByRole("button", { name: "Mis solicitudes de traslado" })).toBeTruthy();
+  });
+
+  it("carga destinos de traslado completos sin ampliar las dependencias de alertas del funcionario", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    registrosSimulados.forEach((radicado) => { radicado.dependencia_destino_id = 3; });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta === "/api/dependencias") return respuestaJson({ success: true,
+        dependencias: [{ id: 3, nombre: "Oficina de Planeación", activo: 1 }] });
+      if (ruta === "/api/traslados/dependencias") return respuestaJson({ success: true, dependencias: [
+        { id: 3, nombre: "Oficina de Planeación", activo: 1 },
+        { id: 4, nombre: "SEDAM", activo: 1 },
+        { id: 5, nombre: "Secretaría de Gobierno", activo: 1 },
+        { id: 6, nombre: "Inactiva", activo: 0 },
+      ] });
+      return base(ruta, opciones);
+    });
+    const showModalOriginal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "showModal");
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+      configurable: true, value() { this.setAttribute("open", ""); },
+    });
+    try {
+      await abrirConsulta();
+      fireEvent.click(screen.getAllByRole("button", { name: "Solicitar traslado" })[0]);
+      const selector = await screen.findByLabelText("Dependencia sugerida");
+      await waitFor(() => expect(within(selector).getAllByRole("option")).toHaveLength(3));
+      expect(within(selector).getByRole("option", { name: "SEDAM" }).value).toBe("4");
+      expect(within(selector).getByRole("option", { name: "Secretaría de Gobierno" })).toBeTruthy();
+      expect(within(selector).queryByRole("option", { name: "Oficina de Planeación" })).toBeNull();
+      expect(within(selector).queryByRole("option", { name: "Inactiva" })).toBeNull();
+      fireEvent.change(selector, { target: { value: "4" } });
+      expect(selector.value).toBe("4");
+      const alertas = screen.getByLabelText("Dependencia", { selector: "select" });
+      expect(alertas.disabled).toBe(true);
+      expect(within(alertas).queryByRole("option", { name: "SEDAM" })).toBeNull();
+    } finally {
+      if (showModalOriginal) Object.defineProperty(HTMLDialogElement.prototype, "showModal", showModalOriginal);
+      else delete HTMLDialogElement.prototype.showModal;
+    }
+  });
+
+  it("limpia vistas y recarga Consulta al perder autorización sobre el expediente", async () => {
+    const alertar = simularAlerta();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.endsWith("/documentos")) throw Object.assign(new Error("Fuera de tu dependencia"), { status: 404 });
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByRole("button", { name: "RAD-001" }));
+    await waitFor(() => expect(alertar).toHaveBeenCalledWith(expect.stringContaining("Fuera de tu dependencia")));
+    expect(document.querySelector("#modal-detalle").open).toBe(false);
+    await waitFor(() => expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?")).length).toBeGreaterThan(1));
+  });
+
   it("conserva columnas y acciones únicas en las tarjetas de radicados", async () => {
     await abrirConsulta();
     const tabla = screen.getByRole("table", { name: "Radicados" });

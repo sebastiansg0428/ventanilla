@@ -79,6 +79,19 @@ flowchart TD
         Q2 --> Q7["Consultar alertas por dependencia"]
         Q7 --> API
         Q2 --> Q8["Generar o ver comprobante PDF"]
+        Q2 --> T1["Funcionario: solicitar traslado individual con motivo y destino sugerido"]
+        T1 --> API
+        T1 --> T2["A continua responsable y el plazo no se suspende"]
+        T2 --> T3["Ventanilla o administrador revisa en Gestionar traslados"]
+        T3 --> T4{"Decision justificada"}
+        T4 -->|Aprobar| T5["B asume el mismo expediente, numero y vencimiento"]
+        T4 -->|Rechazar| T6["A conserva la asignacion"]
+        T2 -->|Respuesta o Enterado antes de decidir| T7["Cancelar solicitud pendiente atomicamente"]
+        T5 --> T8["A pierde acceso al expediente; conserva comprobante minimo"]
+        T6 --> T9["Historial con actor, motivo y fecha"]
+        T7 --> T9
+        T8 --> T9
+        T3 --> API
 
         U --> U1["Cargar usuarios y dependencias"]
         U1 --> API
