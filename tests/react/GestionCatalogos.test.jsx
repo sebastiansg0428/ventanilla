@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaGestionCatalogos } from "../../src/paginas/GestionCatalogos.jsx";
@@ -105,6 +105,24 @@ describe("gestión de catálogos React", () => {
     vi.clearAllMocks();
     confirmarSesion.mockResolvedValue(administrador);
     prepararApi();
+  });
+
+  it("etiqueta las tarjetas de dependencias, trámites e historial sin duplicar acciones", async () => {
+    render(<PaginaGestionCatalogos />);
+    const etiquetas = (fila) => Array.from(fila.querySelectorAll(".tarjeta-etiqueta"), (nodo) => nodo.textContent);
+    const dependenciaFila = (await screen.findByRole("cell", { name: "Planeación" })).closest("tr");
+    expect(etiquetas(dependenciaFila)).toEqual(["Nombre", "Estado", "Acciones"]);
+    expect(within(dependenciaFila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
+    const tramiteFila = screen.getByRole("cell", { name: "Petición general" }).closest("tr");
+    expect(etiquetas(tramiteFila)).toEqual(["Nombre", "Código", "Categoría", "Término vigente", "Estado", "Acciones"]);
+    expect(within(tramiteFila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+    fireEvent.click(within(tramiteFila).getByRole("button", { name: "Nueva versión de término" }));
+    const historial = await screen.findByRole("table", { name: "Términos legales" });
+    const filaTermino = within(historial).getAllByRole("row")[1];
+    expect(etiquetas(filaTermino)).toEqual(["Días", "Tipo", "Fundamento legal", "Vigente desde", "Vigente hasta"]);
+    expect(within(historial).getAllByRole("columnheader")).toHaveLength(5);
+    expect(screen.getByRole("region", { name: "Historial de términos legales" }).tabIndex).toBe(0);
   });
 
   it("carga los catálogos incluyendo inactivos y crea una dependencia", async () => {
@@ -256,7 +274,7 @@ describe("gestión de catálogos React", () => {
   it("crea un tipo sin respuesta sin pedir plazo ni enviar término ficticio", async () => {
     const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
-    await screen.findByText("Planeación", { selector: "td" });
+    await screen.findByRole("cell", { name: "Planeación" });
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
     const nombre = screen.getByLabelText("Nombre *");
     await user.click(nombre);

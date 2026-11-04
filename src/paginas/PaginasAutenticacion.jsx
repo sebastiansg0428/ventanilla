@@ -10,6 +10,7 @@ import {
   MensajeEstado,
   EncabezadoAplicacion,
   PiePagina,
+  CeldaAdaptable,
 } from "../componentes/Compartidos";
 import { contrasenaValida, POLITICA_CONTRASENA } from "../servicios/contrasenas";
 
@@ -457,19 +458,20 @@ function GestionUsuarios({ usuario }) {
               </button>
             </div>
             <div className="table-card users-table-card">
-              <div className="table-scroll users-table-scroll">
-                <table id="tabla-usuarios">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Correo</th>
-                    <th>Rol</th>
-                    <th>Dependencia</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+              <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
+              <div className="table-scroll users-table-scroll" role="region" aria-label="Listado de usuarios" tabIndex={0}>
+                <table id="tabla-usuarios" className="tabla-adaptable" role="table" aria-label="Usuarios">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">Nombre</th>
+                    <th scope="col" role="columnheader">Correo</th>
+                    <th scope="col" role="columnheader">Rol</th>
+                    <th scope="col" role="columnheader">Dependencia</th>
+                    <th scope="col" role="columnheader">Estado</th>
+                    <th scope="col" role="columnheader">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   {cargandoUsuarios ? (
                     <tr>
                       <td colSpan="6">Cargando usuarios…</td>
@@ -489,13 +491,13 @@ function GestionUsuarios({ usuario }) {
                           String(usuarioFila.dependencia_id),
                       );
                       return (
-                        <tr key={usuarioFila.id}>
-                          <td>{usuarioFila.nombre}</td>
-                          <td>{usuarioFila.email}</td>
-                          <td>{usuarioFila.rol}</td>
-                          <td>{dependencia?.nombre || "—"}</td>
-                          <td>{estaActivo ? "Activo" : "Inactivo"}</td>
-                          <td>
+                        <tr role="row" key={usuarioFila.id}>
+                          <CeldaAdaptable etiqueta="Nombre">{usuarioFila.nombre}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Correo">{usuarioFila.email}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Rol">{usuarioFila.rol}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Dependencia">{dependencia?.nombre || "—"}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Estado">{estaActivo ? "Activo" : "Inactivo"}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Acciones">
                             <div className="users-table-actions">
                               <button
                                 type="button"
@@ -519,7 +521,7 @@ function GestionUsuarios({ usuario }) {
                                 {estaActivo ? "Inactivar" : "Activar"}
                               </button>
                             </div>
-                          </td>
+                          </CeldaAdaptable>
                         </tr>
                       );
                     })

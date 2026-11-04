@@ -4,6 +4,7 @@ import {
   PiePagina,
   ProteccionSesion,
   MensajeEstado,
+  CeldaAdaptable,
 } from "../componentes/Compartidos";
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
@@ -981,19 +982,20 @@ function VistaConsultaRadicados({ usuario }) {
         </section>
 
         <section className="table-card">
-          <div className="table-scroll">
-            <table id="tabla-radicados">
-              <thead>
-                <tr>
-                  <th>Radicado</th>
-                  <th>Tipo / fecha</th>
-                  <th>Remitente</th>
-                  <th>Semáforo</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
+          <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
+          <div className="table-scroll" role="region" aria-label="Listado de radicados" tabIndex={0}>
+            <table id="tabla-radicados" className="tabla-adaptable" role="table" aria-label="Radicados">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">Radicado</th>
+                  <th scope="col" role="columnheader">Tipo / fecha</th>
+                  <th scope="col" role="columnheader">Remitente</th>
+                  <th scope="col" role="columnheader">Semáforo</th>
+                  <th scope="col" role="columnheader">Estado</th>
+                  <th scope="col" role="columnheader">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {cargando ? (
                   <tr>
                     <td colSpan="6">Cargando radicados…</td>
@@ -1011,9 +1013,10 @@ function VistaConsultaRadicados({ usuario }) {
                 ) : (
                   radicadosVisibles.map((radicado) => (
                     <tr
+                      role="row"
                       key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}
                     >
-                      <td>
+                      <CeldaAdaptable etiqueta="Radicado">
                         <small className="regla-respuesta">
                           {requiereRespuesta(radicado)
                             ? "Requiere respuesta"
@@ -1033,16 +1036,16 @@ function VistaConsultaRadicados({ usuario }) {
                               {radicado.seguimiento_dependencia_nombre}
                             </small>
                           )}
-                      </td>
-                      <td>
+                      </CeldaAdaptable>
+                      <CeldaAdaptable etiqueta="Tipo / fecha">
                         <span
                           className={`badge-comunicacion badge-comunicacion--${obtenerTipoComunicacion(radicado)}`}
                         >
                           {obtenerTipoComunicacion(radicado)}
                         </span>
                         <small>{formatearFechaRadicacion(radicado)}</small>
-                      </td>
-                      <td>
+                      </CeldaAdaptable>
+                      <CeldaAdaptable etiqueta="Remitente">
                         <strong>
                           {radicado.remitente_nombre || "No registrado"}
                         </strong>
@@ -1052,16 +1055,16 @@ function VistaConsultaRadicados({ usuario }) {
                             radicado.remitente_nit ||
                             "N/A"}
                         </small>
-                      </td>
-                      <td>
+                      </CeldaAdaptable>
+                      <CeldaAdaptable etiqueta="Semáforo">
                         <span
                           className={`semaforo semaforo--${radicado.semaforo?.nivel === "completado" ? "verde" : radicado.semaforo?.nivel === "vencido" ? "rojo" : radicado.semaforo?.nivel === "alerta" ? "amarillo" : radicado.semaforo?.nivel === "a_tiempo" ? "verde" : "sin-calcular"}`}
                         >
                           <i className="semaforo__dot" />
                           {radicado.semaforo?.texto || "Sin calcular"}
                         </span>
-                      </td>
-                      <td>
+                      </CeldaAdaptable>
+                      <CeldaAdaptable etiqueta="Estado">
                         {esFinal(radicado) &&
                         !guardandoEstados[claveEstado(radicado)] ? (
                           <span
@@ -1115,8 +1118,8 @@ function VistaConsultaRadicados({ usuario }) {
                             {erroresEstado[claveEstado(radicado)]}
                           </small>
                         )}
-                      </td>
-                      <td>
+                      </CeldaAdaptable>
+                      <CeldaAdaptable etiqueta="Acciones">
                         <button
                           className="generar-comprobante"
                           disabled={generandoComprobante}
@@ -1145,7 +1148,7 @@ function VistaConsultaRadicados({ usuario }) {
                             Ver respuesta
                           </button>
                         )}
-                      </td>
+                      </CeldaAdaptable>
                     </tr>
                   ))
                 )}
@@ -1608,6 +1611,7 @@ function VistaConsultaRadicados({ usuario }) {
       <dialog
         ref={dialogoRespuesta}
         className="respuesta-dialog"
+        aria-labelledby="respuesta-dialogo-titulo"
         onClose={() => {
           if (!dialogoRespuesta.current?.open) cerrarRespuesta();
         }}
@@ -1619,9 +1623,11 @@ function VistaConsultaRadicados({ usuario }) {
         {respuestaConsultada && (
           <div className="modal-dialog">
             <div className="modal-header">
-              <h2>
-                Respuesta institucional ·{" "}
-                {respuestaConsultada.radicado.numero_radicado}
+              <h2 id="respuesta-dialogo-titulo">
+                Respuesta institucional{" "}
+                <span className="respuesta-numero">
+                  {respuestaConsultada.radicado.numero_radicado}
+                </span>
               </h2>
               <button
                 type="button"
@@ -1667,7 +1673,7 @@ function VistaConsultaRadicados({ usuario }) {
                     </CampoDetalle>
                   </section>
                   <section
-                    className="detalle-seccion"
+                    className="detalle-seccion respuesta-grupo"
                     aria-labelledby="respuesta-contenido-titulo"
                   >
                     <h3 id="respuesta-contenido-titulo">
@@ -1678,7 +1684,7 @@ function VistaConsultaRadicados({ usuario }) {
                     </p>
                   </section>
                   <section
-                    className="detalle-seccion"
+                    className="detalle-seccion respuesta-grupo"
                     aria-labelledby="respuesta-documentos-titulo"
                   >
                     <h3 id="respuesta-documentos-titulo">
@@ -1728,9 +1734,11 @@ function VistaConsultaRadicados({ usuario }) {
         {respuestaSeleccionada && (
           <form className="modal-dialog" onSubmit={enviarRespuesta}>
             <div className="modal-header">
-              <h2>
-                Respuesta institucional ·{" "}
-                {respuestaSeleccionada.numero_radicado}
+              <h2 id="respuesta-dialogo-titulo">
+                Respuesta institucional{" "}
+                <span className="respuesta-numero">
+                  {respuestaSeleccionada.numero_radicado}
+                </span>
               </h2>
               <button
                 type="button"
@@ -1851,8 +1859,12 @@ function VistaConsultaRadicados({ usuario }) {
                         >
                           PDF
                         </span>
-                        {archivo.name} (
-                        {(archivo.size / (1024 * 1024)).toFixed(1)} MB)
+                        <span className="detalle-archivo-nombre">
+                          {archivo.name}
+                        </span>
+                        <span className="detalle-archivo-tamano">
+                          {(archivo.size / (1024 * 1024)).toFixed(1)} MB
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -1889,6 +1901,7 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
               <button
                 type="submit"
+                className="respuesta-enviar"
                 disabled={
                   enviandoRespuesta || textoRespuesta.trim().length < 10
                 }

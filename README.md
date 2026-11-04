@@ -45,7 +45,50 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
+## Interfaz adaptable
+
+Las cinco pantallas (login, radicacion, consulta, usuarios y catalogos) ajustan
+formularios, filtros y acciones al espacio disponible. Hasta 767px, la
+navegacion usa **Abrir/Cerrar menu**, con estado accesible; Escape lo cierra y
+devuelve el foco al boton. Los enlaces siguen respetando el rol de la sesion.
+
+En movil, los listados de radicados, usuarios, dependencias, tramites e
+historial de terminos se presentan como tarjetas con todos sus campos
+etiquetados. Cada registro mantiene una sola estructura y sus acciones
+originales. Desde 768px se conservan las tablas; cuando no caben, su contenedor
+permite desplazamiento horizontal y acceso por teclado, sin ensanchar la pagina.
+Los modales conservan desplazamiento interno y acciones alcanzables.
+
+La validacion visual se realiza con datos ficticios en Edge aislado y anchos
+de 320, 360, 440, 768, 1024, 1366 y 1920px, incluyendo poca altura y nombres PDF
+largos. Es emulacion de navegador, no una certificacion en dispositivos fisicos.
+Estos ajustes no modifican permisos, operaciones del backend ni MySQL.
+
+## Reintentos de radicación
+
+El backend debe tener aplicada la migración 022. Cada envío lleva una clave
+`Idempotency-Key`; ante pérdida de conexión, confirmación ilegible, 5xx o 409,
+la pantalla conserva el formulario y los PDFs originales, bloquea su edición
+y ofrece **Reintentar confirmación** con la misma clave y contenido.
+Un rechazo definitivo 4xx (excepto 409) permite corregir y hacer otro intento.
+El guardado confirmado limpia el intento; si falla el comprobante, reintentar
+su descarga no vuelve a radicar.
+
+Esta recuperación existe **solo mientras permanece abierta la misma pantalla**.
+No recargues, cierres ni abandones la radicación con confirmación pendiente.
+Si ya lo hiciste, busca primero el expediente en Consulta antes de radicarlo
+de nuevo: no se conserva el intento en almacenamiento del navegador.
+La idempotencia se aplica a crear radicados, no a respuestas o traslados.
+
 ## Adjuntos de respuesta institucional
+
+Ver respuesta y Responder comparten el encabezado azul institucional, el numero
+de radicado en una segunda linea, las tarjetas y el estilo de adjuntos.
+Enviar respuesta se distingue como accion principal; Cerrar/Cancelar son
+secundarias. Los campos muestran foco visible y estados deshabilitados.
+El cuerpo tiene desplazamiento interno y mantiene encabezado y acciones
+fuera de ese desplazamiento. En movil los datos se apilan y los nombres PDF
+largos se ajustan sin ensanchar el dialogo. El ancho maximo se conserva en 54rem.
 
 El modal admite hasta 5 PDFs de hasta 10 MB (10.485.760 bytes) cada uno.
 Una selección inválida muestra una alerta fuera del cuerpo desplazable y

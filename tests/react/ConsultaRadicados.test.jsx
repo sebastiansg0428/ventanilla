@@ -109,7 +109,7 @@ function diferida() {
   return { promise, resolve, reject };
 }
 
-async function abrirRespuesta(user) {
+async function abrirRespuesta() {
   await abrirConsulta();
   const dialogo = document.querySelector(".respuesta-dialog");
   dialogo.showModal = vi.fn(() => dialogo.setAttribute("open", ""));
@@ -117,7 +117,7 @@ async function abrirRespuesta(user) {
     dialogo.removeAttribute("open");
   });
   const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
-  await user.click(within(fila).getByRole("button", { name: "Responder" }));
+  fireEvent.click(within(fila).getByRole("button", { name: "Responder" }));
   return screen.findByLabelText(/Documentos de respuesta/);
 }
 
@@ -208,6 +208,10 @@ describe("consulta de radicados React", () => {
     ));
     const modalRespuesta = document.querySelector(".respuesta-dialog");
     expect(await within(modalRespuesta).findByText("Brandon Grajales")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Respuesta institucional RAD-001" })).toBe(modalRespuesta);
+    expect(within(modalRespuesta).getByRole("heading", {
+      name: "Respuesta institucional RAD-001",
+    }).querySelector(".respuesta-numero").textContent).toBe("RAD-001");
     expect(within(modalRespuesta).getByText("Talento Humano")).toBeTruthy();
     expect(within(modalRespuesta).getByText("Fecha de envío").closest(".modal-field").textContent).toContain("2026");
     expect(within(modalRespuesta).getByRole("region", { name: "Resumen de la respuesta" })).toBeTruthy();
@@ -215,6 +219,10 @@ describe("consulta de radicados React", () => {
     expect(within(modalRespuesta).getByRole("region", { name: "Contenido de la respuesta" }).textContent)
       .toContain("Respuesta oficial registrada");
     expect(within(modalRespuesta).getByRole("region", { name: "Documentos adjuntos" }).textContent).toContain("0.0 MB");
+    for (const nombre of ["Contenido de la respuesta", "Documentos adjuntos"]) {
+      expect(within(modalRespuesta).getByRole("region", { name: nombre }).className)
+        .toContain("respuesta-grupo");
+    }
     expect(within(modalRespuesta).getByText("Respuesta oficial registrada")).toBeTruthy();
     expect(within(modalRespuesta).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
     expect(within(modalRespuesta).getAllByText("Respondida por")).toHaveLength(1);
@@ -279,6 +287,21 @@ describe("consulta de radicados React", () => {
       tipo_comunicacion: "Interna", dependencia_remitente: origen,
     }));
     expect(output).toHaveBeenCalledWith("blob");
+  });
+
+  it("conserva columnas y acciones únicas en las tarjetas de radicados", async () => {
+    await abrirConsulta();
+    const tabla = screen.getByRole("table", { name: "Radicados" });
+    const fila = within(tabla).getByRole("button", { name: "RAD-001" }).closest("tr");
+    const etiquetas = Array.from(fila.querySelectorAll(".tarjeta-etiqueta"));
+    expect(etiquetas.map((etiqueta) => etiqueta.textContent)).toEqual([
+      "Radicado", "Tipo / fecha", "Remitente", "Semáforo", "Estado", "Acciones",
+    ]);
+    expect(etiquetas.every((etiqueta) => etiqueta.getAttribute("aria-hidden") === "true")).toBe(true);
+    expect(within(fila).getAllByRole("cell")).toHaveLength(6);
+    expect(within(fila).getAllByRole("button", { name: "Responder" })).toHaveLength(1);
+    expect(within(tabla).getAllByRole("columnheader")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: "Listado de radicados" }).tabIndex).toBe(0);
   });
 
   it("espera el PDF, bloquea clics duplicados y permite reintentar tras fallo de imagen", async () => {
@@ -367,7 +390,7 @@ describe("consulta de radicados React", () => {
 
   it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {
     const user = userEvent.setup({ delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
 
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
 
@@ -383,7 +406,7 @@ describe("consulta de radicados React", () => {
 
   it("conserva y envía los PDFs anteriores al rechazar una selección nueva", async () => {
     const user = userEvent.setup({ delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
     const valido = crearPdf("anterior.pdf", 32);
     await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
     await user.upload(selector, valido);
@@ -416,7 +439,7 @@ describe("consulta de radicados React", () => {
 
   it("acepta exactamente 10 MB y limpia el error al reemplazar la selección", async () => {
     const user = userEvent.setup({ delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
     await user.upload(selector, crearPdf("limite.pdf", 10 * 1024 * 1024));
 
@@ -427,7 +450,7 @@ describe("consulta de radicados React", () => {
 
   it("rechaza más de cinco PDFs y extensiones inválidas sin borrar los anteriores", async () => {
     const user = userEvent.setup({ applyAccept: false, delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
     await user.upload(selector, crearPdf("anterior.pdf", 32));
     await user.upload(selector, Array.from({ length: 6 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
     expect(screen.getByRole("alert").textContent).toContain("máximo 5");
@@ -440,7 +463,7 @@ describe("consulta de radicados React", () => {
 
   it("admite cinco PDFs, rechaza archivos vacíos y reinicia los adjuntos al reabrir", async () => {
     const user = userEvent.setup({ delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
     await user.upload(selector, Array.from({ length: 5 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
     expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
     await user.upload(selector, crearPdf("vacio.pdf", 0));
@@ -457,6 +480,28 @@ describe("consulta de radicados React", () => {
     expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
   });
 
+  it("comparte encabezado accesible y tarjetas en Responder con nombres PDF largos", async () => {
+    const user = userEvent.setup({ delay: null });
+    const selector = await abrirRespuesta();
+    const modal = screen.getByRole("dialog", { name: "Respuesta institucional RAD-001" });
+    expect(within(modal).getByRole("heading", { name: "Respuesta institucional RAD-001" })
+      .querySelector(".respuesta-numero").textContent).toBe("RAD-001");
+    const enviar = within(modal).getByRole("button", { name: "Enviar respuesta" });
+    expect(enviar.className).toBe("respuesta-enviar");
+    expect(enviar.disabled).toBe(true);
+    for (const nombre of ["Redacción", "Adjuntos de la respuesta"]) {
+      expect(within(modal).getByRole("region", { name: nombre }).className).toContain("respuesta-grupo");
+    }
+    const nombreLargo = `${"documento-institucional-".repeat(12)}.pdf`;
+    await user.upload(selector, crearPdf(nombreLargo, 1024));
+    const nombre = within(modal).getByText(nombreLargo);
+    expect(nombre.className).toBe("detalle-archivo-nombre");
+    expect(nombre.closest("li").querySelector(".detalle-archivo-tamano").textContent).toBe("0.0 MB");
+    expect(within(modal).getByRole("button", { name: "Cancelar" }).className).not.toContain("respuesta-enviar");
+    await user.selectOptions(within(modal).getByLabelText("Plantilla institucional"), "general");
+    expect(enviar.disabled).toBe(false);
+  });
+
   it.each([
     { errorServidor: "Cada PDF debe pesar máximo 10 MB.", conAdjunto: false },
     {
@@ -465,7 +510,7 @@ describe("consulta de radicados React", () => {
     },
   ])("mantiene visible el rechazo del servidor: $errorServidor", async ({ errorServidor, conAdjunto }) => {
     const user = userEvent.setup({ delay: null });
-    const selector = await abrirRespuesta(user);
+    const selector = await abrirRespuesta();
     const adjuntos = conAdjunto ? [crearPdf("protegido.pdf", 32)] : [];
     if (conAdjunto) await user.upload(selector, adjuntos);
     await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
@@ -818,7 +863,7 @@ describe("consulta de radicados React", () => {
       return base(ruta, opciones);
     });
     const user = userEvent.setup({ delay: null });
-    await abrirRespuesta(user);
+    await abrirRespuesta();
     prepararDialogos();
     const modal = document.querySelector(".respuesta-dialog");
     const plantilla = within(modal).getByLabelText("Plantilla institucional");

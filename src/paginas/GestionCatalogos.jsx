@@ -4,6 +4,7 @@ import {
   MensajeEstado,
   PiePagina,
   ProteccionSesion,
+  CeldaAdaptable,
 } from "../componentes/Compartidos";
 import { solicitarApi } from "../servicios/api";
 
@@ -676,23 +677,24 @@ function GestionCatalogos({ usuario }) {
               </label>
             </div>
             <div className="table-card users-table-card">
-              <div className="table-scroll users-table-scroll">
-                <table id="tabla-catalogos">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
+              <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
+              <div className="table-scroll users-table-scroll" role="region" aria-label="Listado del catálogo" tabIndex={0}>
+                <table id="tabla-catalogos" className="tabla-adaptable" role="table" aria-label="Catálogo">
+                  <thead role="rowgroup">
+                    <tr role="row">
+                      <th scope="col" role="columnheader">Nombre</th>
                       {catalogoActual === CATALOGO_TRAMITES && (
                         <>
-                          <th>Código</th>
-                          <th>Categoría</th>
-                          <th>Término vigente</th>
+                          <th scope="col" role="columnheader">Código</th>
+                          <th scope="col" role="columnheader">Categoría</th>
+                          <th scope="col" role="columnheader">Término vigente</th>
                         </>
                       )}
-                      <th>Estado</th>
-                      <th>Acciones</th>
+                      <th scope="col" role="columnheader">Estado</th>
+                      <th scope="col" role="columnheader">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody role="rowgroup">
                     {cargando ? (
                       <tr>
                         <td colSpan={catalogoActual === CATALOGO_TRAMITES ? 6 : 3}>
@@ -707,28 +709,28 @@ function GestionCatalogos({ usuario }) {
                       </tr>
                     ) : (
                       registros.map((registro) => (
-                        <tr key={registro.id}>
-                          <td>{registro.nombre}</td>
+                        <tr role="row" key={registro.id}>
+                          <CeldaAdaptable etiqueta="Nombre">{registro.nombre}</CeldaAdaptable>
                           {catalogoActual === CATALOGO_TRAMITES && (
                             <>
-                              <td>{registro.codigo || "—"}</td>
-                              <td>{registro.categoria_general || "—"}</td>
-                              <td>
+                              <CeldaAdaptable etiqueta="Código">{registro.codigo || "—"}</CeldaAdaptable>
+                              <CeldaAdaptable etiqueta="Categoría">{registro.categoria_general || "—"}</CeldaAdaptable>
+                              <CeldaAdaptable etiqueta="Término vigente">
                                 {registro.requiere_respuesta === 0 || registro.requiere_respuesta === false
                                   ? "No requiere respuesta" : registro.termino_legal_id
                                   ? `${registro.dias} ${registro.tipo_dias || "días"}`
                                   : "Sin término vigente"}
-                              </td>
+                              </CeldaAdaptable>
                             </>
                           )}
-                          <td>
+                          <CeldaAdaptable etiqueta="Estado">
                             <span
                               className={`catalog-status ${estaActivo(registro) ? "catalog-status--active" : "catalog-status--inactive"}`}
                             >
                               {estaActivo(registro) ? "Activo" : "Inactivo"}
                             </span>
-                          </td>
-                          <td>
+                          </CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Acciones">
                             <div className="users-table-actions">
                               <button
                                 type="button"
@@ -763,7 +765,7 @@ function GestionCatalogos({ usuario }) {
                                 {estaActivo(registro) ? "Inactivar" : "Activar"}
                               </button>
                             </div>
-                          </td>
+                          </CeldaAdaptable>
                         </tr>
                       ))
                     )}
@@ -786,25 +788,26 @@ function GestionCatalogos({ usuario }) {
               </div>
               {terminosVigentes.length > 0 && (
                 <div className="table-card users-table-card">
-                  <div className="table-scroll users-table-scroll">
-                    <table id="tabla-terminos-legales">
-                      <thead>
-                        <tr>
-                          <th>Días</th>
-                          <th>Tipo</th>
-                          <th>Fundamento legal</th>
-                          <th>Vigente desde</th>
-                          <th>Vigente hasta</th>
+                  <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
+                  <div className="table-scroll users-table-scroll" role="region" aria-label="Historial de términos legales" tabIndex={0}>
+                    <table id="tabla-terminos-legales" className="tabla-adaptable" role="table" aria-label="Términos legales">
+                      <thead role="rowgroup">
+                        <tr role="row">
+                          <th scope="col" role="columnheader">Días</th>
+                          <th scope="col" role="columnheader">Tipo</th>
+                          <th scope="col" role="columnheader">Fundamento legal</th>
+                          <th scope="col" role="columnheader">Vigente desde</th>
+                          <th scope="col" role="columnheader">Vigente hasta</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody role="rowgroup">
                         {terminosVigentes.map((termino) => (
-                          <tr key={termino.id}>
-                            <td>{termino.dias}</td>
-                            <td>{termino.tipo_dias}</td>
-                            <td>{termino.fundamento_legal}</td>
-                            <td>{termino.vigente_desde || "—"}</td>
-                            <td>{termino.vigente_hasta || "Actual"}</td>
+                          <tr role="row" key={termino.id}>
+                            <CeldaAdaptable etiqueta="Días">{termino.dias}</CeldaAdaptable>
+                            <CeldaAdaptable etiqueta="Tipo">{termino.tipo_dias}</CeldaAdaptable>
+                            <CeldaAdaptable etiqueta="Fundamento legal">{termino.fundamento_legal}</CeldaAdaptable>
+                            <CeldaAdaptable etiqueta="Vigente desde">{termino.vigente_desde || "—"}</CeldaAdaptable>
+                            <CeldaAdaptable etiqueta="Vigente hasta">{termino.vigente_hasta || "Actual"}</CeldaAdaptable>
                           </tr>
                         ))}
                       </tbody>

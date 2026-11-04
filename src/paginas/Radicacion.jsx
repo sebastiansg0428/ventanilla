@@ -39,6 +39,9 @@ function FormularioRadicacion({ usuario }) {
   const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
   const [errorArchivos, setErrorArchivos] = useState("");
   const [enProceso, setEnProceso] = useState(false);
+  const [confirmacionPendiente, setConfirmacionPendiente] = useState(false);
+  const intentoRadicacion = useRef(null);
+  const envioEnProceso = useRef(false);
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
   const [datosComprobante, setDatosComprobante] = useState(null);
   const [errorComprobante, setErrorComprobante] = useState("");
@@ -104,6 +107,7 @@ function FormularioRadicacion({ usuario }) {
   }, [usuario.id, usuario.rol]);
 
   function aceptarArchivos(archivosCandidatos) {
+    if (envioEnProceso.current || confirmacionPendiente) return;
     const seleccion = Array.from(archivosCandidatos || []);
     if (!seleccion.length) return;
     let error = seleccion.length > 5
@@ -149,22 +153,22 @@ function FormularioRadicacion({ usuario }) {
 
   async function enviarFormulario(evento) {
     evento.preventDefault();
-    if (enProceso || comprobanteEnProceso.current) return;
+    if (envioEnProceso.current || comprobanteEnProceso.current) return;
     const formulario = evento.currentTarget;
-    if (!tiposTramite.length || !dependencias.length) {
+    if (!intentoRadicacion.current && (!tiposTramite.length || !dependencias.length)) {
       setMensaje({
         texto: "Espera a que los catálogos estén disponibles antes de radicar.",
         tono: "error",
       });
       return;
     }
-    if (!archivosSeleccionados.length) {
+    if (!intentoRadicacion.current && !archivosSeleccionados.length) {
       setErrorArchivos(errorArchivos || "Adjunta al menos un archivo PDF.");
       return;
     }
 
-    const datosFormulario = new FormData(formulario);
-    const tramite = tiposTramite.find(
+    const datosFormulario = intentoRadicacion.current?.datos || new FormData(formulario);
+    const tramite = intentoRadicacion.current?.tramite || tiposTramite.find(
       (tipo) =>
         String(tipo.id) === String(datosFormulario.get("tipo_tramite_id")),
     );
@@ -176,19 +180,24 @@ function FormularioRadicacion({ usuario }) {
       setEnProceso(false);
       return;
     }
-    datosFormulario.delete("archivos");
-    archivosSeleccionados.forEach((archivo) =>
-      datosFormulario.append("archivos", archivo),
-    );
+    envioEnProceso.current = true;
     setEnProceso(true);
     setMensaje({ texto: "Enviando y guardando el radicado…", tono: "" });
     try {
+      if (!intentoRadicacion.current) {
+        datosFormulario.delete("archivos");
+        archivosSeleccionados.forEach((archivo) =>
+          datosFormulario.append("archivos", archivo),
+        );
+        intentoRadicacion.current = { clave: crypto.randomUUID(), datos: datosFormulario, tramite };
+      }
       const respuesta = await solicitarApi("/api/radicados", {
         method: "POST",
+        headers: { "Idempotency-Key": intentoRadicacion.current.clave },
         body: datosFormulario,
       });
       const resultado = await respuesta.json();
-      if (!resultado.success)
+      if (resultado.success !== true || !resultado.radicado)
         throw new Error(resultado.message || "No se pudo guardar el radicado.");
 
       const dependenciaDestino = dependencias.find(
@@ -217,6 +226,8 @@ function FormularioRadicacion({ usuario }) {
         fecha_hora: resultado.fecha_hora_recepcion_legible,
       };
       setDatosComprobante(comprobante);
+      intentoRadicacion.current = null;
+      setConfirmacionPendiente(false);
       setErrorComprobante("");
       formulario.reset();
       setTipoTramiteIdSeleccionado("");
@@ -233,8 +244,17 @@ function FormularioRadicacion({ usuario }) {
       });
       await descargarComprobante(comprobante);
     } catch (error) {
-      setMensaje({ texto: error.message, tono: "error" });
+      const incierto = Boolean(intentoRadicacion.current) && (
+        error.resultadoIncierto || !error.status ||
+        error.status >= 500 || error.status === 409);
+      setConfirmacionPendiente(Boolean(incierto));
+      if (!incierto) intentoRadicacion.current = null;
+      setMensaje({
+        texto: error.message,
+        tono: "error",
+      });
     } finally {
+      envioEnProceso.current = false;
       setEnProceso(false);
     }
   }
@@ -256,6 +276,11 @@ function FormularioRadicacion({ usuario }) {
             className="radicar-form"
             onSubmit={enviarFormulario}
           >
+            <fieldset
+              className="radicar-campos"
+              disabled={enProceso || confirmacionPendiente}
+            >
+            <legend>Datos del radicado</legend>
             <h2>Formulario de radicación</h2>
             <SeccionFormulario
               numero="1"
@@ -550,6 +575,7 @@ function FormularioRadicacion({ usuario }) {
                 )}
               </div>
             </SeccionFormulario>
+            </fieldset>
             <button
               className="radicar-submit"
               type="submit"
@@ -559,8 +585,18 @@ function FormularioRadicacion({ usuario }) {
                 ? "Preparando comprobante…"
                 : enProceso
                 ? "Guardando radicado…"
-                : "Generar radicado y registrar"}
+                : confirmacionPendiente
+                  ? "Reintentar confirmación"
+                  : "Generar radicado y registrar"}
             </button>
+            {confirmacionPendiente && (
+              <p role="alert">
+                No se confirmó el resultado. Conservamos los datos y PDFs originales.
+                Reintenta la confirmación antes de crear otro radicado.
+                No recargues ni cierres esta pantalla: el intento se conserva solo en memoria.
+                Si ya saliste, comprueba primero el registro en Consulta antes de volver a radicar.
+              </p>
+            )}
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
             {generandoComprobante && <p role="status">Generando comprobante…</p>}
             {errorComprobante && datosComprobante && (

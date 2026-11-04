@@ -176,6 +176,18 @@ describe("gestión de usuarios React", () => {
     configurarApiGestion();
   });
 
+  it("mantiene los datos y una sola acción por usuario en el listado adaptable", async () => {
+    render(<PaginaRegistroUsuarios />);
+    const fila = (await screen.findByText("Ana Perez")).closest("tr");
+    expect(Array.from(fila.querySelectorAll(".tarjeta-etiqueta"), (nodo) => nodo.textContent)).toEqual([
+      "Nombre", "Correo", "Rol", "Dependencia", "Estado", "Acciones",
+    ]);
+    expect(within(fila).getAllByRole("cell")).toHaveLength(6);
+    expect(within(fila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+    expect(within(screen.getByRole("table", { name: "Usuarios" })).getAllByRole("columnheader")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: "Listado de usuarios" }).tabIndex).toBe(0);
+  });
+
   it.each([
     "abcdefghij1!", "ABCDEFGHIJ1!", "Abcdefghij!!", "Abcdefghij12",
     "Abcdefghij12 ", "Abcdefghij1!\0", `Aa1!${"x".repeat(69)}`,

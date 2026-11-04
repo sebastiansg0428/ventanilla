@@ -61,15 +61,15 @@ async function completarFormulario(user, destino = "3") {
     [/entidad \/ empresa/i, "Persona natural"],
     [/correo electrónico/i, "maria@example.com"],
   ]) {
-    await user.click(screen.getByLabelText(etiqueta));
-    await user.paste(valor);
+    fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
   }
   await user.selectOptions(
     screen.getByLabelText(/dependencia de destino/i),
     destino,
   );
-  await user.click(screen.getByLabelText(/asunto \/ resumen/i));
-  await user.paste("Solicitud de información");
+  fireEvent.change(screen.getByLabelText(/asunto \/ resumen/i), {
+    target: { value: "Solicitud de información" },
+  });
 }
 
 describe("radicación React", () => {
@@ -418,6 +418,87 @@ describe("radicación React", () => {
         dependencia_destino: "Todas las dependencias",
       }),
     );
+  });
+
+  it.each([
+    [undefined, true], [500, false], [409, false],
+  ])("reintenta el mismo intento inmutable ante resultado incierto (%s)", async (status, resultadoIncierto) => {
+    const base = solicitarApi.getMockImplementation();
+    const error = Object.assign(new Error("Confirmación no disponible"), { status, resultadoIncierto });
+    let envios = 0;
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta !== "/api/radicados") return base(ruta, opciones);
+      if (++envios === 1) throw error;
+      return { json: async () => ({ success: true, radicado: "RAD-REINTENTO" }) };
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF original"], "original.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    const reintentar = await screen.findByRole("button", { name: "Reintentar confirmación" });
+    const fieldset = screen.getByRole("group", { name: "Datos del radicado" });
+    expect(fieldset.disabled).toBe(true);
+    const enviosPrevios = solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados");
+    const original = enviosPrevios[0][1];
+    expect(original.headers["Idempotency-Key"]).toMatch(/^[a-f0-9-]{36}$/);
+    fireEvent.drop(screen.getByLabelText("Documentos PDF de soporte").closest(".upload-field"), {
+      dataTransfer: { files: [new File(["otro PDF"], "otro.pdf", { type: "application/pdf" })] },
+    });
+    expect(screen.queryByText(/otro.pdf/)).toBeNull();
+    await user.click(reintentar);
+    await screen.findByText(/Radicado RAD-REINTENTO guardado/);
+    const enviados = solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados");
+    expect(enviados).toHaveLength(2);
+    expect(enviados[1][1].headers).toEqual(original.headers);
+    expect(enviados[1][1].body).toBe(original.body);
+    expect(enviados[1][1].body.get("archivos").name).toBe("original.pdf");
+    expect(fieldset.disabled).toBe(false);
+    expect(screen.getByLabelText(/asunto \/ resumen/i).value).toBe("");
+  });
+
+  it("un rechazo definitivo permite corregir y genera una clave nueva", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let envios = 0;
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta !== "/api/radicados") return base(ruta, opciones);
+      if (++envios === 1) throw Object.assign(new Error("Corrige los datos"), { status: 422 });
+      return { json: async () => ({ success: true, radicado: "RAD-CORREGIDO" }) };
+    });
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "original.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    await screen.findByText("Corrige los datos");
+    expect(screen.getByRole("group", { name: "Datos del radicado" }).disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText(/asunto \/ resumen/i), { target: { value: "Asunto corregido" } });
+    await user.click(screen.getByRole("button", { name: "Generar radicado y registrar" }));
+    await screen.findByText(/Radicado RAD-CORREGIDO guardado/);
+    const enviados = solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados");
+    expect(enviados).toHaveLength(2);
+    expect(enviados[0][1].headers["Idempotency-Key"]).not.toBe(enviados[1][1].headers["Idempotency-Key"]);
+    expect(enviados[1][1].body.get("asunto_documento")).toBe("Asunto corregido");
+  });
+
+  it("doble submit sincronico ejecuta un solo POST", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let confirmar;
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta === "/api/radicados"
+      ? new Promise(resolve => { confirmar = resolve; }) : base(ruta, opciones));
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await completarFormulario(user);
+    await user.upload(screen.getByLabelText("Documentos PDF de soporte"),
+      new File(["PDF"], "original.pdf", { type: "application/pdf" }));
+    const formulario = screen.getByLabelText(/asunto \/ resumen/i).closest("form");
+    fireEvent.submit(formulario);
+    fireEvent.submit(formulario);
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta === "/api/radicados")).toHaveLength(1);
+    confirmar({ json: async () => ({ success: true, radicado: "RAD-UNICO" }) });
+    await screen.findByText(/Radicado RAD-UNICO guardado/);
   });
 
   it("rechaza un archivo que no sea PDF", async () => {

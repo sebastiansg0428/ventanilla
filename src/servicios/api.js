@@ -44,14 +44,23 @@ export async function solicitarApi(ruta, opciones = {}) {
   try {
     respuesta = await fetch(direccionSolicitud, { ...opcionesSolicitud, headers: encabezados });
   } catch (error) {
-    throw new Error(`No se pudo conectar con el servidor. ${error.message}`);
+    const fallo = new Error(`No se pudo conectar con el servidor. ${error.message}`);
+    fallo.resultadoIncierto = true;
+    throw fallo;
   }
 
-  const tipoContenido = respuesta.headers.get('content-type') || '';
-  const resultado = tipoContenido.includes('application/json') ? await respuesta.clone().json() : null;
   if (respuesta.status === 401 && requiereSesion) {
     limpiarSesion();
     window.location.replace('login.html');
+  }
+  const tipoContenido = respuesta.headers.get('content-type') || '';
+  let resultado;
+  try {
+    resultado = tipoContenido.includes('application/json') ? await respuesta.clone().json() : null;
+  } catch (error) {
+    const fallo = new Error(`No se pudo interpretar la confirmación del servidor. ${error.message}`);
+    fallo.resultadoIncierto = true;
+    throw fallo;
   }
   if (!respuesta.ok || resultado?.success === false) {
     const error = new Error(resultado?.message || `El servidor rechazó la solicitud (HTTP ${respuesta.status}).`);

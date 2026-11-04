@@ -27,6 +27,13 @@ body {
   line-height: 1.5;
 }
 
+#root,
+.app-page,
+.app-page main {
+  min-width: 0;
+  width: 100%;
+}
+
 button,
 input,
 select,
@@ -428,12 +435,12 @@ footer {
   font-weight: 600;
 }
 
-.page-register > nav {
+.page-register > nav:not(.app-nav) {
   background: #1e40af;
   color: #bfdbfe;
 }
 
-.page-register > nav > div {
+.page-register > nav:not(.app-nav) > div {
   max-width: 72rem;
   margin: auto;
   padding: 0.625rem 1rem;
@@ -445,12 +452,12 @@ footer {
   font-weight: 500;
 }
 
-.page-register > nav a:first-child {
+.page-register > nav:not(.app-nav) a:first-child {
   color: #fcd34d;
 }
 
-.page-register > nav a:hover,
-.page-register > nav a:focus-visible {
+.page-register > nav:not(.app-nav) a:hover,
+.page-register > nav:not(.app-nav) a:focus-visible {
   color: #fff;
 }
 
@@ -502,6 +509,7 @@ footer {
 #radicadoForm {
   padding: 2rem;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
 }
 
@@ -1337,6 +1345,29 @@ footer {
   background: #1e40af;
   color: #bfdbfe;
 }
+.app-nav-links {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+}
+.app-nav .app-nav-toggle {
+  display: none;
+}
+.app-nav a,
+.app-nav button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+.app-nav a:focus-visible,
+.app-nav button:focus-visible {
+  outline: 3px solid #fcd34d;
+  outline-offset: 3px;
+}
 .app-nav a:hover,
 .app-nav a[aria-current="page"] {
   color: #fcd34d;
@@ -1383,6 +1414,25 @@ footer {
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
 }
+.radicar-titulo {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.radicar-titulo > span {
+  flex-shrink: 0;
+  color: #065f46;
+  font-size: 0.85rem;
+}
+.radicar-titulo h2,
+.radicar-titulo p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .radicar-title h2 {
   color: #1e293b;
   font-size: 1.1rem;
@@ -1406,7 +1456,29 @@ footer {
   display: grid;
   gap: 1.5rem;
 }
-.radicar-form > h2 {
+.radicar-form :is(.form-grid-2, .form-grid-3) > *,
+.auth-form > *,
+.dashboard-cards > *,
+.alerts-columns > * {
+  min-width: 0;
+}
+.radicar-form :is(button, input, select, textarea),
+.auth-form :is(input, select, textarea) {
+  max-width: 100%;
+}
+.auth-field textarea {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  font: inherit;
+}
+.app-page :is(h1, h2, h3, p, label, small, li),
+.auth-card {
+  overflow-wrap: anywhere;
+}
+.radicar-form > h2,
+.radicar-campos > h2 {
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #e2e8f0;
   color: #1e293b;
@@ -1415,6 +1487,15 @@ footer {
 .radicar-form .form-section {
   display: grid;
   gap: 1rem;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.radicar-form .form-section-header > div {
+  min-width: 0;
+}
+.radicar-form input[type="file"] {
+  width: 100%;
+  min-width: 0;
 }
 .radicar-form .form-section-header {
   display: flex;
@@ -1626,6 +1707,8 @@ button.dashboard-card {
   margin-bottom: 1rem;
 }
 .consult-filters > input {
+  min-width: 0;
+  width: 100%;
   padding: 0.8rem 1rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.7rem;
@@ -1638,6 +1721,7 @@ button.dashboard-card {
   gap: 1rem;
   color: #64748b;
   font-size: 0.85rem;
+  flex-wrap: wrap;
 }
 .consult-filters button:disabled,
 .alerts-controls button:disabled {
@@ -1653,6 +1737,35 @@ button.dashboard-card {
 }
 .table-scroll {
   background: #fff;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.table-scroll:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: -3px;
+}
+.tabla-adaptable .tarjeta-etiqueta {
+  display: none;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: normal;
+}
+.tarjeta-valor {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tabla-ayuda {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 0.8rem;
+}
+@media (min-width: 1200px) {
+  .tabla-ayuda {
+    display: none;
+  }
 }
 #tabla-radicados {
   width: 100%;
@@ -1669,6 +1782,17 @@ button.dashboard-card {
   color: #64748b;
   font-size: 0.72rem;
   text-transform: uppercase;
+}
+@media (min-width: 768px) {
+  #tabla-radicados td:last-child:not([colspan]) {
+    min-width: 10rem;
+  }
+  #tabla-radicados td:last-child .tarjeta-valor {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
 }
 #tabla-radicados td small {
   display: block;
@@ -1688,6 +1812,7 @@ button.dashboard-card {
   cursor: pointer;
 }
 #tabla-radicados select {
+  max-width: 100%;
   padding: 0.4rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.45rem;
@@ -1946,7 +2071,8 @@ button.dashboard-card {
   gap: 0.6rem;
 }
 .alerts-controls select {
-  min-width: 15rem;
+  min-width: min(15rem, 100%);
+  max-width: 100%;
   padding: 0.55rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
@@ -1996,14 +2122,21 @@ button.dashboard-card {
 }
 .respuesta-dialog {
   width: min(92vw, 54rem);
+  overflow: hidden;
 }
 .respuesta-dialog::backdrop {
   background: rgb(15 23 42 / 60%);
 }
 .respuesta-dialog .modal-dialog {
+  width: 100%;
+  min-width: 0;
   max-height: 90vh;
+  max-height: min(90vh, calc(100dvh - 2rem));
   display: flex;
   flex-direction: column;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
 }
 .respuesta-dialog .modal-header,
 .respuesta-dialog .modal-content,
@@ -2025,13 +2158,15 @@ button.dashboard-card {
   justify-content: flex-end;
 }
 .respuesta-dialog .modal-content {
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   overflow-wrap: anywhere;
-  gap: 0.65rem;
+  gap: 1rem;
+  background: #f8fafc;
 }
 .respuesta-dialog .respuesta-mensajes {
   flex-shrink: 0;
@@ -2039,6 +2174,31 @@ button.dashboard-card {
   overflow-y: auto;
   overflow-wrap: anywhere;
   padding: 0 1rem;
+  background: #fff;
+}
+.respuesta-dialog .modal-header h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.respuesta-dialog .respuesta-numero {
+  display: block;
+  margin-top: 0.2rem;
+  color: #bfdbfe;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.respuesta-dialog .modal-close {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
+.respuesta-dialog .modal-close:hover:not(:disabled) {
+  background: #334155;
 }
 .respuesta-dialog textarea,
 .respuesta-dialog select,
@@ -2046,6 +2206,65 @@ button.dashboard-card {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+}
+.respuesta-dialog select,
+.respuesta-dialog textarea,
+.respuesta-dialog input[type="file"] {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  background: #fff;
+  color: #1e293b;
+  font: inherit;
+}
+.respuesta-dialog select {
+  min-height: 2.75rem;
+}
+.respuesta-dialog textarea {
+  resize: vertical;
+  line-height: 1.65;
+}
+.respuesta-dialog input[type="file"] {
+  background: #f8fafc;
+}
+.respuesta-dialog input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.4rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.respuesta-dialog :is(button, select, textarea, input, a):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.respuesta-dialog :is(button, select, textarea, input):disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.respuesta-dialog .modal-footer {
+  flex-wrap: wrap;
+}
+.respuesta-dialog .modal-footer button {
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+}
+.respuesta-dialog .modal-footer button:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+.respuesta-dialog .modal-footer .respuesta-enviar {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
+}
+.respuesta-dialog .modal-footer .respuesta-enviar:hover:not(:disabled) {
+  background: #1e40af;
 }
 #modal-detalle::backdrop,
 .receipt-dialog::backdrop {
@@ -2350,6 +2569,11 @@ button.dashboard-card {
   color: #64748b;
   font-size: 0.8rem;
 }
+.respuesta-dialog .detalle-archivo-nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .respuesta-dialog .respuesta-grupo {
   display: grid;
   gap: 0.5rem;
@@ -2358,9 +2582,22 @@ button.dashboard-card {
   padding: 1rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
+  background: #fff;
 }
 .respuesta-dialog .respuesta-grupo h3 {
   margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+.respuesta-dialog .respuesta-grupo label {
+  color: #334155;
+  font-weight: 600;
+}
+.respuesta-dialog .detalle-asunto {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  line-height: 1.65;
 }
 .respuesta-dialog .respuesta-contador {
   margin: 0;
@@ -2370,6 +2607,30 @@ button.dashboard-card {
 }
 .respuesta-dialog .respuesta-contador--corto {
   color: #b45309;
+}
+@media (max-width: 640px) {
+  .respuesta-dialog .modal-header,
+  .respuesta-dialog .modal-content,
+  .respuesta-dialog .modal-footer {
+    padding: 0.85rem;
+  }
+  .respuesta-dialog .detalle-resumen {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .respuesta-dialog .respuesta-grupo,
+  .respuesta-dialog .detalle-resumen {
+    padding: 0.85rem;
+  }
+  .respuesta-dialog .modal-footer button {
+    flex: 1 1 auto;
+  }
+  .respuesta-dialog .detalle-archivos li {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .respuesta-dialog .detalle-archivos :is(a, .detalle-archivo-nombre) {
+    flex-basis: calc(100% - 3.5rem);
+  }
 }
 #modal-detalle .timeline-cambio {
   padding: 0.5rem;
@@ -2389,7 +2650,170 @@ button.dashboard-card {
 }
 .receipt-dialog iframe {
   display: block;
-  height: 75vh;
+  min-height: 0;
+  height: min(70vh, calc(100dvh - 9rem));
+}
+
+@media (max-width: 767px) {
+  .app-nav {
+    display: block;
+  }
+  .app-nav .app-nav-toggle {
+    display: inline-flex;
+    margin: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .app-nav-links {
+    display: none;
+    padding-top: 0.65rem;
+  }
+  .app-nav-links[data-abierto="true"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-nav-links a,
+  .app-nav-links button {
+    width: 100%;
+    padding: 0.65rem;
+    margin: 0;
+    border-radius: 0.45rem;
+  }
+  .app-nav-links a[aria-current="page"] {
+    background: rgb(255 255 255 / 10%);
+  }
+  .app-page .consult-main,
+  .app-page .radicar-main,
+  .users-management-main {
+    width: calc(100% - 1rem);
+    padding: 1rem 0;
+  }
+  .radicar-form,
+  .users-management-card {
+    padding: 1rem;
+  }
+  #radicadoForm {
+    padding: 0.85rem;
+  }
+  .radicar-form .form-section {
+    padding: 0.85rem;
+  }
+  .radicar-titulo {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  .auth-form--grid,
+  .radicar-form .form-grid-2,
+  .radicar-form .form-grid-3,
+  .dashboard-cards,
+  .alerts-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .consult-heading,
+  .users-table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .consult-filters > div {
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+  .alerts-card {
+    padding: 0.85rem;
+  }
+  .alerts-controls > select {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+  .catalog-tabs button {
+    flex: 1 1 auto;
+    padding: 0.65rem;
+  }
+  .app-page :is(input, select, textarea),
+  .page-auth :is(input, select, textarea) {
+    font-size: 1rem;
+  }
+  .app-page :is(button, .consult-heading a),
+  .page-auth button {
+    min-height: 2.75rem;
+  }
+  .tabla-ayuda {
+    display: none;
+  }
+  .table-card:has(> .table-scroll > .tabla-adaptable) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .table-scroll:has(> .tabla-adaptable) {
+    background: transparent;
+  }
+  :is(#tabla-radicados, #tabla-usuarios, #tabla-catalogos, #tabla-terminos-legales).tabla-adaptable {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+  }
+  .tabla-adaptable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tabla-adaptable tbody {
+    display: grid;
+    gap: 1rem;
+  }
+  .tabla-adaptable tbody tr {
+    display: grid;
+    min-width: 0;
+    padding: 0.25rem 0.85rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.85rem;
+    background: #fff;
+  }
+  :is(#tabla-radicados, #tabla-usuarios, #tabla-catalogos, #tabla-terminos-legales).tabla-adaptable td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    padding: 0.7rem 0;
+    gap: 0.3rem;
+    text-align: left;
+  }
+  .tabla-adaptable td:last-child {
+    border-bottom: 0;
+  }
+  .tabla-adaptable .tarjeta-etiqueta {
+    display: block;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .tabla-adaptable .tarjeta-valor {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  #tabla-radicados .tarjeta-valor > small {
+    flex-basis: 100%;
+  }
+  .tabla-adaptable :is(button, select, .users-table-actions) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .tabla-adaptable .users-table-actions {
+    flex: 1 1 100%;
+  }
 }
 
 @media (max-width: 700px) {
@@ -2424,7 +2848,7 @@ button.dashboard-card {
 .modal-dialog {
   display: flex;
   flex-direction: column;
-  width: min(100%, 42rem);
+  width: min(100%, 54rem);
   max-height: 90vh;
   overflow: hidden;
   border: 1px solid #e2e8f0;
@@ -2733,4 +3157,22 @@ button.dashboard-card {
   .modal-dialog {
     animation: none;
   }
+}
+.radicar-campos {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.radicar-campos > legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

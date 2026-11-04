@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { solicitarApi, limpiarSesion, confirmarSesion } from "../servicios/api";
 
 // Este hook concentra la comprobación de sesión para todas las pantallas protegidas.
@@ -71,6 +71,17 @@ export function ProteccionSesion({
 }
 
 export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const botonMenu = useRef(null);
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(max-width: 767px)");
+    if (!media) return;
+    const cerrarAlCambiarAncho = () => setMenuAbierto(false);
+    media.addEventListener("change", cerrarAlCambiarAncho);
+    return () => media.removeEventListener("change", cerrarAlCambiarAncho);
+  }, []);
+
   async function cerrarSesion() {
     try {
       await solicitarApi("/api/auth/logout", { method: "POST" });
@@ -103,7 +114,32 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
           Sesión: <strong>{usuario.nombre}</strong>
         </span>
       </header>
-      <nav className="app-nav" aria-label="Navegación principal">
+      <nav
+        className="app-nav"
+        aria-label="Navegación principal"
+        onKeyDown={(evento) => {
+          if (evento.key === "Escape" && menuAbierto) {
+            evento.preventDefault();
+            setMenuAbierto(false);
+            botonMenu.current?.focus();
+          }
+        }}
+      >
+        <button
+          ref={botonMenu}
+          type="button"
+          className="app-nav-toggle"
+          aria-expanded={menuAbierto}
+          aria-controls="navegacion-enlaces"
+          onClick={() => setMenuAbierto((abierto) => !abierto)}
+        >
+          {menuAbierto ? "Cerrar menú" : "Abrir menú"}
+        </button>
+        <div
+          id="navegacion-enlaces"
+          className="app-nav-links"
+          data-abierto={menuAbierto}
+        >
         {usuario.rol !== "funcionario" && (
           <a
             aria-current={pantallaActual === "radicar" ? "page" : undefined}
@@ -137,8 +173,18 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
         <button type="button" onClick={cerrarSesion}>
           Cerrar sesión
         </button>
+        </div>
       </nav>
     </>
+  );
+}
+
+export function CeldaAdaptable({ etiqueta, children }) {
+  return (
+    <td role="cell">
+      <span className="tarjeta-etiqueta" aria-hidden="true">{etiqueta}</span>
+      <div className="tarjeta-valor">{children}</div>
+    </td>
   );
 }
 
