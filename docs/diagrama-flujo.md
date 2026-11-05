@@ -72,10 +72,19 @@ flowchart TD
         Q3 --> API
         Q2 --> Q4["Actualizar estado de radicado"]
         Q4 --> API
-        Q2 --> Q5["Enviar respuesta con contenido y anexos"]
+        Q2 --> Q5["Registrar respuesta institucional con contenido y anexos; no acredita entrega"]
         Q5 --> API
         Q2 --> Q6["Consultar respuesta y sus documentos"]
         Q6 --> API
+        Q6 --> E1["Respuesta externa individual: consultar seguimiento manual y evidencias"]
+        E1 --> API
+        E1 --> E2["Ventanilla o administrador registra envio, acreditacion o intento fallido"]
+        E2 --> E3["Acreditacion requiere PDF; hasta 5 de 10 MB"]
+        E3 --> API
+        E1 --> E4["Anular con motivo conserva historial y PDFs"]
+        E4 --> API
+        E3 --> E5["Acreditacion vigente bloquea nuevos registros hasta anular"]
+        E1 --> E6["Sin 025: modulo no activado; respuesta existente sigue consultable"]
         Q2 --> Q7["Consultar alertas por dependencia"]
         Q7 --> API
         Q2 --> Q8["Generar o ver comprobante PDF"]

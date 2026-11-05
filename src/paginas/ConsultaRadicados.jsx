@@ -9,6 +9,7 @@ import {
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
 import { BandejaTraslados, SolicitudTraslado } from "../componentes/Traslados";
+import { SeguimientoEntrega } from "../componentes/SeguimientoEntrega";
 import {
   obtenerFechaBogota,
   obtenerDiaRadicacion,
@@ -52,7 +53,7 @@ const ETIQUETAS_EVENTO = {
   radicado_asignado: "Asignado a dependencia",
   documentos_radicado_adjuntados: "Documentos originales adjuntados",
   estado_cambiado: "Cambio de estado",
-  respuesta_enviada: "Respuesta institucional enviada",
+  respuesta_enviada: "Respuesta institucional registrada",
   documentos_respuesta_adjuntados: "Documentos de respuesta adjuntados",
   termino_ampliado: "Término ampliado",
   regla_respuesta_aplicada: "Regla de respuesta aplicada",
@@ -60,6 +61,8 @@ const ETIQUETAS_EVENTO = {
   traslado_aprobado: "Traslado aprobado por Ventanilla",
   traslado_rechazado: "Traslado rechazado",
   traslado_cancelado: "Traslado cancelado por finalización",
+  entrega_registrada: "Envío/entrega registrado",
+  entrega_anulada: "Registro de entrega anulado",
 };
 const DESCRIPCIONES_EVENTO = {
   radicado_creado: "Se registró el ingreso del documento al sistema.",
@@ -67,7 +70,7 @@ const DESCRIPCIONES_EVENTO = {
   documentos_radicado_adjuntados:
     "Se incorporaron documentos originales al expediente.",
   estado_cambiado: "Se actualizó el estado del expediente.",
-  respuesta_enviada: "Se registró el envío de la respuesta institucional.",
+  respuesta_enviada: "Se registró la respuesta institucional; su entrega se acredita por separado.",
   documentos_respuesta_adjuntados:
     "Se incorporaron documentos de soporte de la respuesta.",
   termino_ampliado: "Se amplió la fecha límite de respuesta.",
@@ -77,6 +80,8 @@ const DESCRIPCIONES_EVENTO = {
   traslado_aprobado: "El control central cambió la dependencia responsable sin reiniciar plazos.",
   traslado_rechazado: "La dependencia de origen conserva la responsabilidad.",
   traslado_cancelado: "El expediente finalizó antes de resolver la solicitud.",
+  entrega_registrada: "Se registró una actuación manual de envío o entrega.",
+  entrega_anulada: "Se anuló una actuación; su evidencia se conserva.",
 };
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
@@ -194,6 +199,7 @@ function VistaConsultaRadicados({ usuario }) {
   const [archivosRespuesta, setArchivosRespuesta] = useState([]);
   const [errorArchivosRespuesta, setErrorArchivosRespuesta] = useState("");
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
+  const [guardandoEntrega, setGuardandoEntrega] = useState(false);
   const [mensajeRespuesta, setMensajeRespuesta] = useState("");
   const [respuestaConsultada, setRespuestaConsultada] = useState(null);
   const dialogoDetalle = useRef(null);
@@ -1697,6 +1703,7 @@ function VistaConsultaRadicados({ usuario }) {
                 className="modal-close"
                 aria-label="Cerrar"
                 onClick={cerrarRespuesta}
+                disabled={guardandoEntrega}
               >
                 ×
               </button>
@@ -1722,7 +1729,7 @@ function VistaConsultaRadicados({ usuario }) {
                       }
                     />
                     <CampoDetalle
-                      etiqueta="Fecha de envío"
+                      etiqueta="Fecha de registro de respuesta"
                       valor={convertirFechaLocal(
                         respuestaConsultada.fecha_envio,
                       )?.toLocaleString("es-CO")}
@@ -1784,11 +1791,17 @@ function VistaConsultaRadicados({ usuario }) {
                       <p>La respuesta no tiene PDF adjuntos.</p>
                     )}
                   </section>
+                  {String(respuestaConsultada.radicado.tipo_comunicacion).trim().toLowerCase() === "externa" &&
+                    !respuestaConsultada.radicado.destino_todas_dependencias &&
+                    <SeguimientoEntrega key={`${respuestaConsultada.id}:${usuario.id}`}
+                      radicado={respuestaConsultada.radicado} usuario={usuario}
+                      alProceso={(valor) => { respuestaEnProceso.current = valor; setGuardandoEntrega(valor); }}
+                      alPerderAcceso={retirarVistasSinAcceso} />}
                 </>
               )}
             </div>
             <div className="modal-footer">
-              <button type="button" onClick={cerrarRespuesta}>
+              <button type="button" onClick={cerrarRespuesta} disabled={guardandoEntrega}>
                 Cerrar
               </button>
             </div>

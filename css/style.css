@@ -2644,6 +2644,21 @@ button.dashboard-card {
   color: #334155;
   font-weight: 600;
 }
+.respuesta-dialog .entregas-panel :is(p, h4, a, button) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.respuesta-dialog .entregas-panel nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.respuesta-dialog .entregas-panel button {
+  min-height: 2.75rem;
+  white-space: normal;
+}
 .respuesta-dialog .detalle-asunto {
   border: 0;
   padding: 0;

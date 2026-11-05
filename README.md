@@ -45,6 +45,32 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
+## Envío y entrega manual de respuestas
+
+En Consulta → **Ver respuesta**, las respuestas externas individuales incluyen
+**Ver seguimiento de entrega**, con carga diferida, historial de 25 y evidencias.
+Solo Ventanilla/administrador registran o anulan; funcionarios con acceso actual
+consultan. Internos, globales y documentos sin respuesta no muestran el módulo.
+Requiere backend con **025** activada; **aplicada y verificada en desarrollo**
+con respaldo restaurado y ensayo local previo. Reiniciar el backend para cargar
+el código del módulo. Otras bases sin 025 muestran el error 503, sin impedir
+ver la respuesta.
+
+Se registra correo manual, presencial o mensajería, con destinatario/destino
+confirmados, fecha de actuación en Bogotá y resultado. Acreditar exige al menos
+un PDF; se permiten hasta 5 de 10 MB sin contraseña. Intento fallido exige
+observaciones. Una acreditación vigente bloquea nuevas actuaciones; anular con
+motivo conserva tarjeta y PDFs y permite corregir mediante otro registro.
+La fecha legada se rotula **Fecha de registro de respuesta**, no entrega.
+No se envían correos ni se determina notificación legal o cierre documental.
+
+Durante el envío se bloquean doble clic, edición y cierre del modal. Si el
+resultado es incierto, se conserva FormData/UUID/PDF para reintento exacto;
+al cerrar/recargar, consultar historial antes de registrar de nuevo.
+Las descargas usan el servicio autenticado, descartan resultados tardíos y
+liberan URLs blob al cerrar la vista. Se reutilizan los estilos adaptativos del
+modal y sus formularios, sin modificar globalmente otros diálogos.
+
 ## Traslados mediados por Ventanilla
 
 Requiere backend con la migracion **023** aplicada antes de iniciar esta version.

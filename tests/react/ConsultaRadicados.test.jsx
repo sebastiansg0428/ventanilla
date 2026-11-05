@@ -213,7 +213,7 @@ describe("consulta de radicados React", () => {
       name: "Respuesta institucional RAD-001",
     }).querySelector(".respuesta-numero").textContent).toBe("RAD-001");
     expect(within(modalRespuesta).getByText("Talento Humano")).toBeTruthy();
-    expect(within(modalRespuesta).getByText("Fecha de envío").closest(".modal-field").textContent).toContain("2026");
+    expect(within(modalRespuesta).getByText("Fecha de registro de respuesta").closest(".modal-field").textContent).toContain("2026");
     expect(within(modalRespuesta).getByRole("region", { name: "Resumen de la respuesta" })).toBeTruthy();
     expect(within(modalRespuesta).getByText("Sin plantilla").className).toContain("detalle-badge--plantilla");
     expect(within(modalRespuesta).getByRole("region", { name: "Contenido de la respuesta" }).textContent)
@@ -226,9 +226,41 @@ describe("consulta de radicados React", () => {
     expect(within(modalRespuesta).getByText("Respuesta oficial registrada")).toBeTruthy();
     expect(within(modalRespuesta).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
     expect(within(modalRespuesta).getAllByText("Respondida por")).toHaveLength(1);
+    expect(within(modalRespuesta).queryByRole("button", { name: "Ver seguimiento de entrega" }) !== null)
+      .toBe(tipo === "Externa");
     expect(solicitarApi).toHaveBeenCalledWith("/uploads/respuestas/archivo.pdf");
   });
 
+  it("bloquea cierre y Escape durante confirmacion de entrega sin afectar la respuesta", async () => {
+    registrosSimulados[0].estado = "Respondido";
+    const pendiente = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, o) => {
+      if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({ success: true, respuesta: {
+        id: 1, funcionario_nombre: "Actor ficticio", dependencia_responsable: "Oficina ficticia",
+        fecha_envio: "2026-01-05 10:00:00", contenido: "Respuesta ficticia.", documentos: [],
+      } }));
+      if (ruta.endsWith("/entregas") && o?.method === "POST") return pendiente.promise;
+      if (ruta.includes("/entregas?")) return Promise.resolve(respuestaJson({ success: true, resumen: "pendiente_de_envio",
+        registros: [], total: 0, pagina: 1, paginas: 0 }));
+      return base(ruta, o);
+    });
+    await abrirConsulta(); prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ver seguimiento de entrega" }));
+    const boton = await screen.findByRole("button", { name: "Confirmar envío/entrega" });
+    fireEvent.change(screen.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
+    fireEvent.change(screen.getByLabelText("Fecha y hora de actuación (Bogotá)"), { target: { value: "2026-01-05T10:00" } });
+    fireEvent.submit(boton.closest("form"));
+    const modal = document.querySelector(".respuesta-dialog");
+    expect(within(modal).getAllByRole("button", { name: "Cerrar" }).every(b => b.disabled)).toBe(true);
+    const cancel = new Event("cancel", { cancelable: true });
+    fireEvent(modal, cancel); expect(cancel.defaultPrevented).toBe(true);
+    expect(modal.hasAttribute("open")).toBe(true);
+    await act(async () => pendiente.reject(Object.assign(new Error("Destino inválido"), { status: 400 })));
+    expect(within(modal).getAllByRole("button", { name: "Cerrar" }).every(b => !b.disabled)).toBe(true);
+  });
   it.each(["Planeación", null])("consulta la respuesta global seleccionada y muestra dependencia %s", async (dependencia) => {
     const radicados = crearRadicados();
     Object.assign(radicados[0], { estado: "Respondido", destino_todas_dependencias: 1, radicado_dependencia_id: 301 });
@@ -307,7 +339,7 @@ describe("consulta de radicados React", () => {
     await screen.findByText("Traslado aprobado por Ventanilla");
     const cambio = screen.getByText("Reasignación:").closest("p");
     expect(cambio.textContent).toContain("Origen fixture → Destino fixture");
-    expect(screen.queryByText("Respuesta institucional enviada")).toBeNull();
+    expect(screen.queryByText("Respuesta institucional registrada")).toBeNull();
   });
 
   it("ofrece traslado solo al funcionario sobre individuales abiertos", async () => {
@@ -723,7 +755,7 @@ describe("consulta de radicados React", () => {
     expect(within(lista).getAllByRole("article")).toHaveLength(6);
     expect(within(lista).getAllByRole("heading", { level: 4 }).map(titulo => titulo.textContent))
       .toEqual(["Regla de respuesta aplicada", "Radicado recibido", "Asignado a dependencia",
-        "Documentos originales adjuntados", "Término ampliado", "Respuesta institucional enviada"]);
+        "Documentos originales adjuntados", "Término ampliado", "Respuesta institucional registrada"]);
     expect(lista.textContent).toContain("Se adjuntaron 2 documento(s) PDF");
     expect(lista.textContent).toContain("2026-10-28 → 2026-11-03");
     expect(lista.textContent).toContain("En trámite → Respondido");
