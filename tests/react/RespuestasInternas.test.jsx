@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { prepararEstilosDom } from "./helpers/estilos-dom.js";
 import { RespuestasInternas, TrazabilidadInterna } from "../../src/componentes/RespuestasInternas";
 import { solicitarApi } from "../../src/servicios/api";
 vi.mock("../../src/servicios/api", () => ({ solicitarApi: vi.fn() }));
@@ -12,18 +13,20 @@ const confirmada = { ...recepcion, primera_apertura_utc: "2026-11-05 15:10:00.00
 const json = datos => ({ json: async () => ({ success: true, ...datos }) });
 const lista = r => json({ registros: [r], pagina: 1, paginas: 1, total: 1,
   resumen: { total: 1, pendientes: r.primera_apertura_utc ? 0 : 1, leidas: r.primera_apertura_utc ? 1 : 0 } });
+beforeAll(prepararEstilosDom);
+
 function diferida() {
   let resolve;
   const promise = new Promise(ok => { resolve = ok; });
   return { promise, resolve };
 }
 async function abrirBandeja() {
-  fireEvent.click(screen.getByRole("button", { name: "Ver bandeja interna" }));
-  await screen.findByRole("button", { name: "Abrir respuesta interna INTERNO-FICTICIO" });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver bandeja interna" })));
+  expect(screen.getByRole("button", { name: "Abrir respuesta interna INTERNO-FICTICIO" })).toBeTruthy();
 }
 async function abrirDetalle() {
-  fireEvent.click(screen.getByRole("button", { name: "Abrir respuesta interna INTERNO-FICTICIO" }));
-  await screen.findByRole("article", { name: "Respuesta interna abierta" });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Abrir respuesta interna INTERNO-FICTICIO" })));
+  expect(screen.getByRole("article", { name: "Respuesta interna abierta" })).toBeTruthy();
 }
 beforeEach(() => {
   vi.resetAllMocks();

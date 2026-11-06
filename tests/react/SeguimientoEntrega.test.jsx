@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { prepararEstilosDom } from "./helpers/estilos-dom.js";
 import { SeguimientoEntrega } from "../../src/componentes/SeguimientoEntrega";
 import { solicitarApi } from "../../src/servicios/api";
 vi.mock("../../src/servicios/api", () => ({ solicitarApi: vi.fn() }));
@@ -13,20 +14,22 @@ const historial = (registros = [], cambios = {}) => json({ success: true, regist
   resumen: registros.length ? "entrega_acreditada" : "pendiente_de_envio", total: registros.length,
   pagina: 1, paginas: registros.length ? 1 : 0, ...cambios });
 const props = (rol = "ventanilla") => ({ radicado, usuario: { id: 1, rol }, alProceso: vi.fn(), alPerderAcceso: vi.fn(() => false) });
+beforeAll(prepararEstilosDom);
+
 function diferida() {
   let resolve; let reject;
   const promise = new Promise((ok, no) => { resolve = ok; reject = no; });
   return { promise, resolve, reject };
 }
 async function abrir() {
-  fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" }));
-  await screen.findByText(/Seguimiento:/);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" })));
+  expect(screen.getByText(/Seguimiento:/)).toBeTruthy();
 }
 function formulario() { return screen.getByRole("button", { name: /Confirmar envío\/entrega|Reintentar registro/ }).closest("form"); }
 async function completar() {
   solicitarApi.mockResolvedValueOnce(json({ success: true, documentos: [] }));
-  fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
-  await screen.findByText("La respuesta institucional no tiene PDF adjuntos.");
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" })));
+  expect(screen.getByText("La respuesta institucional no tiene PDF adjuntos.")).toBeTruthy();
 }
 beforeEach(() => {
   vi.resetAllMocks();
@@ -43,8 +46,8 @@ describe("seguimiento manual de entrega", () => {
     solicitarApi.mockImplementation((ruta, o) => o?.method === "POST" ? pendiente.promise
       : Promise.resolve(ruta.endsWith("/documentos-respuesta") ? json({ success: true, documentos: docs }) : historial()));
     render(<SeguimientoEntrega {...props()} />); await abrir();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
-    const primero = await screen.findByRole("checkbox", { name: /oficio-uno/ });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" })));
+    const primero = screen.getByRole("checkbox", { name: /oficio-uno/ });
     const segundo = screen.getByRole("checkbox", { name: /oficio-dos/ });
     expect(primero.checked).toBe(true); expect(segundo.checked).toBe(true);
     expect(screen.queryByLabelText("Fecha y hora de actuación (Bogotá)")).toBeNull();
@@ -64,12 +67,12 @@ describe("seguimiento manual de entrega", () => {
     solicitarApi.mockImplementation(ruta => ruta.endsWith("/documentos-respuesta")
       ? Promise.reject(new Error("PDF no disponible")) : Promise.resolve(historial()));
     render(<SeguimientoEntrega {...props()} />); await abrir();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" })));
     await screen.findByText("PDF no disponible");
     expect(screen.getByRole("button", { name: "Confirmar envío/entrega" }).disabled).toBe(true);
     expect(screen.queryByText("La respuesta institucional no tiene PDF adjuntos.")).toBeNull();
     solicitarApi.mockResolvedValue(json({ success: true, documentos: [] }));
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar documentos de respuesta" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reintentar documentos de respuesta" })));
     await screen.findByText("La respuesta institucional no tiene PDF adjuntos.");
     expect(screen.getByRole("button", { name: "Confirmar envío/entrega" }).disabled).toBe(false);
   });
@@ -79,8 +82,8 @@ describe("seguimiento manual de entrega", () => {
     solicitarApi.mockResolvedValue(json({ success: true, documentos: [
       { id: 8, nombre_archivo: "oficio-actualizado.pdf", tamano_bytes: 100, sha256: "c".repeat(64) },
     ] }));
-    fireEvent.click(screen.getByRole("button", { name: "Actualizar PDF de respuesta" }));
-    expect((await screen.findByRole("checkbox", { name: /oficio-actualizado/ })).checked).toBe(true);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar PDF de respuesta" })));
+    expect(screen.getByRole("checkbox", { name: /oficio-actualizado/ }).checked).toBe(true);
     expect(screen.getByLabelText("Destinatario").value).toBe("Persona de prueba");
   });
   it("sin 026 conserva historial pero bloquea nuevos registros", async () => {
@@ -143,7 +146,8 @@ describe("seguimiento manual de entrega", () => {
     const post = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST");
     expect(post[1].body.get("archivos").name).toBe("conservado.pdf");
     expect(post[1].body.get("resultado")).toBe("entrega_acreditada");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Registrar envío/entrega" }).disabled).toBe(true));
+    const registrar = screen.getByRole("button", { name: "Registrar envío/entrega" });
+    await waitFor(() => expect(registrar.isConnected && registrar.disabled).toBe(true));
   });
   it("carga solo al abrir; funcionario consulta sin registrar ni anular", async () => {
     solicitarApi.mockResolvedValue(historial([registro]));
@@ -205,7 +209,8 @@ describe("seguimiento manual de entrega", () => {
     fireEvent.submit(form);
     await screen.findByText("Registro de envío/entrega confirmado.");
     expect(screen.queryByRole("button", { name: "Confirmar envío/entrega" })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Envío y entrega de la respuesta" }));
+    const titulo = screen.getByRole("heading", { name: "Envío y entrega de la respuesta" });
+    await waitFor(() => expect(document.activeElement).toBe(titulo));
     const posts = solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST");
     expect(posts[1][1].body).toBe(datos);
     expect(p.alProceso).toHaveBeenLastCalledWith(false);
@@ -213,8 +218,8 @@ describe("seguimiento manual de entrega", () => {
   it("muestra 503 sin formulario; fallo definitivo permite corregir datos", async () => {
     solicitarApi.mockRejectedValueOnce(Object.assign(new Error("Falta migración 025"), { status: 503 }));
     render(<SeguimientoEntrega {...props()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("Falta migración 025");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" })));
+    expect(screen.getByRole("alert").textContent).toBe("Falta migración 025");
     expect(screen.queryByRole("button", { name: "Confirmar envío/entrega" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Actualizar entregas" }));
     await screen.findByText(/Seguimiento:/); await completar();
@@ -237,8 +242,8 @@ describe("seguimiento manual de entrega", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Confirmar anulación" }).closest("form"));
     await screen.findByText("Anulación confirmada. La evidencia se conserva.");
     await screen.findByRole("button", { name: "Registrar envío/entrega" });
-    expect(screen.getByText(/· Anulado/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Abrir evidencia: evidencia.pdf" })).toBeTruthy();
+    expect(await screen.findByText(/· Anulado/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Abrir evidencia: evidencia.pdf" })).toBeTruthy();
     const post = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST");
     expect(post[0]).toContain("/1/anulacion");
     expect(JSON.parse(post[1].body)).toEqual({ motivo: "Corrección ficticia documentada." });
@@ -257,23 +262,23 @@ describe("seguimiento manual de entrega", () => {
     solicitarApi.mockResolvedValue(historial([registro]));
     const vista = render(<SeguimientoEntrega {...props("funcionario")} />); await abrir();
     solicitarApi.mockResolvedValue({ blob: async () => new Blob(["fixture"], { type: "application/pdf" }) });
-    fireEvent.click(screen.getByRole("button", { name: "Abrir evidencia: evidencia.pdf" }));
-    expect((await screen.findByRole("link", { name: "evidencia.pdf" })).getAttribute("href")).toBe("blob:evidencia");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Abrir evidencia: evidencia.pdf" })));
+    expect(screen.getByRole("link", { name: "evidencia.pdf" }).getAttribute("href")).toBe("blob:evidencia");
     expect(solicitarApi.mock.calls.at(-1)[0]).toContain("/1/evidencias/1");
     vista.unmount(); expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:evidencia");
   });
   it("historial mal formado es error explicito, nunca ausencia de entregas", async () => {
     solicitarApi.mockResolvedValue(historial([{ ...registro, evidencias: null }]));
     render(<SeguimientoEntrega {...props()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("Historial de entrega inválido.");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver seguimiento de entrega" })));
+    expect(screen.getByRole("alert").textContent).toBe("Historial de entrega inválido.");
     expect(screen.queryByText("No hay registros de envío o entrega.")).toBeNull();
   });
   it("confirmacion incompleta no informa exito y conserva intento para replay", async () => {
     render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
     solicitarApi.mockResolvedValueOnce(json({ success: true, registro: { id: 1 } }));
-    fireEvent.submit(formulario());
-    expect((await screen.findByRole("alert")).textContent).toContain("Confirmación incompleta");
+    await act(async () => fireEvent.submit(formulario()));
+    expect(screen.getByRole("alert").textContent).toContain("Confirmación incompleta");
     expect(screen.queryByText("Registro de envío/entrega confirmado.")).toBeNull();
     expect(screen.getByRole("button", { name: "Reintentar registro" })).toBeTruthy();
   });

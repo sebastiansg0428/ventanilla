@@ -72,7 +72,7 @@ const DESCRIPCIONES_EVENTO = {
   documentos_radicado_adjuntados:
     "Se incorporaron documentos originales al expediente.",
   estado_cambiado: "Se actualizó el estado del expediente.",
-  respuesta_enviada: "Se registró la respuesta institucional; su entrega se acredita por separado.",
+  respuesta_enviada: "Se registró la respuesta institucional.",
   documentos_respuesta_adjuntados:
     "Se incorporaron documentos de soporte de la respuesta.",
   termino_ampliado: "Se amplió la fecha límite de respuesta.",
@@ -105,8 +105,42 @@ function presentarFechaEvento(evento) {
 }
 const nombreActor = (evento) =>
   evento.actor_name ||
-  evento.usuario ||
+  (evento.usuario
+    ? /^\d+$/.test(String(evento.usuario))
+      ? "Usuario histórico sin nombre registrado"
+      : `Referencia histórica: ${evento.usuario}`
+    : null) ||
   "No identificado en el registro histórico";
+const CONTEXTO_DEPENDENCIA = {
+  radicado_creado: "Dependencia destinataria",
+  radicado_asignado: "Dependencia destinataria",
+  documentos_radicado_adjuntados: "Dependencia destinataria",
+  estado_cambiado: "Dependencia atendida",
+  respuesta_enviada: "Dependencia atendida",
+  documentos_respuesta_adjuntados: "Dependencia atendida",
+  traslado_solicitado: "Oficina que solicita el traslado",
+  traslado_aprobado: "Oficina de origen del traslado",
+  traslado_rechazado: "Oficina de origen del traslado",
+  traslado_cancelado: "Oficina de origen del traslado",
+  respuesta_interna_abierta: "Dependencia de origen que abrió la respuesta",
+};
+function identidadActor(evento) {
+  if (Number.isSafeInteger(evento.actor_id) && evento.actor_id > 0) {
+    return `id:${evento.actor_id}:${evento.actor_name || ""}`;
+  }
+  if (evento.actor_id != null) return null;
+  return evento.actor_name ? `nombre:${evento.actor_name}` : evento.usuario
+    ? `historico:${evento.usuario}` : null;
+}
+function presentarMinutoEvento(evento) {
+  if (!evento.ocurrido_en_utc) return presentarFechaEvento(evento);
+  const fecha = new Date(`${String(evento.ocurrido_en_utc).replace(" ", "T")}Z`);
+  if (Number.isNaN(fecha.getTime())) return "Fecha UTC inválida";
+  return `${new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota", year: "numeric", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
+  }).format(fecha)} · Bogotá`;
+}
 const claseEstadoDetalle = (estado) =>
   normalizarTexto(estado || "Recibido").replace(/[^a-z0-9]+/g, "-");
 function minutoEvento(evento) {
@@ -116,17 +150,17 @@ function minutoEvento(evento) {
     ? `${evento.ocurrido_en_utc ? "utc" : "local"}:${String(valor).slice(0, 16)}`
     : null;
 }
-// Agrupa solo para presentación eventos consecutivos del mismo actor identificado en el mismo minuto.
+// La agrupación visual no demuestra una única operación ni simultaneidad exacta.
 function agruparEventos(eventos) {
   return eventos.reduce((grupos, evento) => {
     const anterior = grupos.at(-1)?.at(-1);
-    const actor = evento.actor_name || evento.usuario;
+    const actor = identidadActor(evento);
     const minuto = minutoEvento(evento);
     if (
       anterior &&
       actor &&
       minuto &&
-      (anterior.actor_name || anterior.usuario) === actor &&
+      identidadActor(anterior) === actor &&
       minutoEvento(anterior) === minuto
     ) {
       grupos.at(-1).push(evento);
@@ -206,8 +240,11 @@ function VistaConsultaRadicados({ usuario }) {
   const [mensajeRespuesta, setMensajeRespuesta] = useState("");
   const [respuestaConsultada, setRespuestaConsultada] = useState(null);
   const dialogoDetalle = useRef(null);
+  const tituloDetalle = useRef(null);
+  const botonDetalle = useRef(null);
   const dialogoComprobante = useRef(null);
   const dialogoRespuesta = useRef(null);
+  const tituloRespuesta = useRef(null);
   const entradaArchivosRespuesta = useRef(null);
   const solicitudDetalle = useRef(0);
   const solicitudHistorial = useRef(0);
@@ -246,6 +283,7 @@ function VistaConsultaRadicados({ usuario }) {
       hayMas: false,
     });
     if (dialogoDetalle.current?.open) dialogoDetalle.current.close();
+    if (botonDetalle.current?.isConnected) botonDetalle.current.focus();
   }
 
   function cerrarRespuesta() {
@@ -430,8 +468,10 @@ function VistaConsultaRadicados({ usuario }) {
       radicadoSeleccionado &&
       dialogoDetalle.current &&
       !dialogoDetalle.current.open
-    )
+    ) {
       dialogoDetalle.current.showModal();
+      tituloDetalle.current?.focus();
+    }
     if (!radicadoSeleccionado && dialogoDetalle.current?.open)
       dialogoDetalle.current.close();
   }, [radicadoSeleccionado]);
@@ -461,6 +501,10 @@ function VistaConsultaRadicados({ usuario }) {
     )
       dialogoRespuesta.current.close();
   }, [respuestaSeleccionada, respuestaConsultada]);
+
+  useEffect(() => {
+    if (respuestaConsultada) tituloRespuesta.current?.focus();
+  }, [respuestaSeleccionada, respuestaConsultada?.cargando]);
 
   useEffect(
     () => () => {
@@ -559,11 +603,15 @@ function VistaConsultaRadicados({ usuario }) {
             : fila,
         ),
       );
-      setMensajeRespuesta("Respuesta enviada y registrada.");
       setRevisionConsulta((valor) => valor + 1);
       setEnviandoRespuesta(false);
       respuestaEnProceso.current = false;
-      cerrarRespuesta();
+      consultarRespuesta({
+        ...respuestaSeleccionada,
+        estado: resultado.estado,
+        fecha_respuesta: resultado.fecha_respuesta,
+        semaforo: resultado.semaforo,
+      }, { guardada: true });
     } catch (error) {
       if (solicitud === solicitudRespuesta.current && retirarVistasSinAcceso(error)) return;
       if (solicitud === solicitudRespuesta.current)
@@ -574,12 +622,12 @@ function VistaConsultaRadicados({ usuario }) {
     }
   }
 
-  async function consultarRespuesta(radicado) {
+  async function consultarRespuesta(radicado, { guardada = false } = {}) {
     if (respuestaEnProceso.current) return;
     const solicitud = ++solicitudRespuesta.current;
     liberarUrlsRespuestaEnCarga();
     setRespuestaSeleccionada(null);
-    setRespuestaConsultada({ radicado, cargando: true, documentos: [] });
+    setRespuestaConsultada({ radicado, guardada, cargando: true, documentos: [] });
     const documentosCargados = [];
     let publicados = false;
     try {
@@ -607,6 +655,7 @@ function VistaConsultaRadicados({ usuario }) {
       setRespuestaConsultada({
         radicado,
         ...resultado.respuesta,
+        guardada,
         documentos,
         cargando: false,
       });
@@ -617,8 +666,15 @@ function VistaConsultaRadicados({ usuario }) {
     } catch (error) {
       if (solicitud !== solicitudRespuesta.current) return;
       if (retirarVistasSinAcceso(error)) return;
-      setRespuestaConsultada(null);
-      window.alert(`No se pudo consultar la respuesta. ${error.message}`);
+      if (guardada) {
+        setRespuestaConsultada({
+          radicado, guardada, cargando: false, documentos: [],
+          error: `No se pudo cargar la respuesta o sus documentos. ${error.message}`,
+        });
+      } else {
+        setRespuestaConsultada(null);
+        window.alert(`No se pudo consultar la respuesta. ${error.message}`);
+      }
     } finally {
       if (!publicados)
         documentosCargados.forEach((url) => {
@@ -1084,7 +1140,10 @@ function VistaConsultaRadicados({ usuario }) {
                         <button
                           className="ver-detalle"
                           type="button"
-                          onClick={() => abrirDetalle(radicado)}
+                          onClick={(evento) => {
+                            botonDetalle.current = evento.currentTarget;
+                            abrirDetalle(radicado);
+                          }}
                         >
                           {radicado.numero_radicado}
                         </button>
@@ -1342,6 +1401,7 @@ function VistaConsultaRadicados({ usuario }) {
       <dialog
         ref={dialogoDetalle}
         id="modal-detalle"
+        aria-labelledby="detalle-radicado-titulo"
         onClose={() => {
           if (!dialogoDetalle.current?.open) cerrarDetalle();
         }}
@@ -1353,12 +1413,13 @@ function VistaConsultaRadicados({ usuario }) {
         {radicadoSeleccionado && (
           <div className="modal-dialog">
             <div className="modal-header">
-              <h2>
+              <h2 id="detalle-radicado-titulo" ref={tituloDetalle} tabIndex={-1}>
                 Detalle del radicado: {radicadoSeleccionado.numero_radicado}
               </h2>
               <button
                 type="button"
                 className="modal-close"
+                aria-label="Cerrar detalle del radicado"
                 onClick={cerrarDetalle}
               >
                 ×
@@ -1376,6 +1437,18 @@ function VistaConsultaRadicados({ usuario }) {
                     {radicadoSeleccionado.estado || "Recibido"}
                   </span>
                 </CampoDetalle>
+                <CampoDetalle
+                  etiqueta={radicadoSeleccionado.destino_todas_dependencias
+                    ? "Destino compartido" : "Dependencia responsable actual"}
+                  valor={radicadoSeleccionado.destino_todas_dependencias
+                    ? "Todas las dependencias asignadas"
+                    : radicadoSeleccionado.dependencia_destino}
+                />
+                {radicadoSeleccionado.destino_todas_dependencias && (
+                  <CampoDetalle etiqueta="Seguimiento mostrado"
+                    valor={radicadoSeleccionado.seguimiento_dependencia_nombre ||
+                      "Cada dependencia tiene su propio estado y respuesta"} />
+                )}
                 <CampoDetalle etiqueta="Requisito de respuesta">
                   <span
                     className={`detalle-badge ${requiereRespuesta(radicadoSeleccionado) ? "detalle-badge--requiere" : "detalle-badge--no-requiere"}`}
@@ -1409,6 +1482,15 @@ function VistaConsultaRadicados({ usuario }) {
                     )?.toLocaleString("es-CO")}
                   />
                 )}
+              </section>
+              <section
+                className="detalle-seccion detalle-asunto-seccion"
+                aria-labelledby="detalle-asunto-titulo"
+              >
+                <h3 id="detalle-asunto-titulo">Asunto</h3>
+                <p className="detalle-asunto">
+                  {radicadoSeleccionado.asunto_documento || "Asunto no registrado."}
+                </p>
               </section>
               <section
                 className="detalle-seccion"
@@ -1467,10 +1549,8 @@ function VistaConsultaRadicados({ usuario }) {
               >
                 <h3 id="detalle-tramite-titulo">Trámite</h3>
                 <div className="detalle-grid">
-                  <CampoDetalle
-                    etiqueta="Dependencia destino"
-                    valor={radicadoSeleccionado.dependencia_destino}
-                  />
+                  <CampoDetalle etiqueta="Clase de comunicación"
+                    valor={radicadoSeleccionado.tipo_comunicacion} />
                   {radicadoSeleccionado.tipo_comunicacion === "Interna" && (
                     <CampoDetalle
                       etiqueta="Dependencia remitente"
@@ -1481,7 +1561,7 @@ function VistaConsultaRadicados({ usuario }) {
                     />
                   )}
                   <CampoDetalle
-                    etiqueta="Tipo de tramite"
+                    etiqueta="Tipo de trámite"
                     valor={radicadoSeleccionado.tipo_tramite}
                   />
                   <CampoDetalle
@@ -1491,18 +1571,8 @@ function VistaConsultaRadicados({ usuario }) {
                   />
                 </div>
               </section>
-              <section
-                className="detalle-seccion"
-                aria-labelledby="detalle-asunto-titulo"
-              >
-                <h3 id="detalle-asunto-titulo">Asunto</h3>
-                <p className="detalle-asunto">
-                  {radicadoSeleccionado.asunto_documento ||
-                    "Sin observaciones."}
-                </p>
-              </section>
-              <section className="detalle-seccion detalle-documentos">
-                <h3>Documentos adjuntos</h3>
+              <section className="detalle-seccion detalle-documentos" aria-labelledby="detalle-documentos-titulo">
+                <h3 id="detalle-documentos-titulo">Documentos adjuntos</h3>
                 <p role="status">{archivoAdjunto.estado}</p>
                 {archivoAdjunto.documentos.map((documento) => (
                   <p key={documento.id}>
@@ -1530,13 +1600,14 @@ function VistaConsultaRadicados({ usuario }) {
                   </>
                 )}
               </section>
-              <section aria-labelledby="historial-radicado-titulo">
+              <section className="detalle-seccion detalle-historial" aria-labelledby="historial-radicado-titulo">
                 <h3 id="historial-radicado-titulo">
-                  Trazabilidad del expediente
+                  Historial de actuaciones
                 </h3>
                 <p className="timeline-ayuda">
-                  Eventos cargados del más antiguo al más reciente. Las fechas
-                  nuevas se muestran en hora de Bogotá.
+                  Registros cargados en orden de registro, del más antiguo al más reciente.
+                  Las fechas nuevas se muestran en hora de Bogotá. Puedes cargar eventos
+                  anteriores si hay más historial.
                 </p>
                 {historial.error && <p role="alert">{historial.error}</p>}
                 {historial.cargando && historial.eventos.length === 0 && (
@@ -1554,15 +1625,6 @@ function VistaConsultaRadicados({ usuario }) {
                   >
                     {agruparEventos([...historial.eventos].reverse()).map(
                       (grupo) => {
-                        const fechaGrupo = presentarFechaEvento(grupo[0]);
-                        const dependenciaComun = grupo.every(
-                          (evento) =>
-                            evento.dependencia_nombre ===
-                            grupo[0].dependencia_nombre,
-                        );
-                        const dependenciaGrupo = grupo.find(
-                          (evento) => evento.dependencia_nombre,
-                        )?.dependencia_nombre;
                         return (
                           <li
                             key={grupo[0].id}
@@ -1572,23 +1634,17 @@ function VistaConsultaRadicados({ usuario }) {
                           >
                             <div className="timeline-cabecera">
                               <time className="timeline-fecha">
-                                {fechaGrupo}
+                                {presentarMinutoEvento(grupo[0])}
                               </time>
                               <p className="timeline-dato">
-                                <strong>Actor: </strong>
+                                <strong>Registrado por: </strong>
                                 {nombreActor(grupo[0])}
-                              </p>
-                              <p className="timeline-dato">
-                                <strong>Dependencia: </strong>
-                                {(dependenciaComun
-                                  ? grupo[0].dependencia_nombre
-                                  : dependenciaGrupo) ||
-                                  "No registrada en este evento"}
                               </p>
                               {grupo.length > 1 && (
                                 <p className="timeline-resumen-grupo">
-                                  {grupo.length} acciones registradas en el
-                                  mismo momento
+                                  {grupo.length} registros del mismo usuario en este minuto.
+                                  Cada evento conserva su hora; no son necesariamente acciones
+                                  manuales separadas.
                                 </p>
                               )}
                             </div>
@@ -1596,18 +1652,26 @@ function VistaConsultaRadicados({ usuario }) {
                               {grupo.map((evento) => (
                                 <li key={evento.id}>
                                   <article className="timeline-evento">
-                                    {presentarFechaEvento(evento) !==
-                                      fechaGrupo && (
-                                      <time className="timeline-fecha">
-                                        {presentarFechaEvento(evento)}
-                                      </time>
-                                    )}
                                     <h4>
                                       {ETIQUETAS_EVENTO[evento.event_type] ||
                                         (evento.campo_modificado === "estado"
                                           ? "Cambio de estado histórico"
                                           : "Evento histórico")}
                                     </h4>
+                                    <time className="timeline-fecha">
+                                      {presentarFechaEvento(evento)}
+                                    </time>
+                                    <p className="timeline-dato">
+                                      <strong>{CONTEXTO_DEPENDENCIA[evento.event_type] ||
+                                        "Dependencia asociada al evento"}: </strong>
+                                      {evento.dependencia_nombre || "No registrada en este evento"}
+                                    </p>
+                                    {evento.event_type === "regla_respuesta_aplicada" && (
+                                      <p className="timeline-automatico">
+                                        Registro automático: el sistema aplicó la regla del
+                                        trámite al guardar el radicado; no es una respuesta enviada.
+                                      </p>
+                                    )}
                                     <p className="timeline-descripcion">
                                       {evento.motivo ||
                                         DESCRIPCIONES_EVENTO[
@@ -1627,6 +1691,13 @@ function VistaConsultaRadicados({ usuario }) {
                                           {evento.valor_nuevo}
                                         </p>
                                       )}
+                                    {evento.event_type === "respuesta_enviada" &&
+                                      radicadoSeleccionado.tipo_comunicacion === "Externa" && (
+                                      <p className="timeline-aclaracion-evento">
+                                        Se guardó la respuesta institucional. Este evento no
+                                        acredita su envío ni su entrega al destinatario.
+                                      </p>
+                                    )}
                                     {evento.event_type ===
                                       "termino_ampliado" && (
                                       <p className="timeline-cambio">
@@ -1643,15 +1714,6 @@ function VistaConsultaRadicados({ usuario }) {
                                         {evento.valor_anterior} → {evento.valor_nuevo}
                                       </p>
                                     )}
-                                    {!dependenciaComun &&
-                                      evento.dependencia_nombre &&
-                                      evento.dependencia_nombre !==
-                                        dependenciaGrupo && (
-                                        <p className="timeline-dato">
-                                          <strong>Dependencia: </strong>
-                                          {evento.dependencia_nombre}
-                                        </p>
-                                      )}
                                   </article>
                                 </li>
                               ))}
@@ -1699,7 +1761,7 @@ function VistaConsultaRadicados({ usuario }) {
         {respuestaConsultada && (
           <div className="modal-dialog">
             <div className="modal-header">
-              <h2 id="respuesta-dialogo-titulo">
+              <h2 id="respuesta-dialogo-titulo" ref={tituloRespuesta} tabIndex={-1}>
                 Respuesta institucional{" "}
                 <span className="respuesta-numero">
                   {respuestaConsultada.radicado.numero_radicado}
@@ -1716,8 +1778,24 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
             </div>
             <div className="modal-content">
+              {respuestaConsultada.guardada && (
+                <p role="status">
+                  Respuesta guardada correctamente.
+                  {String(respuestaConsultada.radicado.tipo_comunicacion).trim().toLowerCase() === "externa" &&
+                    " Esto no acredita su envío ni su entrega al destinatario."}
+                </p>
+              )}
               {respuestaConsultada.cargando ? (
                 <p role="status">Cargando respuesta y documentos…</p>
+              ) : respuestaConsultada.error ? (
+                <div>
+                  <p role="alert">{respuestaConsultada.error}</p>
+                  <button type="button" onClick={() => consultarRespuesta(
+                    respuestaConsultada.radicado, { guardada: respuestaConsultada.guardada },
+                  )}>
+                    Reintentar consulta de respuesta
+                  </button>
+                </div>
               ) : (
                 <>
                   <section

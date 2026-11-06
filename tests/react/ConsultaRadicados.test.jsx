@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { prepararEstilosDom } from "./helpers/estilos-dom.js";
 import { PaginaConsultaRadicados } from "../../src/paginas/ConsultaRadicados.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
 import { crearPdfComprobante } from "../../src/servicios/comprobante.js";
@@ -21,6 +22,8 @@ const usuario = {
   dependencia_id: null,
 };
 let registrosSimulados;
+
+beforeAll(prepararEstilosDom);
 
 function crearRadicados() {
   const hoy = new Date().toISOString();
@@ -87,8 +90,8 @@ function paginaRadicados(radicados, ruta) {
 async function abrirConsulta() {
   const vista = render(<PaginaConsultaRadicados />);
   await screen.findByText("RAD-001", { selector: "button" });
-  await screen.findByText("RAD-002", { selector: "button" });
-  await screen.findByText("RAD-003", { selector: "button" });
+  screen.getByText("RAD-002", { selector: "button" });
+  screen.getByText("RAD-003", { selector: "button" });
   return vista;
 }
 
@@ -109,6 +112,15 @@ function diferida() {
   return { promise, resolve, reject };
 }
 
+async function abrirHistorial() {
+  await abrirConsulta();
+  prepararDialogos();
+  await act(async () => fireEvent.click(screen.getByText("RAD-001", { selector: "button" })));
+  return within(document.querySelector("#modal-detalle")).getByRole("list", {
+    name: "Línea de tiempo del radicado",
+  });
+}
+
 async function abrirRespuesta() {
   await abrirConsulta();
   const dialogo = document.querySelector(".respuesta-dialog");
@@ -118,7 +130,7 @@ async function abrirRespuesta() {
   });
   const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
   fireEvent.click(within(fila).getByRole("button", { name: "Responder" }));
-  return screen.findByLabelText(/Documentos de respuesta/);
+  return within(dialogo).getByLabelText(/Documentos de respuesta/);
 }
 
 function crearPdf(nombre, tamano) {
@@ -216,15 +228,16 @@ describe("consulta de radicados React", () => {
     expect(within(modalRespuesta).getByText("Fecha de registro de respuesta").closest(".modal-field").textContent).toContain("2026");
     expect(within(modalRespuesta).getByRole("region", { name: "Resumen de la respuesta" })).toBeTruthy();
     expect(within(modalRespuesta).getByText("Sin plantilla").className).toContain("detalle-badge--plantilla");
-    expect(within(modalRespuesta).getByRole("region", { name: "Contenido de la respuesta" }).textContent)
+    const contenido = within(modalRespuesta).getByRole("region", { name: "Contenido de la respuesta" });
+    const documentos = within(modalRespuesta).getByRole("region", { name: "Documentos adjuntos" });
+    expect(contenido.textContent)
       .toContain("Respuesta oficial registrada");
-    expect(within(modalRespuesta).getByRole("region", { name: "Documentos adjuntos" }).textContent).toContain("0.0 MB");
-    for (const nombre of ["Contenido de la respuesta", "Documentos adjuntos"]) {
-      expect(within(modalRespuesta).getByRole("region", { name: nombre }).className)
-        .toContain("respuesta-grupo");
+    expect(documentos.textContent).toContain("0.0 MB");
+    for (const seccion of [contenido, documentos]) {
+      expect(seccion.className).toContain("respuesta-grupo");
     }
     expect(within(modalRespuesta).getByText("Respuesta oficial registrada")).toBeTruthy();
-    expect(within(modalRespuesta).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
+    expect(within(documentos).getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:respuesta");
     expect(within(modalRespuesta).getAllByText("Respondida por")).toHaveLength(1);
     expect(within(modalRespuesta).queryByRole("button", { name: "Ver seguimiento de entrega" }) !== null)
       .toBe(tipo === "Externa");
@@ -249,19 +262,22 @@ describe("consulta de radicados React", () => {
     await abrirConsulta(); prepararDialogos();
     const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
     fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Ver seguimiento de entrega" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Registrar envío/entrega" }));
-    const boton = await screen.findByRole("button", { name: "Confirmar envío/entrega" });
-    fireEvent.change(screen.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
-    await screen.findByText("La respuesta institucional no tiene PDF adjuntos.");
-    fireEvent.submit(boton.closest("form"));
     const modal = document.querySelector(".respuesta-dialog");
-    expect(within(modal).getAllByRole("button", { name: "Cerrar" }).every(b => b.disabled)).toBe(true);
+    const consulta = within(modal);
+    await consulta.findByText("Respuesta ficticia.");
+    await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Ver seguimiento de entrega" })));
+    await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Registrar envío/entrega" })));
+    const boton = consulta.getByRole("button", { name: "Confirmar envío/entrega" });
+    fireEvent.change(consulta.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
+    expect(consulta.getByText("La respuesta institucional no tiene PDF adjuntos.")).toBeTruthy();
+    fireEvent.submit(boton.closest("form"));
+    const botonesCerrar = consulta.getAllByRole("button", { name: "Cerrar" });
+    expect(botonesCerrar.every(b => b.disabled)).toBe(true);
     const cancel = new Event("cancel", { cancelable: true });
     fireEvent(modal, cancel); expect(cancel.defaultPrevented).toBe(true);
     expect(modal.hasAttribute("open")).toBe(true);
     await act(async () => pendiente.reject(Object.assign(new Error("Destino inválido"), { status: 400 })));
-    expect(within(modal).getAllByRole("button", { name: "Cerrar" }).every(b => !b.disabled)).toBe(true);
+    expect(botonesCerrar.every(b => b.isConnected && !b.disabled)).toBe(true);
   });
   it.each(["Planeación", null])("consulta la respuesta global seleccionada y muestra dependencia %s", async (dependencia) => {
     const radicados = crearRadicados();
@@ -518,114 +534,125 @@ describe("consulta de radicados React", () => {
   it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
 
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
 
-    const alerta = screen.getByRole("alert");
+    const alerta = consulta.getByRole("alert");
     expect(alerta.textContent).toContain("excedido.pdf");
     expect(alerta.textContent).toContain("10485761 bytes");
     expect(alerta.textContent).toContain("10 MB");
     expect(alerta.closest(".modal-content")).toBeNull();
     expect(selector.getAttribute("aria-invalid")).toBe("true");
     expect(selector.getAttribute("aria-describedby")).toContain(alerta.id);
-    expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
+    expect(consulta.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
   });
 
   it("conserva y envía los PDFs anteriores al rechazar una selección nueva", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
     const valido = crearPdf("anterior.pdf", 32);
-    await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
+    await user.selectOptions(consulta.getByLabelText("Plantilla institucional"), "general");
     await user.upload(selector, valido);
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
 
-    expect(screen.getByRole("alert").textContent).toContain("Se conservan");
-    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getByText(/anterior.pdf/)).toBeTruthy();
-    expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
-    expect(screen.getByLabelText(/Contenido de la respuesta/).value).toContain("En atención");
-    expect(screen.getByRole("region", { name: "Radicado a responder" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Redacción" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Adjuntos de la respuesta" })).toBeTruthy();
+    expect(consulta.getByRole("alert").textContent).toContain("Se conservan");
+    expect(within(consulta.getByRole("list", { name: "Archivos seleccionados" })).getByText(/anterior.pdf/)).toBeTruthy();
+    expect(consulta.getByLabelText("Plantilla institucional").value).toBe("general");
+    expect(consulta.getByLabelText(/Contenido de la respuesta/).value).toContain("En atención");
+    expect(consulta.getByRole("region", { name: "Radicado a responder" })).toBeTruthy();
+    expect(consulta.getByRole("region", { name: "Redacción" })).toBeTruthy();
+    expect(consulta.getByRole("region", { name: "Adjuntos de la respuesta" })).toBeTruthy();
     const contador = document.getElementById("contador-respuesta");
-    expect(contador.textContent).toContain(`${screen.getByLabelText(/Contenido de la respuesta/).value.length} / 10.000`);
-    expect(screen.getByLabelText(/Contenido de la respuesta/).getAttribute("aria-describedby")).toBe("contador-respuesta");
+    expect(contador.textContent).toContain(`${consulta.getByLabelText(/Contenido de la respuesta/).value.length} / 10.000`);
+    expect(consulta.getByLabelText(/Contenido de la respuesta/).getAttribute("aria-describedby")).toBe("contador-respuesta");
 
     const original = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
       if (opciones.method === "POST") {
         return { ok: true, json: async () => ({ success: true, estado: "Respondido" }) };
       }
+      if (ruta.endsWith("/respuesta")) return respuestaJson({
+        respuesta: { contenido: "Respuesta guardada", documentos: [] },
+      });
       return original(ruta, opciones);
     });
-    await user.click(screen.getByRole("button", { name: "Enviar respuesta" }));
+    await user.click(consulta.getByRole("button", { name: "Enviar respuesta" }));
 
     const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
     expect(envio[1].body.getAll("archivos")).toEqual([valido]);
-    await waitFor(() => expect(screen.queryByLabelText(/Documentos de respuesta/)).toBeNull());
+    await waitFor(() => expect(consulta.queryByLabelText(/Documentos de respuesta/)).toBeNull());
   });
 
   it("acepta exactamente 10 MB y limpia el error al reemplazar la selección", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
     await user.upload(selector, crearPdf("excedido.pdf", 10 * 1024 * 1024 + 1));
     await user.upload(selector, crearPdf("limite.pdf", 10 * 1024 * 1024));
 
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(consulta.queryByRole("alert")).toBeNull();
     expect(selector.getAttribute("aria-invalid")).toBe("false");
-    expect(screen.getByText(/limite.pdf/)).toBeTruthy();
+    expect(consulta.getByText(/limite.pdf/)).toBeTruthy();
   });
 
   it("rechaza más de cinco PDFs y extensiones inválidas sin borrar los anteriores", async () => {
     const user = userEvent.setup({ applyAccept: false, delay: null });
     const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
     await user.upload(selector, crearPdf("anterior.pdf", 32));
     await user.upload(selector, Array.from({ length: 6 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
-    expect(screen.getByRole("alert").textContent).toContain("máximo 5");
+    expect(consulta.getByRole("alert").textContent).toContain("máximo 5");
     await user.upload(selector, new File(["texto"], "invalido.txt", { type: "text/plain" }));
-    expect(screen.getByRole("alert").textContent).toContain("invalido.txt");
-    expect(screen.getByText(/anterior.pdf/)).toBeTruthy();
+    expect(consulta.getByRole("alert").textContent).toContain("invalido.txt");
+    expect(consulta.getByText(/anterior.pdf/)).toBeTruthy();
     fireEvent.change(selector, { target: { files: [] } });
-    expect(screen.getByText(/anterior.pdf/)).toBeTruthy();
+    expect(consulta.getByText(/anterior.pdf/)).toBeTruthy();
   });
 
   it("admite cinco PDFs, rechaza archivos vacíos y reinicia los adjuntos al reabrir", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
+    const dialogo = selector.closest("dialog");
+    const consulta = within(dialogo);
     await user.upload(selector, Array.from({ length: 5 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
-    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(consulta.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
     await user.upload(selector, crearPdf("vacio.pdf", 0));
-    expect(screen.getByRole("alert").textContent).toContain("está vacío");
-    expect(within(screen.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
+    expect(consulta.getByRole("alert").textContent).toContain("está vacío");
+    expect(within(consulta.getByRole("list", { name: "Archivos seleccionados" })).getAllByRole("listitem")).toHaveLength(5);
 
-    const dialogo = document.querySelector(".respuesta-dialog");
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await user.click(consulta.getByRole("button", { name: "Cancelar" }));
     fireEvent(dialogo, new Event("close"));
-    await waitFor(() => expect(screen.queryByLabelText(/Documentos de respuesta/)).toBeNull());
-    await user.click(screen.getAllByRole("button", { name: "Responder" })[0]);
-    await screen.findByLabelText(/Documentos de respuesta/);
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
+    await waitFor(() => expect(consulta.queryByLabelText(/Documentos de respuesta/)).toBeNull());
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    await user.click(within(fila).getByRole("button", { name: "Responder" }));
+    consulta.getByLabelText(/Documentos de respuesta/);
+    expect(consulta.queryByRole("alert")).toBeNull();
+    expect(consulta.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
   });
 
   it("comparte encabezado accesible y tarjetas en Responder con nombres PDF largos", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
     const modal = screen.getByRole("dialog", { name: "Respuesta institucional RAD-001" });
-    expect(within(modal).getByRole("heading", { name: "Respuesta institucional RAD-001" })
+    const consulta = within(modal);
+    expect(consulta.getByRole("heading", { name: "Respuesta institucional RAD-001" })
       .querySelector(".respuesta-numero").textContent).toBe("RAD-001");
-    const enviar = within(modal).getByRole("button", { name: "Enviar respuesta" });
+    const pie = within(modal.querySelector(".modal-footer"));
+    const enviar = pie.getByRole("button", { name: "Enviar respuesta" });
     expect(enviar.className).toBe("respuesta-enviar");
     expect(enviar.disabled).toBe(true);
     for (const nombre of ["Redacción", "Adjuntos de la respuesta"]) {
-      expect(within(modal).getByRole("region", { name: nombre }).className).toContain("respuesta-grupo");
+      expect(consulta.getByRole("region", { name: nombre }).className).toContain("respuesta-grupo");
     }
     const nombreLargo = `${"documento-institucional-".repeat(12)}.pdf`;
     await user.upload(selector, crearPdf(nombreLargo, 1024));
-    const nombre = within(modal).getByText(nombreLargo);
+    const nombre = consulta.getByText(nombreLargo);
     expect(nombre.className).toBe("detalle-archivo-nombre");
     expect(nombre.closest("li").querySelector(".detalle-archivo-tamano").textContent).toBe("0.0 MB");
-    expect(within(modal).getByRole("button", { name: "Cancelar" }).className).not.toContain("respuesta-enviar");
-    await user.selectOptions(within(modal).getByLabelText("Plantilla institucional"), "general");
+    expect(pie.getByRole("button", { name: "Cancelar" }).className).not.toContain("respuesta-enviar");
+    await user.selectOptions(consulta.getByLabelText("Plantilla institucional"), "general");
     expect(enviar.disabled).toBe(false);
   });
 
@@ -638,21 +665,22 @@ describe("consulta de radicados React", () => {
   ])("mantiene visible el rechazo del servidor: $errorServidor", async ({ errorServidor, conAdjunto }) => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
     const adjuntos = conAdjunto ? [crearPdf("protegido.pdf", 32)] : [];
     if (conAdjunto) await user.upload(selector, adjuntos);
-    await user.selectOptions(screen.getByLabelText("Plantilla institucional"), "general");
+    await user.selectOptions(consulta.getByLabelText("Plantilla institucional"), "general");
     const original = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
       if (opciones.method === "POST") throw new Error(errorServidor);
       return original(ruta, opciones);
     });
-    await user.click(screen.getByRole("button", { name: "Enviar respuesta" }));
-    const mensaje = await screen.findByText(errorServidor);
+    await user.click(consulta.getByRole("button", { name: "Enviar respuesta" }));
+    const mensaje = await consulta.findByText(errorServidor);
     expect(mensaje.closest(".modal-content")).toBeNull();
     const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
     expect(envio[1].body.getAll("archivos")).toEqual(adjuntos);
-    expect(screen.getByLabelText("Plantilla institucional").value).toBe("general");
-    if (conAdjunto) expect(screen.getByText(/protegido.pdf/)).toBeTruthy();
+    expect(consulta.getByLabelText("Plantilla institucional").value).toBe("general");
+    if (conAdjunto) expect(consulta.getByText(/protegido.pdf/)).toBeTruthy();
   });
 
   it("descarta metadatos tardios al cambiar de radicado y al cerrar el detalle", async () => {
@@ -712,16 +740,12 @@ describe("consulta de radicados React", () => {
         }));
       return base(ruta, opciones);
     });
-    await abrirConsulta();
-    prepararDialogos();
-    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
-    fireEvent.click(within(fila).getByText("RAD-001", { selector: "button" }));
+    const timeline = await abrirHistorial();
     const modal = document.querySelector("#modal-detalle");
-    const timeline = await within(modal).findByRole("list", { name: "Línea de tiempo del radicado" });
     expect(within(timeline).getByText("Cambio de estado")).toBeTruthy();
     expect(within(timeline).getByText("Recibido → En trámite")).toBeTruthy();
-    expect(within(timeline).getByText("María").textContent).toBe("Actor: María");
-    expect(within(timeline).getByText("Planeación").textContent).toBe("Dependencia: Planeación");
+    expect(within(timeline).getByText("María").textContent).toBe("Registrado por: María");
+    expect(within(timeline).getByText("Planeación").textContent).toBe("Dependencia atendida: Planeación");
     expect(within(timeline).getByRole("heading", { name: "Cambio de estado", level: 4 })).toBeTruthy();
     expect(within(timeline).getByText("Se actualizó el estado del expediente.")).toBeTruthy();
     expect(timeline.textContent).toContain("25/10/2026");
@@ -730,7 +754,7 @@ describe("consulta de radicados React", () => {
     expect(timeline.textContent).not.toContain("secreto");
     await userEvent.click(within(modal).getByRole("button", { name: "Cargar eventos anteriores" }));
     expect(await within(timeline).findByText("Asignado a dependencia")).toBeTruthy();
-    expect(within(timeline).getByText("Hacienda").textContent).toBe("Dependencia: Hacienda");
+    expect(within(timeline).getByText("Hacienda").textContent).toBe("Dependencia destinataria: Hacienda");
     expect(timeline.querySelector("li").textContent).toContain("Asignado a dependencia");
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/historial?limite=25&cursor=8");
   });
@@ -757,10 +781,7 @@ describe("consulta de radicados React", () => {
       if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
       return base(ruta, opciones);
     });
-    await abrirConsulta();
-    prepararDialogos();
-    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
-    const lista = await screen.findByRole("list", { name: "Línea de tiempo del radicado" });
+    const lista = await abrirHistorial();
     expect(within(lista).getAllByRole("article")).toHaveLength(6);
     expect(within(lista).getAllByRole("heading", { level: 4 }).map(titulo => titulo.textContent))
       .toEqual(["Regla de respuesta aplicada", "Radicado recibido", "Asignado a dependencia",
@@ -768,8 +789,11 @@ describe("consulta de radicados React", () => {
     expect(lista.textContent).toContain("Se adjuntaron 2 documento(s) PDF");
     expect(lista.textContent).toContain("2026-10-28 → 2026-11-03");
     expect(lista.textContent).toContain("En trámite → Respondido");
+    expect(lista.textContent).toContain("Este evento no acredita su envío ni su entrega");
     expect(lista.textContent).not.toContain('{"requiere_respuesta"');
     expect(screen.getByText(/Las fechas nuevas se muestran en hora de Bogotá/)).toBeTruthy();
+    expect(screen.queryByText(/Cómo leer este historial/)).toBeNull();
+    expect(document.querySelector("#modal-detalle .timeline-aclaracion")).toBeNull();
   });
 
   it("conserva eventos históricos y desconocidos sin inventar actor, dependencia ni zona horaria", async () => {
@@ -785,10 +809,7 @@ describe("consulta de radicados React", () => {
       if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
       return base(ruta, opciones);
     });
-    await abrirConsulta();
-    prepararDialogos();
-    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
-    const lista = await screen.findByRole("list", { name: "Línea de tiempo del radicado" });
+    const lista = await abrirHistorial();
     expect(lista.textContent).toContain("zona horaria histórica no confirmada");
     expect(lista.textContent).toContain("Fecha histórica no disponible");
     expect(lista.textContent).toContain("Fecha UTC inválida");
@@ -798,7 +819,7 @@ describe("consulta de radicados React", () => {
     expect(within(lista).getByRole("heading", { name: "Cambio de estado histórico" })).toBeTruthy();
   });
 
-  it("agrupa acciones simultáneas del mismo actor y organiza el detalle en secciones", async () => {
+  it("agrupa registros por minuto sin atribuir la oficina del destino al usuario", async () => {
     const eventos = [
       { id: 1, event_type: "regla_respuesta_aplicada", actor_name: "Karime",
         ocurrido_en_utc: "2026-11-03 15:44:59.000000" },
@@ -821,20 +842,23 @@ describe("consulta de radicados React", () => {
       if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
       return base(ruta, opciones);
     });
-    await abrirConsulta();
-    prepararDialogos();
-    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const lista = await abrirHistorial();
     const modal = document.querySelector("#modal-detalle");
-    const lista = await within(modal).findByRole("list", { name: "Línea de tiempo del radicado" });
     const grupos = lista.querySelectorAll(":scope > li");
     expect(grupos).toHaveLength(3);
     expect(grupos[0].classList.contains("timeline-grupo")).toBe(true);
     expect(grupos[0].querySelectorAll("article")).toHaveLength(3);
-    expect(grupos[0].textContent).toContain("3 acciones registradas en el mismo momento");
-    expect(within(grupos[0]).getAllByText(/^Actor:/)).toHaveLength(1);
-    expect(within(grupos[0]).getByText("Planeación").textContent).toBe("Dependencia: Planeación");
+    expect(grupos[0].textContent).toContain("3 registros del mismo usuario en este minuto");
+    expect(within(grupos[0]).getAllByText(/^Registrado por:/)).toHaveLength(1);
+    expect(within(grupos[0]).getAllByText("Planeación").every(p =>
+      p.textContent === "Dependencia destinataria: Planeación")).toBe(true);
     expect(grupos[1].querySelectorAll("article")).toHaveLength(1);
-    expect(grupos[2].textContent).toContain("Dependencia: Hacienda");
+    expect(grupos[2].textContent).toContain("Dependencia atendida: Hacienda");
+    const regla = within(grupos[0]).getByRole("heading", { name: "Regla de respuesta aplicada" }).closest("article");
+    expect(regla.textContent).toContain("No registrada en este evento");
+    expect(regla.textContent).not.toContain("Planeación");
+    expect(regla.textContent).toContain("Registro automático");
+    expect(within(grupos[0]).getAllByRole("article").every(a => a.querySelector("time"))).toBe(true);
 
     const resumen = within(modal).getByRole("region", { name: "Resumen del radicado" });
     const estado = within(resumen).getByText("En trámite");
@@ -843,6 +867,78 @@ describe("consulta de radicados React", () => {
     expect(within(modal).getByRole("region", { name: "Remitente" })).toBeTruthy();
     expect(within(modal).getByRole("region", { name: "Trámite" })).toBeTruthy();
     expect(within(modal).getByRole("region", { name: "Asunto" }).textContent).toContain("Línea 1\nLínea 2");
+  });
+
+  it("no une usuarios distintos con el mismo nombre ni mezcla fechas UTC con históricas", async () => {
+    const eventos = [
+      { id: 1, actor_id: 7, actor_name: "Usuario ficticio", event_type: "radicado_creado",
+        dependencia_nombre: "Planeación" },
+      { id: 2, actor_id: 8, actor_name: "Usuario ficticio", event_type: "radicado_asignado",
+        dependencia_nombre: "Hacienda" },
+      { id: 3, actor_id: 8, actor_name: "Usuario ficticio", event_type: "radicado_asignado",
+        dependencia_nombre: "Gobierno" },
+      { id: 4, actor_id: 8, actor_name: "Usuario ficticio", event_type: "tipo_futuro",
+        ocurrido_en_utc: null, creado_en: "2026-11-03 15:44:20" },
+      { id: 5, usuario: "42", event_type: "tipo_futuro" },
+    ].map(e => ({ ocurrido_en_utc: "2026-11-03 15:44:10.000000", ...e }));
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.includes("/historial?")
+      ? Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }))
+      : base(ruta, opciones));
+    const lista = await abrirHistorial();
+    expect(lista.children).toHaveLength(4);
+    expect(within(lista.children[1]).getAllByRole("article")).toHaveLength(2);
+    expect(lista.children[1].textContent).toContain("Dependencia destinataria: Hacienda");
+    expect(lista.children[1].textContent).toContain("Dependencia destinataria: Gobierno");
+    expect(lista.children[2].textContent).toContain("zona horaria histórica no confirmada");
+    expect(lista.children[3].textContent).toContain("Usuario histórico sin nombre registrado");
+    expect(lista.children[3].textContent).not.toContain("Registrado por: 42");
+  });
+
+  it("describe la oficina de traslados y apertura interna por evento y distingue el destino global", async () => {
+    Object.assign(registrosSimulados[0], { destino_todas_dependencias: 1, dependencia_destino: "Planeación" });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.includes("/historial?")
+      ? Promise.resolve(respuestaJson({ historial: [
+        { id: 2, event_type: "respuesta_interna_abierta", actor_id: 7, actor_name: "Usuario ficticio",
+          dependencia_nombre: "Origen ficticio", ocurrido_en_utc: "2026-11-03 15:44:20.000000" },
+        { id: 1, event_type: "traslado_aprobado", actor_id: 7, actor_name: "Usuario ficticio",
+          dependencia_nombre: "Oficina anterior", ocurrido_en_utc: "2026-11-03 15:44:10.000000",
+          valor_anterior: "Oficina anterior", valor_nuevo: "Oficina nueva" },
+      ], has_more: false })) : base(ruta, opciones));
+    const lista = await abrirHistorial();
+    expect(lista.textContent).toContain("Oficina de origen del traslado: Oficina anterior");
+    expect(lista.textContent).toContain("Dependencia de origen que abrió la respuesta: Origen ficticio");
+    const resumen = screen.getByRole("region", { name: "Resumen del radicado" });
+    expect(resumen.textContent).toContain("Destino compartido");
+    expect(resumen.textContent).toContain("Cada dependencia tiene su propio estado y respuesta");
+    expect(resumen.textContent).not.toContain("Dependencia responsable actual");
+  });
+
+  it("no presenta la advertencia de entrega externa como requisito de una respuesta interna", async () => {
+    registrosSimulados[0].tipo_comunicacion = "Interna";
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.includes("/historial?")
+      ? Promise.resolve(respuestaJson({ historial: [{ id: 1, event_type: "respuesta_enviada",
+        actor_id: 7, actor_name: "Usuario ficticio", ocurrido_en_utc: "2026-11-03 15:44:10.000000" }],
+        has_more: false })) : base(ruta, opciones));
+    const lista = await abrirHistorial();
+    expect(lista.textContent).toContain("Se registró la respuesta institucional.");
+    expect(lista.textContent).not.toContain("acredita su envío");
+    expect(lista.textContent).not.toContain("se acredita por separado");
+  });
+
+  it.each(["botón", "Escape"])("nombra el diálogo y restaura el foco al cerrar con %s", async (cierre) => {
+    await abrirConsulta();
+    prepararDialogos();
+    const boton = screen.getByText("RAD-001", { selector: "button" });
+    fireEvent.click(boton);
+    const modal = screen.getByRole("dialog", { name: "Detalle del radicado: RAD-001" });
+    expect(document.activeElement).toBe(within(modal).getByRole("heading", { level: 2 }));
+    if (cierre === "botón") fireEvent.click(within(modal).getByRole("button", { name: "Cerrar detalle del radicado" }));
+    else fireEvent(modal, new Event("cancel", { cancelable: true }));
+    expect(modal.open).toBe(false);
+    expect(document.activeElement).toBe(boton);
   });
 
   it("solo presenta el ultimo PDF solicitado y libera las vistas previas al cerrar", async () => {
@@ -967,15 +1063,16 @@ describe("consulta de radicados React", () => {
     const vista = await abrirConsulta();
     prepararDialogos();
     const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
-    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    await act(async () => fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" })));
+    const consulta = within(document.querySelector(".respuesta-dialog"));
     if (estado === "publicada") {
       await act(async () => descarga.resolve({ blob: async () => new Blob(["PDF"]) }));
       expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-      expect(screen.getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:publicado");
+      expect(consulta.getByRole("link", { name: "respuesta.pdf" }).getAttribute("href")).toBe("blob:publicado");
       vista.unmount();
       expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:publicado");
     } else {
-      await waitFor(() => expect(solicitarApi).toHaveBeenCalledWith("/uploads/respuesta.pdf"));
+      expect(solicitarApi).toHaveBeenCalledWith("/uploads/respuesta.pdf");
       vista.unmount();
       await act(async () => descarga.resolve({ blob: async () => new Blob(["tardio"]) }));
       expect(URL.createObjectURL).not.toHaveBeenCalled();
@@ -993,6 +1090,8 @@ describe("consulta de radicados React", () => {
     await abrirRespuesta();
     prepararDialogos();
     const modal = document.querySelector(".respuesta-dialog");
+    const cerrar = within(modal.querySelector(".modal-header")).getByRole("button", { name: "Cerrar" });
+    const cancelar = within(modal.querySelector(".modal-footer")).getByRole("button", { name: "Cancelar" });
     const plantilla = within(modal).getByLabelText("Plantilla institucional");
     fireEvent.change(plantilla, { target: { value: "general" } });
     const contenido = within(modal).getByLabelText("Contenido de la respuesta *");
@@ -1004,8 +1103,8 @@ describe("consulta de radicados React", () => {
     fireEvent.submit(formulario);
     const posts = () => solicitarApi.mock.calls.filter(([, opciones]) => opciones?.method === "POST");
     expect(posts()).toHaveLength(1);
-    expect(within(modal).getByRole("button", { name: "Cerrar" }).disabled).toBe(true);
-    expect(within(modal).getByRole("button", { name: "Cancelar" }).disabled).toBe(true);
+    expect(cerrar.disabled).toBe(true);
+    expect(cancelar.disabled).toBe(true);
     expect(plantilla.disabled).toBe(true);
     expect(contenido.disabled).toBe(true);
     expect(adjunto.disabled).toBe(true);
@@ -1016,7 +1115,7 @@ describe("consulta de radicados React", () => {
     expect(contenido.value).toBe(texto);
     expect(plantilla.value).toBe("general");
     expect(within(modal).getByText(/conservar.pdf/)).toBeTruthy();
-    expect(within(modal).getByRole("button", { name: "Cancelar" }).disabled).toBe(false);
+    expect(cancelar.isConnected && !cancelar.disabled).toBe(true);
     const baseConsulta = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation((ruta, opciones) => {
       if (opciones?.method === "POST") {
@@ -1025,14 +1124,158 @@ describe("consulta de radicados React", () => {
           success: true, estado: "Respondido", semaforo: { nivel: "completado" },
         }) });
       }
+      if (ruta.endsWith("/respuesta")) return Promise.resolve(respuestaJson({
+        respuesta: { contenido: "Respuesta guardada tras reintento", documentos: [] },
+      }));
       return baseConsulta(ruta, opciones);
     });
     fireEvent.submit(formulario);
-    await waitFor(() => expect(modal.open).toBe(false));
+    await within(modal).findByText(/Respuesta guardada correctamente/);
+    expect(modal.open).toBe(true);
     expect(posts()).toHaveLength(2);
     expect(posts()[1][1].body.getAll("archivos")[0].name).toBe("conservar.pdf");
     const fila = (await screen.findByText("RAD-001", { selector: "button" })).closest("tr");
     expect(within(fila).getByRole("button", { name: "Ver respuesta" })).toBeTruthy();
+  });
+
+  it.each([
+    { tipo: "Externa", global: false, pdf: true },
+    { tipo: "Externa", global: true, pdf: false },
+    { tipo: "Interna", global: false, pdf: false },
+  ])("conserva el modal y muestra la respuesta confirmada: $tipo global=$global PDF=$pdf", async ({ tipo, global, pdf }) => {
+    if (tipo === "Interna") confirmarSesion.mockResolvedValue({
+      ...usuario, rol: "funcionario", dependencia_id: 3,
+    });
+    Object.assign(registrosSimulados[0], {
+      tipo_comunicacion: tipo, destino_todas_dependencias: global ? 1 : 0,
+      radicado_dependencia_id: global ? 301 : null,
+    });
+    const base = solicitarApi.getMockImplementation();
+    const respuesta = {
+      id: 20, funcionario_nombre: "Autor confirmado", dependencia_responsable: "Oficina confirmada",
+      contenido: "Contenido confirmado por el servidor", fecha_envio: "2026-11-06 15:00:00",
+      documentos: pdf ? [{ id: 1, nombre_archivo: "confirmado.pdf", ruta_archivo: "confirmado.pdf", tamano_bytes: 32 }] : [],
+    };
+    const post = diferida();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") return post.promise;
+      if (ruta.includes("/respuesta")) return Promise.resolve(respuestaJson({ success: true, respuesta }));
+      if (ruta === "/uploads/confirmado.pdf") return Promise.resolve({ blob: async () => new Blob(["PDF"]) });
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:confirmado");
+    await abrirRespuesta();
+    prepararDialogos();
+    const modal = document.querySelector(".respuesta-dialog");
+    fireEvent.change(within(modal).getByLabelText("Plantilla institucional"), { target: { value: "general" } });
+    const formulario = modal.querySelector("form");
+    fireEvent.submit(formulario);
+    fireEvent.submit(formulario);
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+    await act(async () => {
+      Object.assign(registrosSimulados[0], { estado: "Respondido" });
+      post.resolve({ ok: true, json: async () => ({ success: true, estado: "Respondido" }) });
+    });
+    await within(modal).findByText("Contenido confirmado por el servidor");
+    expect(modal.open).toBe(true);
+    expect(modal.close).not.toHaveBeenCalled();
+    expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
+    expect(within(modal).getByText("Autor confirmado")).toBeTruthy();
+    expect(within(modal).queryByRole("button", { name: "Enviar respuesta" })).toBeNull();
+    expect(within(modal).queryByText(/Esto no acredita/)!==null).toBe(tipo === "Externa");
+    expect(document.activeElement).toBe(within(modal).getByRole("heading", { level: 2 }));
+    expect(solicitarApi).toHaveBeenCalledWith(
+      `/api/radicados/RAD-001/respuesta${global ? "?radicado_dependencia_id=301" : ""}`,
+    );
+    if (global) {
+      const envio = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST");
+      expect(envio[1].body.get("radicado_dependencia_id")).toBe("301");
+    }
+    if (pdf) expect(within(modal).getByRole("link", { name: "confirmado.pdf" }).getAttribute("href")).toBe("blob:confirmado");
+    else expect(within(modal).getByText("La respuesta no tiene PDF adjuntos.")).toBeTruthy();
+    fireEvent.click(within(modal).getAllByRole("button", { name: "Cerrar" })[0]);
+    if (pdf) expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:confirmado");
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
+    await within(modal).findByText("Contenido confirmado por el servidor");
+    expect(within(modal).queryByText(/Respuesta guardada correctamente/)).toBeNull();
+  });
+
+  it.each(["consulta", "PDF"])("mantiene guardado confirmado si falla %s y reintenta solo lectura", async (fallo) => {
+    let fallar = true;
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") return Promise.resolve({ ok: true, json: async () => ({ success: true, estado: "Respondido" }) });
+      if (ruta.endsWith("/respuesta")) {
+        if (fallar && fallo === "consulta") return Promise.reject(new Error("Fallo ficticio de consulta"));
+        return Promise.resolve(respuestaJson({ respuesta: {
+          contenido: "Respuesta recuperada", documentos: [
+            { id: 1, nombre_archivo: "uno.pdf", ruta_archivo: "uno.pdf", tamano_bytes: 32 },
+            { id: 2, nombre_archivo: "dos.pdf", ruta_archivo: "dos.pdf", tamano_bytes: 32 },
+          ],
+        } }));
+      }
+      if (ruta.startsWith("/uploads/")) {
+        if (fallar && ruta.endsWith("dos.pdf")) return Promise.reject(new Error("Fallo ficticio de PDF"));
+        return Promise.resolve({ blob: async () => new Blob(["PDF"]) });
+      }
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:recuperado");
+    await abrirRespuesta(); prepararDialogos();
+    const modal = document.querySelector(".respuesta-dialog");
+    fireEvent.change(within(modal).getByLabelText("Plantilla institucional"), { target: { value: "general" } });
+    fireEvent.submit(modal.querySelector("form"));
+    expect(await within(modal).findByRole("alert")).toBeTruthy();
+    expect(modal.open).toBe(true);
+    expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
+    expect(within(modal).queryByText("La respuesta no tiene PDF adjuntos.")).toBeNull();
+    expect(within(modal).queryByRole("button", { name: "Enviar respuesta" })).toBeNull();
+    if (fallo === "PDF") expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:recuperado");
+    fallar = false;
+    fireEvent.click(within(modal).getByRole("button", { name: "Reintentar consulta de respuesta" }));
+    await within(modal).findByText("Respuesta recuperada");
+    expect(within(modal).getAllByRole("link")).toHaveLength(2);
+    expect(within(modal).queryByRole("alert")).toBeNull();
+    expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+  });
+
+  it.each(["cerrar", "permiso", "PDF tardío"])("protege la consulta posterior al guardar ante %s", async (accion) => {
+    const lectura = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") return Promise.resolve({ ok: true, json: async () => ({ success: true, estado: "Respondido" }) });
+      if (ruta.endsWith("/respuesta")) return accion === "PDF tardío"
+        ? Promise.resolve(respuestaJson({ respuesta: { contenido: "Respuesta con descarga pendiente",
+          documentos: [{ id: 1, nombre_archivo: "tardio.pdf", ruta_archivo: "tardio.pdf" }] } }))
+        : lectura.promise;
+      if (ruta === "/uploads/tardio.pdf") return lectura.promise;
+      return base(ruta, opciones);
+    });
+    const alertar = simularAlerta();
+    simularUrlsBlob("blob:tardio");
+    await abrirRespuesta(); prepararDialogos();
+    const modal = document.querySelector(".respuesta-dialog");
+    fireEvent.change(within(modal).getByLabelText("Plantilla institucional"), { target: { value: "general" } });
+    fireEvent.submit(modal.querySelector("form"));
+    await within(modal).findByText(/Respuesta guardada correctamente/);
+    if (accion === "cerrar" || accion === "PDF tardío") {
+      if (accion === "PDF tardío") await waitFor(() =>
+        expect(solicitarApi).toHaveBeenCalledWith("/uploads/tardio.pdf"));
+      fireEvent(modal, new Event("cancel", { cancelable: true }));
+      await act(async () => lectura.resolve(accion === "PDF tardío"
+        ? { blob: async () => new Blob(["PDF tardío"]) }
+        : respuestaJson({ respuesta: { contenido: "No reaparecer", documentos: [] } })));
+      expect(within(modal).queryByText("No reaparecer")).toBeNull();
+      expect(alertar).not.toHaveBeenCalled();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    } else {
+      await act(async () => lectura.reject(Object.assign(new Error("Acceso retirado"), { status: 403 })));
+      expect(alertar).toHaveBeenCalledWith(expect.stringContaining("Acceso retirado"));
+    }
+    expect(modal.open).toBe(false);
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
   });
 
   it("usa recepcion Bogota en contador, filtro y detalle sin ocultar invalidos", async () => {

@@ -2364,6 +2364,28 @@ button.dashboard-card {
   margin: 0.4rem 0 1rem;
   color: #475569;
 }
+#modal-detalle .detalle-seccion {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+#modal-detalle .timeline-automatico,
+#modal-detalle .timeline-aclaracion-evento {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  background: #eff6ff;
+  color: #334155;
+}
+#modal-detalle .detalle-asunto-seccion .detalle-asunto {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+#modal-detalle .timeline-evento .timeline-fecha {
+  margin: 0.35rem 0;
+  font-variant-numeric: tabular-nums;
+}
 #modal-detalle .radicado-timeline {
   list-style: none;
   margin: 0;
@@ -2466,7 +2488,6 @@ button.dashboard-card {
   border-radius: 0.75rem;
   background: #eff6ff;
 }
-#modal-detalle .detalle-seccion,
 .respuesta-dialog .detalle-seccion {
   padding-top: 0.25rem;
 }
@@ -2475,6 +2496,10 @@ button.dashboard-card {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: 0.75rem 1.25rem;
+}
+#modal-detalle .detalle-resumen,
+#modal-detalle .detalle-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
 }
 #modal-detalle .detalle-resumen .modal-field,
 .respuesta-dialog .detalle-resumen .modal-field,

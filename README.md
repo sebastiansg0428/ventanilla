@@ -45,6 +45,50 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
+## Detalle e historial de actuaciones
+
+El detalle organiza resumen, asunto, remitente, trámite, documentos e historial.
+La dependencia responsable **actual** del resumen no se atribuye a los eventos
+anteriores; los destinos globales conservan su seguimiento por dependencia.
+El diálogo tiene nombre accesible, foco inicial en el título y retorno al botón
+del radicado al cerrarlo, también con Escape.
+
+**Registrado por** identifica la cuenta que realizó o confirmó la operación.
+La oficina se explica **en cada evento**: destinataria al radicar, atendida al
+responder, origen de la solicitud en traslados u origen que abrió una respuesta
+interna. No identifica necesariamente la oficina del usuario. Si falta ese dato,
+no se hereda de otro evento ni se reconstruye desde el catálogo actual.
+
+Los registros consecutivos del mismo usuario y minuto se agrupan visualmente,
+conservando cada evento y su hora. No significa simultaneidad exacta ni acciones
+manuales independientes: una radicación genera también registros automáticos,
+como la regla de respuesta. Los identificadores de usuario distintos no se unen
+por tener el mismo nombre. Para externos, guardar una respuesta no acredita su
+envío o entrega; esta advertencia no exige evidencias físicas para internos.
+
+El orden es el de registro dentro del conjunto cargado; **Cargar eventos
+anteriores** conserva la paginación. Las fechas UTC se muestran en Bogotá y las
+históricas sin zona confirmada mantienen esa advertencia. No se modifican los
+datos históricos, los permisos ni la base de datos.
+
+## Confirmación al guardar una respuesta
+
+Al pulsar **Enviar respuesta**, el modal bloquea el doble envío y el cierre
+mientras espera la confirmación del servidor. Si el guardado falla, conserva
+texto, plantilla y PDF seleccionados y muestra el error.
+
+Tras confirmar el guardado, el modal permanece abierto en modo consulta con
+**Respuesta guardada correctamente** y carga la respuesta y sus PDF autenticados.
+Para externos, esa confirmación no acredita envío ni entrega al destinatario.
+La tabla se actualiza sin exigir cerrar el modal.
+
+Si falla la consulta posterior o la descarga de un PDF, se conserva la confirmación
+del guardado y se permite **Reintentar consulta de respuesta**: repite solamente
+la lectura, nunca el envío. No se muestran adjuntos ausentes como si no existieran.
+Al cerrar o perder acceso se descartan resultados tardíos y se liberan los enlaces
+temporales. Abrir después desde **Ver respuesta** no repite la confirmación de
+guardado. No se cambian permisos ni el circuito interno o externo.
+
 ## Respuestas internas digitales
 
 Para internos individuales, responde únicamente la dependencia responsable.
@@ -324,6 +368,44 @@ archivo y no se amplian los timeouts globales. Las pruebas usan consultas
 acotadas al control o region y pegado para preparar textos; los casos que
 comprueban escritura manual siguen simulando las teclas. Los dobles de alerta
 y URLs de descarga conservan el objeto `window` y el constructor `URL`.
+
+Vitest usa `pool: 'threads'` con un solo worker y aislamiento por archivo para
+reducir la presion de procesos en el entorno local. No usar `vmThreads` como
+sustituto directo: el doble de navegacion del login necesita poder sustituir
+`window`, que no es configurable en ese entorno VM.
+
+En seguimiento de entrega, esperar con `waitFor` el foco que establece React y
+con `findBy*` la tarjeta anulada que llega al actualizar el historial. El mensaje
+de confirmacion del POST no garantiza que ya haya terminado el GET posterior.
+No sustituir estas comprobaciones por pausas fijas ni ampliar timeouts.
+
+Para validar solo consulta, seguimiento de entrega y respuestas internas:
+
+```powershell
+npm run test:react -- tests\react\ConsultaRadicados.test.jsx tests\react\SeguimientoEntrega.test.jsx tests\react\RespuestasInternas.test.jsx
+```
+
+Estas tres suites conservan 94 casos. Acotan las consultas con `within` al
+modal, fila o seccion y reutilizan controles cuando siguen montados, evitando
+recalcular nombres accesibles de toda la pagina. No omiten las comprobaciones
+de visibilidad, foco ni bloqueo de controles. Para mocks de respuesta inmediata,
+`await act(...)` completa las actualizaciones antes de consultar el resultado;
+las pruebas de solicitudes pendientes mantienen promesas diferidas y esperas
+observables para comprobar cargas, carreras y respuestas tardias.
+
+El helper `tests/react/helpers/estilos-dom.js` prepara los estilos reales de
+jsdom en `beforeAll` solo en estas suites: evita que su inicializacion diferida
+consuma el tiempo del primer caso. No sustituye `getComputedStyle` ni elimina
+ese coste del tiempo total. Se mantienen los timeouts, el aislamiento, las
+interacciones de `userEvent` y los archivos PDF reales de las pruebas de limites.
+Al ajustar estos helpers, repetir el comando dirigido dos veces consecutivas;
+ambas ejecuciones deben aprobar los 94 casos sin omisiones ni errores no
+controlados. La duracion total puede variar con la carga del equipo.
+
+Para ensayos reales de navegador, usar backend/base/uploads y perfil separados,
+con usuarios y PDF ficticios; no basta con cambiar la base dejando la API de la
+interfaz apuntando al servidor de desarrollo. Comprobar persistencia y retirar
+solo los recursos creados por el ensayo.
 
 Para preparar una base nueva consulta la secuencia 000-020 en el
 [README del backend](../backend/README.md); su ejecucion real en una base aislada
