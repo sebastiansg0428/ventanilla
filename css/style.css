@@ -2659,6 +2659,245 @@ button.dashboard-card {
   min-height: 2.75rem;
   white-space: normal;
 }
+.internas-bandeja {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 1.5rem;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  border: 1px solid #dbe5ef;
+  border-radius: 0.9rem;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.internas-bandeja :is(h2, h3, p, ul, li, article, label, select, button, dl, dd) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.internas-bandeja :is(button, select) {
+  white-space: normal;
+  margin: 0.3rem;
+}
+.internas-bandeja .detalle-archivos {
+  padding-left: 1.25rem;
+}
+.internas-bandeja .detalle-archivos li {
+  margin-block: 0.75rem;
+}
+.internas-bandeja .entregas-tarjeta {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.75rem;
+}
+.internas-bandeja nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.internas-bandeja :is(button, select, a):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.respuesta-dialog .entregas-panel {
+  gap: 1rem;
+}
+.respuesta-dialog .entregas-cabecera,
+.respuesta-dialog .entregas-tarjeta-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.respuesta-dialog .entregas-cabecera > div {
+  min-width: 0;
+}
+.respuesta-dialog .entregas-eyebrow,
+.respuesta-dialog .entregas-referencia {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+.respuesta-dialog .entregas-eyebrow {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.respuesta-dialog .entregas-estado {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.respuesta-dialog .entregas-estado--enviado {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.respuesta-dialog .entregas-estado--entrega_acreditada {
+  background: #dcfce7;
+  color: #166534;
+}
+.respuesta-dialog .entregas-estado--intento_fallido {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.respuesta-dialog .entregas-aviso {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-left: 3px solid #93c5fd;
+  background: #eff6ff;
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.respuesta-dialog .entregas-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.respuesta-dialog .entregas-boton {
+  width: auto;
+  max-width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.respuesta-dialog .entregas-boton--primario {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+.respuesta-dialog .entregas-boton--secundario {
+  background: #f8fafc;
+}
+.respuesta-dialog .entregas-boton--peligro {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+.respuesta-dialog .entregas-boton:hover:not(:disabled) {
+  box-shadow: 0 0 0 2px #cbd5e1;
+}
+.respuesta-dialog .entregas-panel :is(button, input, select, textarea, a):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.respuesta-dialog .entregas-boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.respuesta-dialog .entregas-contenido,
+.respuesta-dialog .entregas-historial {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+.respuesta-dialog .entregas-panel h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+.respuesta-dialog .entregas-vacio {
+  padding: 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  color: #475569;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.respuesta-dialog .entregas-vacio p {
+  margin: 0.5rem 0 0;
+}
+.respuesta-dialog .entregas-tarjeta {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+.respuesta-dialog .entregas-tarjeta > button {
+  justify-self: start;
+}
+.respuesta-dialog .entregas-tarjeta--anulada {
+  background: #f8fafc;
+  border-style: dashed;
+}
+.respuesta-dialog .entregas-anulacion {
+  margin: 0;
+  padding: 0.65rem;
+  border-radius: 0.4rem;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.respuesta-dialog .entregas-formulario {
+  padding: 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+}
+.respuesta-dialog .entregas-seleccion {
+  min-width: 0;
+  color: #475569;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.respuesta-dialog .entregas-seleccion ul {
+  padding-left: 1.25rem;
+}
+.respuesta-dialog .entregas-documentos {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+}
+.respuesta-dialog .entregas-documento {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+}
+.respuesta-dialog .entregas-documento input[type="checkbox"] {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  flex: 0 0 1.15rem;
+}
+.respuesta-dialog .entregas-documento span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.respuesta-dialog .entregas-formulario--grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.respuesta-dialog .entregas-formulario--grid > h4,
+.respuesta-dialog .entregas-campo--ancho {
+  grid-column: 1 / -1;
+}
+.respuesta-dialog .entregas-panel input[type="file"]::file-selector-button {
+  margin-right: 0.5rem;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 0.35rem;
+  color: #1e40af;
+  background: #dbeafe;
+  font: inherit;
+  cursor: pointer;
+}
 .respuesta-dialog .detalle-asunto {
   border: 0;
   padding: 0;
@@ -2675,6 +2914,12 @@ button.dashboard-card {
   color: #b45309;
 }
 @media (max-width: 640px) {
+  .respuesta-dialog .entregas-formulario--grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .respuesta-dialog .entregas-acciones > button {
+    flex: 1 1 12rem;
+  }
   .respuesta-dialog .modal-header,
   .respuesta-dialog .modal-content,
   .respuesta-dialog .modal-footer {

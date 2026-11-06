@@ -10,6 +10,7 @@ import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
 import { BandejaTraslados, SolicitudTraslado } from "../componentes/Traslados";
 import { SeguimientoEntrega } from "../componentes/SeguimientoEntrega";
+import { RespuestasInternas, TrazabilidadInterna } from "../componentes/RespuestasInternas";
 import {
   obtenerFechaBogota,
   obtenerDiaRadicacion,
@@ -63,6 +64,7 @@ const ETIQUETAS_EVENTO = {
   traslado_cancelado: "Traslado cancelado por finalización",
   entrega_registrada: "Envío/entrega registrado",
   entrega_anulada: "Registro de entrega anulado",
+  respuesta_interna_abierta: "Primera apertura de respuesta interna",
 };
 const DESCRIPCIONES_EVENTO = {
   radicado_creado: "Se registró el ingreso del documento al sistema.",
@@ -82,6 +84,7 @@ const DESCRIPCIONES_EVENTO = {
   traslado_cancelado: "El expediente finalizó antes de resolver la solicitud.",
   entrega_registrada: "Se registró una actuación manual de envío o entrega.",
   entrega_anulada: "Se anuló una actuación; su evidencia se conserva.",
+  respuesta_interna_abierta: "Un funcionario de la dependencia de origen abrió la respuesta interna en el sistema.",
 };
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
@@ -916,6 +919,7 @@ function VistaConsultaRadicados({ usuario }) {
     <div className="page-consult app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="consultar" />
       <main className="consult-main">
+        {usuario.rol === "funcionario" && <RespuestasInternas key={usuario.id} usuario={usuario} />}
         <div className="consult-heading">
           <h1>Listado de documentos recibidos</h1>
           {usuario.rol !== "funcionario" && (
@@ -1192,6 +1196,9 @@ function VistaConsultaRadicados({ usuario }) {
                           Ver comprobante
                         </button>
                         {usuario.rol !== "ventanilla" &&
+                          !(usuario.rol === "administrador" &&
+                            String(radicado.tipo_comunicacion).trim().toLowerCase() === "interna" &&
+                            !radicado.destino_todas_dependencias) &&
                           requiereRespuesta(radicado) &&
                           !esFinal(radicado) && (
                             <button
@@ -1797,6 +1804,10 @@ function VistaConsultaRadicados({ usuario }) {
                       radicado={respuestaConsultada.radicado} usuario={usuario}
                       alProceso={(valor) => { respuestaEnProceso.current = valor; setGuardandoEntrega(valor); }}
                       alPerderAcceso={retirarVistasSinAcceso} />}
+                  {String(respuestaConsultada.radicado.tipo_comunicacion).trim().toLowerCase() === "interna" &&
+                    !respuestaConsultada.radicado.destino_todas_dependencias &&
+                    <TrazabilidadInterna key={`${respuestaConsultada.id}:${usuario.id}`}
+                      radicado={respuestaConsultada.radicado} usuario={usuario} />}
                 </>
               )}
             </div>

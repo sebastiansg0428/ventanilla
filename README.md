@@ -45,20 +45,69 @@ La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo 
 
 La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
 
+## Respuestas internas digitales
+
+Para internos individuales, responde únicamente la dependencia responsable.
+Ventanilla y administrador consultan respuesta/trazabilidad; no responden ni
+marcan apertura por el origen. La excepción administrativa para responder
+externos permanece. Globales e informativos mantienen su comportamiento.
+
+En Consulta, cada funcionario dispone de **Respuestas internas recibidas**
+para su dependencia de origen, con filtros, contadores y páginas de 25.
+Al guardar una respuesta queda disponible en esta bandeja; entrar/actualizar
+consulta los cambios, sin correo, push ni actualización en tiempo real.
+El origen solo accede a respuesta y PDF autenticados, no a la gestión del expediente.
+No se exigen constancias físicas ni el formulario externo de envío/entrega.
+
+Mostrar correctamente la respuesta y sus PDF registra automáticamente la
+primera apertura en el servidor. Listar, precargar, consultar trazabilidad desde
+Ventanilla/destino y descargar un archivo no marcan lectura. Una consulta desde
+el origen que también es destino sí registra apertura al mostrar la respuesta.
+La primera apertura conserva actor/hora en reintentos; si falla se muestra error
+y botón de reintento sin ocultar el contenido ni fingir un acuse confirmado.
+La hora se muestra en Bogotá. Las respuestas históricas no inventan lecturas
+ni disponibilidad anterior; la apertura técnica no acredita comprensión legal.
+Se descartan respuestas tardías al cerrar y se liberan los enlaces blob.
+
+Requiere **027 aplicada y verificada en desarrollo**, con respaldo restaurado y
+ensayo local previo. Se incorporaron cuatro respuestas históricas sin inventar
+lecturas. Reiniciar el backend y recargar el frontend para usar el circuito.
+En otras bases sin 027 se informa no activado y no se permiten nuevas respuestas
+internas individuales; los externos y la consulta histórica conservan su circuito.
+
 ## Envío y entrega manual de respuestas
 
 En Consulta → **Ver respuesta**, las respuestas externas individuales incluyen
 **Ver seguimiento de entrega**, con carga diferida, historial de 25 y evidencias.
+El panel destaca el estado y muestra acciones compactas. **Registrar envío/entrega**
+abre el formulario bajo demanda: dos columnas con espacio suficiente y una en
+móvil. **Volver al historial** conserva el borrador y los PDF seleccionados
+mientras el componente siga montado; la lista permite quitar esos archivos.
+El formulario coloca el foco en Canal al abrir y vuelve al resumen tras confirmar.
+El historial usa tarjetas y solo muestra paginación si hay más de una página.
 Solo Ventanilla/administrador registran o anulan; funcionarios con acceso actual
 consultan. Internos, globales y documentos sin respuesta no muestran el módulo.
 Requiere backend con **025** activada; **aplicada y verificada en desarrollo**
 con respaldo restaurado y ensayo local previo. Reiniciar el backend para cargar
 el código del módulo. Otras bases sin 025 muestran el error 503, sin impedir
-ver la respuesta.
+ver la respuesta. El nuevo formulario requiere además **026, aplicada y verificada
+en desarrollo** con respaldo restaurado y ensayo local previo. En otras bases
+sin 026 se muestra el aviso y no permite registrar nuevos envíos; el historial,
+descargas y anulaciones siguen funcionando. Cada base requiere autorización y
+respaldo verificado independientes antes de aplicar migraciones.
 
 Se registra correo manual, presencial o mensajería, con destinatario/destino
-confirmados, fecha de actuación en Bogotá y resultado. Acreditar exige al menos
-un PDF; se permiten hasta 5 de 10 MB sin contraseña. Intento fallido exige
+confirmados y resultado. La hora se genera en el servidor al confirmar y se
+muestra en Bogotá: no hay fecha editable ni registro retrospectivo. El reintento
+conserva la fecha original. Los PDF institucionales aparecen preseleccionados en
+una lista con casillas junto al selector de nuevas evidencias (el navegador no
+permite rellenar su input de archivos con rutas del servidor).
+Se admiten hasta 5 PDF de respuesta y 5 evidencias nuevas de 10 MB sin contraseña;
+los originales se conservan y se guarda una copia independiente por envío.
+Acreditar requiere evidencia adicional de recepción; adjuntar de nuevo el mismo
+oficio no sirve como único soporte. La comparación detecta igualdad de bytes,
+no certifica validez jurídica del documento.
+Intento fallido exige
 observaciones. Una acreditación vigente bloquea nuevas actuaciones; anular con
 motivo conserva tarjeta y PDFs y permite corregir mediante otro registro.
 La fecha legada se rotula **Fecha de registro de respuesta**, no entrega.
@@ -66,6 +115,7 @@ No se envían correos ni se determina notificación legal o cierre documental.
 
 Durante el envío se bloquean doble clic, edición y cierre del modal. Si el
 resultado es incierto, se conserva FormData/UUID/PDF para reintento exacto;
+también se bloquean volver al historial y cambiar de operación hasta resolverlo.
 al cerrar/recargar, consultar historial antes de registrar de nuevo.
 Las descargas usan el servicio autenticado, descartan resultados tardíos y
 liberan URLs blob al cerrar la vista. Se reutilizan los estilos adaptativos del

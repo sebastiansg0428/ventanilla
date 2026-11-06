@@ -241,6 +241,7 @@ describe("consulta de radicados React", () => {
         fecha_envio: "2026-01-05 10:00:00", contenido: "Respuesta ficticia.", documentos: [],
       } }));
       if (ruta.endsWith("/entregas") && o?.method === "POST") return pendiente.promise;
+      if (ruta.endsWith("/entregas/documentos-respuesta")) return Promise.resolve(respuestaJson({ success: true, documentos: [] }));
       if (ruta.includes("/entregas?")) return Promise.resolve(respuestaJson({ success: true, resumen: "pendiente_de_envio",
         registros: [], total: 0, pagina: 1, paginas: 0 }));
       return base(ruta, o);
@@ -249,9 +250,10 @@ describe("consulta de radicados React", () => {
     const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
     fireEvent.click(within(fila).getByRole("button", { name: "Ver respuesta" }));
     fireEvent.click(await screen.findByRole("button", { name: "Ver seguimiento de entrega" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Registrar envío/entrega" }));
     const boton = await screen.findByRole("button", { name: "Confirmar envío/entrega" });
     fireEvent.change(screen.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
-    fireEvent.change(screen.getByLabelText("Fecha y hora de actuación (Bogotá)"), { target: { value: "2026-01-05T10:00" } });
+    await screen.findByText("La respuesta institucional no tiene PDF adjuntos.");
     fireEvent.submit(boton.closest("form"));
     const modal = document.querySelector(".respuesta-dialog");
     expect(within(modal).getAllByRole("button", { name: "Cerrar" }).every(b => b.disabled)).toBe(true);
@@ -342,6 +344,13 @@ describe("consulta de radicados React", () => {
     expect(screen.queryByText("Respuesta institucional registrada")).toBeNull();
   });
 
+  it("administrador conserva respuesta externa pero solo consulta internos individuales", async () => {
+    render(<PaginaConsultaRadicados />);
+    const externo = (await screen.findByText("RAD-001")).closest("tr");
+    const interno = screen.getByText("RAD-002").closest("tr");
+    expect(within(externo).getByRole("button", { name: "Responder" })).toBeTruthy();
+    expect(within(interno).queryByRole("button", { name: "Responder" })).toBeNull();
+  });
   it("ofrece traslado solo al funcionario sobre individuales abiertos", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     registrosSimulados.forEach((radicado) => { radicado.dependencia_destino_id = 3; });
