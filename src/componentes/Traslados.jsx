@@ -133,7 +133,7 @@ export function SolicitudTraslado({ radicado, alCerrar, alGuardar }) {
   );
 }
 
-function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExterno }) {
+function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExterno, alCerrar, alIncierto }) {
   const destinos = catalogo.dependencias.filter((d) => d.id !== Number(traslado.origen_id));
   const [decision, setDecision] = useState("aprobada");
   const [destino, setDestino] = useState(String(traslado.destino_sugerido_id));
@@ -143,6 +143,8 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
   const [bloqueado, setBloqueado] = useState(false);
   const intento = useRef(null);
   const ocupado = useRef(false);
+  const formulario = useRef(null);
+  useEffect(() => { formulario.current.querySelector("select").focus(); }, []);
   async function enviar(evento) {
     evento.preventDefault();
     if (ocupado.current || ocupadoExterno) return;
@@ -163,6 +165,7 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
     } catch (fallo) {
       setError(fallo.message);
       setBloqueado(Boolean(incierto(fallo)));
+      alIncierto(Boolean(incierto(fallo)));
       if (!incierto(fallo)) intento.current = null;
     } finally {
       ocupado.current = false;
@@ -171,7 +174,8 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
     }
   }
   return (
-    <form className="auth-form" onSubmit={enviar} aria-label={`Resolver traslado ${traslado.numero_radicado}`}>
+    <form ref={formulario} className="auth-form traslados-decision" onSubmit={enviar} aria-label={`Resolver traslado ${traslado.numero_radicado}`}>
+      <h4>Resolver solicitud</h4>
       <div className="auth-field">
         <label htmlFor={`decision-${traslado.id}`}>Decisión de Ventanilla</label>
         <select id={`decision-${traslado.id}`} value={decision} onChange={(e) => setDecision(e.target.value)} disabled={ocupadoExterno || enProceso || bloqueado}>
@@ -193,8 +197,57 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
       </div>
       {error && <p role="alert">{error}</p>}
       {bloqueado && <p role="status">Resultado incierto: reintenta la misma decisión o actualiza la bandeja para comprobarla.</p>}
-      <button className="auth-submit" disabled={enProceso || ocupadoExterno || (!bloqueado && decision === "aprobada" && !destinos.some((d) => String(d.id) === destino))}>{enProceso ? "Confirmando…" : bloqueado ? "Reintentar decisión" : "Confirmar decisión"}</button>
+      <div className="traslados-acciones">
+        <button type="button" className="traslados-boton-secundario" onClick={alCerrar} disabled={enProceso || ocupadoExterno || bloqueado}>Cerrar decisión</button>
+        <button className="auth-submit" disabled={enProceso || ocupadoExterno || (!bloqueado && decision === "aprobada" && !destinos.some((d) => String(d.id) === destino))}>{enProceso ? "Confirmando…" : bloqueado ? "Reintentar decisión" : "Confirmar decisión"}</button>
+      </div>
     </form>
+  );
+}
+
+function TarjetaTraslado({ traslado, usuario, catalogo, alGuardar, alProceso, decidiendo, incierta, alIncierto }) {
+  const [resolviendo, setResolviendo] = useState(false);
+  const resolver = useRef(null);
+  const devolverFoco = useRef(false);
+  useEffect(() => {
+    if (!resolviendo && devolverFoco.current) {
+      resolver.current?.focus();
+      devolverFoco.current = false;
+    }
+  }, [resolviendo]);
+  const aprobada = traslado.estado === "aprobada";
+  const destino = aprobada ? traslado.destino_aprobado_nombre : traslado.destino_sugerido_nombre;
+  return (
+    <article className="traslados-tarjeta" aria-label={`Traslado ${traslado.numero_radicado}`}>
+      <header className="traslados-tarjeta-cabecera">
+        <h3>{traslado.numero_radicado}</h3>
+        <span className={`traslados-estado traslados-estado--${traslado.estado}`}>{ESTADOS[traslado.estado]}</span>
+      </header>
+      <dl className="traslados-datos traslados-resumen-tarjeta">
+        <div><dt>Dependencia de origen</dt><dd>{traslado.origen_nombre || "Sin origen registrado"}</dd></div>
+        <div><dt>{aprobada ? "Destino aprobado" : "Destino sugerido"}</dt><dd>{destino || (aprobada ? "Sin destino aprobado registrado" : "Sin destino sugerido registrado")}</dd></div>
+        <div><dt>Vencimiento conservado</dt><dd>{traslado.fecha_limite_conservada || "Sin plazo de respuesta registrado"}</dd></div>
+      </dl>
+      <details className="traslados-detalles">
+        <summary>Ver motivos y trazabilidad</summary>
+        <dl className="traslados-datos">
+          {[
+            ...(aprobada ? [["Destino sugerido", traslado.destino_sugerido_nombre || "Sin destino sugerido registrado"]] : [["Destino aprobado", traslado.destino_aprobado_nombre || "Sin aprobación"]]),
+            ["Solicitado por", traslado.solicitante_nombre || "Sin solicitante registrado"], ["Solicitud (Bogotá)", traslado.creado_en_utc ? fecha(traslado.creado_en_utc) : "Sin fecha de solicitud registrada"],
+            ["Motivo de la solicitud", traslado.motivo_solicitud || "Sin motivo registrado"], ["Decisión por", traslado.decisor_nombre || "Sin decisor registrado"],
+            ["Decisión (Bogotá)", fecha(traslado.resuelto_en_utc)], ["Justificación de la decisión", traslado.motivo_decision || "Sin justificación registrada"],
+          ].map(([etiqueta, valor]) => <div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>)}
+        </dl>
+      </details>
+      {usuario.rol !== "funcionario" && traslado.estado === "pendiente" && (
+        resolviendo
+          ? <DecisionTraslado traslado={traslado} catalogo={catalogo} alGuardar={alGuardar}
+            alProceso={alProceso} ocupadoExterno={decidiendo || Boolean(incierta && incierta !== traslado.id)}
+            alCerrar={() => { devolverFoco.current = true; setResolviendo(false); }} alIncierto={alIncierto} />
+          : <div className="traslados-acciones"><button ref={resolver} type="button" className="traslados-boton-primario"
+            onClick={() => setResolviendo(true)} disabled={decidiendo || Boolean(incierta)}>Resolver traslado</button></div>
+      )}
+    </article>
   );
 }
 
@@ -207,6 +260,7 @@ export function BandejaTraslados({ usuario, revision, alGuardar }) {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [decidiendo, setDecidiendo] = useState(false);
+  const [incierta, setIncierta] = useState(null);
   const [confirmacion, setConfirmacion] = useState("");
   const catalogo = useDestinosTraslado(abierta && usuario.rol !== "funcionario",
     `${usuario.id}:${usuario.rol}:${usuario.dependencia_id}`);
@@ -215,6 +269,7 @@ export function BandejaTraslados({ usuario, revision, alGuardar }) {
     let vigente = true;
     setCargando(true);
     setDatos(null);
+    setIncierta(null);
     setError("");
     (async () => {
       try {
@@ -243,51 +298,50 @@ export function BandejaTraslados({ usuario, revision, alGuardar }) {
   }
   return (
     <section className="traslados-panel" aria-label="Traslados mediados por Ventanilla">
-      <button type="button" aria-expanded={abierta} aria-controls="bandeja-traslados" onClick={() => setAbierta(!abierta)} disabled={decidiendo}>
-        {abierta ? "Ocultar traslados" : usuario.rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados"}
-      </button>
+      <div className="traslados-cabecera">
+        <div>
+          <p className="traslados-antetitulo">Traslados de radicados</p>
+          <h2>{usuario.rol === "funcionario" ? "Solicitudes de mi dependencia de origen" : "Revisión de Ventanilla"}</h2>
+        </div>
+        <button type="button" className="traslados-boton-secundario" aria-expanded={abierta} aria-controls="bandeja-traslados" onClick={() => setAbierta(!abierta)} disabled={decidiendo || Boolean(incierta)}>
+          {abierta ? "Ocultar traslados" : usuario.rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados"}
+        </button>
+      </div>
       {abierta && <div id="bandeja-traslados">
-        <h2>{usuario.rol === "funcionario" ? "Solicitudes de mi dependencia de origen" : "Revisión de Ventanilla"}</h2>
         {confirmacion && <MensajeEstado tono="success">{confirmacion}</MensajeEstado>}
-        <p>El traslado no genera otro radicado ni reinicia plazos. Este comprobante no da acceso al contenido posterior del expediente.</p>
-        <div className="alerts-controls">
-          <label htmlFor="filtro-traslados">Estado del traslado</label>
-          <select id="filtro-traslados" value={estado} onChange={(e) => { setEstado(e.target.value); setPagina(1); }} disabled={decidiendo}>
-            <option value="">Todos</option>
-            {Object.entries(ESTADOS).map(([valor, nombre]) => <option key={valor} value={valor}>{nombre}</option>)}
-          </select>
-          <button type="button" onClick={() => setRecarga((n) => n + 1)} disabled={decidiendo}>Actualizar traslados</button>
+        <p className="traslados-nota">Se conserva el radicado y el plazo. El comprobante no da acceso al contenido posterior del expediente.</p>
+        <div className="traslados-controles">
+          <div className="traslados-filtro">
+            <label htmlFor="filtro-traslados">Estado del traslado</label>
+            <select id="filtro-traslados" value={estado} onChange={(e) => { setEstado(e.target.value); setPagina(1); }} disabled={decidiendo || Boolean(incierta)}>
+              <option value="">Todos</option>
+              {Object.entries(ESTADOS).map(([valor, nombre]) => <option key={valor} value={valor}>{nombre}</option>)}
+            </select>
+          </div>
+          <button type="button" className="traslados-boton-secundario" onClick={() => setRecarga((n) => n + 1)} disabled={decidiendo}>Actualizar traslados</button>
         </div>
         {cargando && <MensajeEstado>Cargando traslados…</MensajeEstado>}
-        {error && <p role="alert">{error}</p>}
+        {error && <p className="traslados-error" role="alert">{error}</p>}
         {datos && <>
-          <p role="status">Pendientes: {datos.pendientes}. {datos.total} solicitudes en este filtro.</p>
-          {!datos.traslados.length && <p>No hay solicitudes para mostrar.</p>}
-          <div className="traslados-listado">
-            {datos.traslados.map((traslado) => (
-              <article className="detalle-seccion" key={traslado.id} aria-label={`Traslado ${traslado.numero_radicado}`}>
-                <h3>{traslado.numero_radicado} · {ESTADOS[traslado.estado]}</h3>
-                <dl className="traslados-datos">
-                  {[
-                    ["Origen", traslado.origen_nombre], ["Destino sugerido", traslado.destino_sugerido_nombre],
-                    ["Destino aprobado", traslado.destino_aprobado_nombre || "Sin aprobación"],
-                    ["Solicitado por", traslado.solicitante_nombre], ["Solicitud", fecha(traslado.creado_en_utc)],
-                    ["Motivo", traslado.motivo_solicitud], ["Decisión por", traslado.decisor_nombre || "Pendiente"],
-                    ["Decisión", fecha(traslado.resuelto_en_utc)], ["Justificación", traslado.motivo_decision || "Pendiente"],
-                    ["Vencimiento conservado", traslado.fecha_limite_conservada || "Sin plazo de respuesta registrado"],
-                  ].map(([etiqueta, valor]) => <div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>)}
-                </dl>
-                {usuario.rol !== "funcionario" && traslado.estado === "pendiente" &&
-                  <DecisionTraslado traslado={traslado} catalogo={catalogo} alGuardar={guardado}
-                    alProceso={setDecidiendo} ocupadoExterno={decidiendo} />}
-              </article>
-            ))}
+          <div className="traslados-indicadores" role="status">
+            <p><strong>{datos.pendientes}</strong><span>Pendientes de Ventanilla{usuario.rol === "funcionario" ? " · Mi origen" : ""}</span></p>
+            <p><strong>{datos.total}</strong><span>Solicitudes en este filtro</span></p>
           </div>
-          <nav className="alerts-controls" aria-label="Paginación de traslados">
-            <button type="button" disabled={decidiendo || pagina <= 1} onClick={() => setPagina((n) => n - 1)}>Anterior</button>
+          {!datos.traslados.length ? <div className="traslados-vacio">
+            <h3>{estado === "pendiente" ? "Sin traslados pendientes" : "No hay solicitudes para mostrar."}</h3>
+            <p>{estado === "pendiente" ? "No hay solicitudes pendientes de revisión en esta bandeja." : estado ? `No hay solicitudes con estado «${ESTADOS[estado]}».` : "Aún no hay solicitudes de traslado en esta bandeja."}</p>
+            {estado && <button type="button" className="traslados-boton-secundario"
+              onClick={() => { setEstado(""); setPagina(1); }} disabled={decidiendo}>Ver todos los estados</button>}
+          </div> : <div className="traslados-listado">
+            {datos.traslados.map((traslado) => <TarjetaTraslado key={traslado.id} traslado={traslado}
+              usuario={usuario} catalogo={catalogo} alGuardar={guardado} alProceso={setDecidiendo} decidiendo={decidiendo}
+              incierta={incierta} alIncierto={(valor) => setIncierta((actual) => valor ? traslado.id : actual === traslado.id ? null : actual)} />)}
+          </div>}
+          {datos.traslados.length > 0 && <nav className="traslados-paginacion" aria-label="Paginación de traslados">
+            <button type="button" disabled={decidiendo || Boolean(incierta) || pagina <= 1} onClick={() => setPagina((n) => n - 1)}>Anterior</button>
             <span>Página {pagina} de {Math.max(1, datos.paginas)}</span>
-            <button type="button" disabled={decidiendo || pagina >= datos.paginas} onClick={() => setPagina((n) => n + 1)}>Siguiente</button>
-          </nav>
+            <button type="button" disabled={decidiendo || Boolean(incierta) || pagina >= datos.paginas} onClick={() => setPagina((n) => n + 1)}>Siguiente</button>
+          </nav>}
         </>}
       </div>}
     </section>

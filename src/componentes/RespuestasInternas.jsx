@@ -121,15 +121,19 @@ export function RespuestasInternas({ usuario }) {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [errorDetalle, setErrorDetalle] = useState("");
+  const [seleccion, setSeleccion] = useState(null);
   const solicitud = useRef(0);
   const urls = useRef(new Set());
   const cabecera = useRef(null);
   const botonAbrir = useRef(null);
+  const botonActualizar = useRef(null);
   function liberar() { urls.current.forEach(u => URL.revokeObjectURL(u)); urls.current.clear(); }
   useEffect(() => () => { solicitud.current++; liberar(); }, []);
   function cerrarDetalle() {
-    solicitud.current++; setDetalle(null); setCargandoDetalle(false); liberar();
+    solicitud.current++; setDetalle(null); setSeleccion(null); setErrorDetalle(""); setCargandoDetalle(false); liberar();
     if (botonAbrir.current?.isConnected) botonAbrir.current.focus();
+    else botonActualizar.current?.focus();
   }
   useEffect(() => { if (detalle) cabecera.current?.focus(); }, [detalle?.recepcion.id]);
   useEffect(() => {
@@ -151,11 +155,11 @@ export function RespuestasInternas({ usuario }) {
       .finally(() => { if (vigente) setCargando(false); });
     return () => { vigente = false; };
   }, [abierto, pagina, estado, revision]);
-  async function abrirRespuesta(id) {
+  async function abrirRespuesta(id, numero) {
     cerrarDetalle();
     const actual = ++solicitud.current;
     const creadas = [];
-    setCargandoDetalle(true); setError("");
+    setSeleccion({ id, numero }); setCargandoDetalle(true); setErrorDetalle("");
     try {
       const datos = await datosApi(`/api/respuestas-internas/${id}`);
       if (!recepcionValida(datos.recepcion) || datos.recepcion.id !== id ||
@@ -173,7 +177,7 @@ export function RespuestasInternas({ usuario }) {
       if (actual !== solicitud.current) return;
       creadas.forEach(u => urls.current.add(u));
       setDetalle({ recepcion: datos.recepcion, documentos });
-    } catch (e) { if (actual === solicitud.current) setError(e.message); }
+    } catch (e) { if (actual === solicitud.current) setErrorDetalle(e.message); }
     finally {
       creadas.forEach(u => { if (!urls.current.has(u)) URL.revokeObjectURL(u); });
       if (actual === solicitud.current) setCargandoDetalle(false);
@@ -184,46 +188,90 @@ export function RespuestasInternas({ usuario }) {
     setRevision(n => n + 1);
   });
   return <section className="detalle-seccion entregas-panel internas-bandeja" aria-label="Respuestas internas recibidas">
-    <h2>Respuestas internas recibidas</h2>
-    <p>Respuesta digital dirigida a tu dependencia de origen. Se registra la primera apertura al mostrar correctamente la respuesta y sus adjuntos.</p>
-    <button type="button" className="entregas-boton" aria-expanded={abierto}
-      onClick={() => { cerrarDetalle(); setAbierto(v => !v); }}> {abierto ? "Ocultar bandeja interna" : "Ver bandeja interna"}</button>
-    {abierto && <>
-      <label>Filtrar respuestas internas <select value={estado} onChange={e => { setEstado(e.target.value); setPagina(1); }}>
-        <option value="todas">Todas</option><option value="pendientes">Sin apertura</option><option value="leidas">Con apertura</option>
-      </select></label>
-      <button className="entregas-boton" type="button" disabled={cargando} onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>
-      {cargando && <p role="status">Cargando bandeja interna…</p>}
-      {error && <p role="alert">{error}</p>}
-      {lista && <><p role="status">Total: {lista.resumen.total} · Sin apertura: {lista.resumen.pendientes} · Con apertura: {lista.resumen.leidas}</p>
-        {!lista.registros.length && <p>No hay respuestas internas para este filtro.</p>}
-        <ul className="detalle-archivos">{lista.registros.map(r => <li key={r.id}>
-          <strong>{r.numero_radicado}</strong>
-          <p>Respuesta dirigida a: {nombreOrigen(r)}</p>
-          <p>Dependencia que respondió: {r.dependencia_destino || "No registrada"}</p>
-          <span className={`recepcion-interna-estado ${r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
-            {r.primera_apertura_utc ? "Primera apertura registrada" : "Pendiente de primera apertura por la dependencia de origen"}
-          </span>
-          <button type="button" className="entregas-boton" onClick={e => {
-            botonAbrir.current = e.currentTarget; abrirRespuesta(r.id);
-          }}>Abrir respuesta interna {r.numero_radicado}</button>
-        </li>)}</ul>
-        {lista.paginas > 1 && <nav aria-label="Páginas de respuestas internas">
+    <div className="internas-cabecera">
+      <div><p className="internas-antetitulo">Recepción digital de tu dependencia</p><h2>Respuestas internas recibidas</h2></div>
+      <button type="button" className="entregas-boton" aria-expanded={abierto} aria-controls="internas-contenido"
+        onClick={() => { cerrarDetalle(); setAbierto(v => !v); }}>{abierto ? "Ocultar bandeja interna" : "Ver bandeja interna"}</button>
+    </div>
+    {abierto && <div id="internas-contenido">
+      <p className="internas-nota">Respuesta digital dirigida a tu dependencia de origen. Se registra la primera apertura al mostrar correctamente la respuesta y sus adjuntos.</p>
+      <div className="internas-controles">
+        <label className="internas-filtro">Filtrar respuestas internas <select value={estado} onChange={e => { setEstado(e.target.value); setPagina(1); }}>
+          <option value="todas">Todas</option><option value="pendientes">Sin apertura</option><option value="leidas">Con apertura</option>
+        </select></label>
+        <button ref={botonActualizar} className="entregas-boton" type="button" disabled={cargando} onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>
+      </div>
+      {cargando && <p className="internas-mensaje" role="status">Cargando bandeja interna…</p>}
+      {error && <p className="internas-error" role="alert">{error}</p>}
+      {lista && <>
+        <div className="internas-indicadores" role="status" aria-label="Resumen de respuestas de tu dependencia">
+          <p><strong>{lista.resumen.total}</strong><span>Total</span></p>
+          <p><strong>{lista.resumen.pendientes}</strong><span>Sin apertura</span></p>
+          <p><strong>{lista.resumen.leidas}</strong><span>Con apertura</span></p>
+        </div>
+        {estado !== "todas" && <p className="internas-total-filtro">{lista.total} respuestas en este filtro</p>}
+        {!lista.registros.length ? <div className="internas-vacio">
+          <h3>{estado === "pendientes" ? "Sin respuestas pendientes de apertura" : estado === "leidas" ? "Sin respuestas con apertura registrada" : "Aún no hay respuestas internas"}</h3>
+          <p>No hay respuestas internas para este filtro.</p>
+          {estado !== "todas" && <button className="entregas-boton" type="button"
+            onClick={() => { setEstado("todas"); setPagina(1); }}>Ver todas las respuestas internas</button>}
+        </div> : <ul className="internas-listado" aria-label="Respuestas disponibles">{lista.registros.map(r => <li className="internas-tarjeta" key={r.id}>
+          <div className="internas-tarjeta-cabecera">
+            <h3>{r.numero_radicado}</h3>
+            <span className={`recepcion-interna-estado ${r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
+              {r.primera_apertura_utc ? "Primera apertura registrada" : "Pendiente de primera apertura por la dependencia de origen"}
+            </span>
+          </div>
+          <dl className="internas-datos">
+            <div><dt>Respuesta dirigida a</dt><dd>{nombreOrigen(r)}</dd></div>
+            <div><dt>Dependencia que respondió</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div>
+          </dl>
+          <dl className="internas-fechas">
+            <div><dt>Disponibilidad (Bogotá)</dt><dd>{r.historica ? "Respuesta histórica; disponibilidad anterior desconocida" : r.disponible_en_utc ? fecha(r.disponible_en_utc) : "Fecha de disponibilidad no registrada"}</dd></div>
+            <div><dt>Primera apertura (Bogotá)</dt><dd>{r.primera_apertura_utc ? fecha(r.primera_apertura_utc) : "Sin apertura registrada"}</dd></div>
+          </dl>
+          <button type="button" className="entregas-boton internas-boton-primario" aria-label={`Abrir respuesta interna ${r.numero_radicado}`} onClick={e => {
+            botonAbrir.current = e.currentTarget; abrirRespuesta(r.id, r.numero_radicado);
+          }}>Abrir respuesta</button>
+        </li>)}</ul>}
+        {lista.registros.length > 0 && lista.paginas > 1 && <nav className="internas-paginacion" aria-label="Páginas de respuestas internas">
           <button className="entregas-boton" type="button" disabled={cargando || pagina === 1} onClick={() => setPagina(n => n - 1)}>Anterior</button>
           <span>Página {pagina} de {lista.paginas}</span>
           <button className="entregas-boton" type="button" disabled={cargando || pagina >= lista.paginas} onClick={() => setPagina(n => n + 1)}>Siguiente</button>
         </nav>}</>}
-      {cargandoDetalle && <p role="status">Cargando respuesta interna y PDF…</p>}
-      {(detalle || cargandoDetalle) && <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>}
-      {detalle && <article className="entregas-tarjeta" aria-label="Respuesta interna abierta">
-        <h3 ref={cabecera} tabIndex={-1}>{detalle.recepcion.numero_radicado}</h3>
-        <p>Dependencia responsable: {detalle.recepcion.dependencia_destino}</p>
-        <p className="detalle-asunto">{detalle.recepcion.contenido}</p>
-        <ul className="detalle-archivos">{detalle.documentos.map(d => <li key={d.id}>
-          <a href={d.url} target="_blank" rel="noreferrer">{d.nombre_archivo}</a>
-        </li>)}</ul>
-        <EstadoRecepcion recepcion={detalle.recepcion} />{errorApertura}
-      </article>}
-    </>}
+      {seleccion && <div className="internas-vista">
+        {!detalle && <div className="internas-cabecera">
+          <h3>Respuesta · {seleccion.numero}</h3>
+          <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>
+        </div>}
+        {cargandoDetalle && <p className="internas-mensaje" role="status">Cargando respuesta interna y PDF…</p>}
+        {errorDetalle && <div className="internas-error" role="alert">
+          <p>{errorDetalle}</p>
+          <button className="entregas-boton" type="button" onClick={() => abrirRespuesta(seleccion.id, seleccion.numero)}>Reintentar carga de respuesta</button>
+        </div>}
+        {detalle && <article aria-label="Respuesta interna abierta">
+          <div className="internas-cabecera">
+            <div><p className="internas-antetitulo">Respuesta institucional</p><h3 ref={cabecera} tabIndex={-1}>{detalle.recepcion.numero_radicado}</h3></div>
+            <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>
+          </div>
+          <p className="internas-oficina">Dependencia que respondió: <strong>{detalle.recepcion.dependencia_destino?.trim() || "No registrada"}</strong></p>
+          <section className="internas-seccion" aria-label="Contenido de la respuesta">
+            <h4>Contenido de la respuesta</h4>
+            <p className="internas-texto">{detalle.recepcion.contenido}</p>
+          </section>
+          <section className="internas-seccion" aria-label="Adjuntos de la respuesta">
+            <h4>Adjuntos de la respuesta</h4>
+            {detalle.documentos.length ? <ul className="internas-adjuntos">{detalle.documentos.map(d => <li key={d.id}>
+              <a href={d.url} target="_blank" rel="noreferrer">{d.nombre_archivo}</a>
+              <span>PDF · {new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(d.tamano_bytes / 1024)} KiB · Abre en otra pestaña</span>
+            </li>)}</ul> : <p>Esta respuesta no tiene adjuntos.</p>}
+          </section>
+          <section className="internas-seccion" aria-label="Recepción de la respuesta">
+            <h4>Recepción digital</h4>
+            <EstadoRecepcion recepcion={detalle.recepcion} />{errorApertura}
+          </section>
+        </article>}
+      </div>}
+    </div>}
   </section>;
 }

@@ -148,15 +148,41 @@ El modal de respuesta institucional y el detalle de la bandeja identifican
 **Respuesta dirigida a** con la dependencia de origen, distinta de la oficina
 que respondió. Comparten dos hitos: **Respuesta disponible**, con fecha de
 disponibilidad en Bogotá, y **Primera apertura pendiente/registrada**, con fecha
-y funcionario cuando está confirmada. La bandeja muestra un resumen compacto
-del receptor, la oficina que respondió y el estado de apertura; listar no marca
-apertura. Un nombre de origen ausente se indica como **Dependencia de origen no
+y funcionario cuando está confirmada. La bandeja muestra tarjetas con radicado,
+receptor de origen, oficina que respondió, estado y fechas resumidas de
+disponibilidad/primera apertura en Bogotá; listar no marca apertura. Un nombre
+de origen ausente se indica como **Dependencia de origen no
 registrada**, sin sustituirlo por la oficina responsable de responder. Las
 fechas ausentes e históricas se aclaran sin inventar disponibilidad anterior.
 Los indicadores siempre incluyen texto y los hitos se apilan en pantallas
 pequeñas. Esto no agrega correo ni actualización automática, ni cambia quién
 puede registrar apertura. La apertura no acredita comprensión ni notificación
 legal.
+
+El encabezado y los controles siguen el estilo compacto de Traslados, con
+botones adaptables y foco visible. La bandeja inicia contraída, con filtro
+**Todas**, y no hace consultas hasta abrirla. Total/Sin apertura/Con apertura
+resumen toda la bandeja de la dependencia, no la página visible; el total del
+filtro se indica aparte. El vacío distingue filtros y permite **Ver todas las
+respuestas internas** cuando corresponde, sin paginación vacía. La carga y los
+errores se muestran explícitamente, no como ausencia de respuestas.
+
+**Abrir respuesta** conserva la vista dentro de la bandeja, agrupando contenido
+con sus saltos de línea, adjuntos PDF y los dos hitos completos. Los adjuntos
+muestran nombre/tamaño y abren en otra pestaña; si no existen, se informa.
+Un fallo de carga permite **Reintentar carga de respuesta** sin registrar
+apertura antes de cargar correctamente el contenido y todos sus PDF.
+Cerrar durante la carga descarta resultados tardíos y libera URLs temporales.
+El foco pasa al radicado abierto; al cerrar vuelve a la tarjeta o a Actualizar
+bandeja interna si la lista reemplazó el botón original.
+
+Las fechas históricas siguen identificándose como disponibilidad anterior
+desconocida; una primera apertura ausente no significa respuesta no disponible.
+Los estilos nuevos están acotados a la bandeja, sin rediseñar el modal
+institucional, Traslados ni seguimiento de entrega. Validación: 28 pruebas
+dirigidas, regresiones de Consulta/Traslados/SeguimientoEntrega, build y 39
+escenarios en Edge aislado a 320/390/1440 px, además de apertura por teclado.
+No requiere cambios de backend o migraciones.
 
 Requiere **027 aplicada y verificada en desarrollo**, con respaldo restaurado y
 ensayo local previo. Se incorporaron cuatro respuestas históricas sin inventar
@@ -233,6 +259,36 @@ de pendientes y decision justificada. Al aprobar se confirma el destino; al
 rechazar A conserva la asignacion. El control central debe explicar tambien
 cualquier cambio frente al destino sugerido. Una finalizacion previa cancela
 automaticamente la solicitud pendiente.
+
+El panel mantiene el titulo por rol visible aun contraido y consulta solo al
+abrirlo. El filtro inicial sigue siendo Pendiente de Ventanilla. Los indicadores
+distinguen pendientes de la bandeja (del origen para funcionarios) y solicitudes
+del filtro completo, no solo las de la pagina actual. Un estado vacio muestra
+una explicacion segun filtro y permite Ver todos los estados, sin paginacion
+vacia; los errores y la carga nunca se presentan como ausencia de solicitudes.
+
+Cada tarjeta resume radicado, estado textual, origen, destino sugerido o aprobado
+y vencimiento conservado. **Ver motivos y trazabilidad** despliega todos los
+detalles, incluidos solicitante, decisor, motivos y fechas en Bogota. Los datos
+ausentes se identifican sin inventar actores o fechas. El destino sugerido no
+significa que esa oficina ya sea responsable. Las etiquetas combinan texto y
+color, con controles de teclado y un diseno apilado para movil.
+
+**Resolver traslado** abre el formulario solo en pendientes de Ventanilla o
+administrador; no envia ninguna decision al abrirlo. El foco pasa al formulario
+y vuelve al boton al cerrarlo. Cerrar decision esta bloqueado durante un envio
+y ante confirmacion incierta. En este ultimo caso tambien se bloquean ocultar,
+cambiar filtro, paginar y otras decisiones: permanece disponible Reintentar
+decision o Actualizar traslados para consultar el resultado. Actualizar puede
+descartar el formulario incierto, por lo que debe comprobarse el estado antes
+de decidir de nuevo. Ninguna de estas consultas envia otro POST por si sola.
+El formulario independiente Solicitar traslado conserva su comportamiento.
+
+Los estilos del redisenio estan acotados al panel: no cambian los paneles de
+recepcion interna o seguimiento de entrega que comparten `traslados-datos`.
+Validacion: 29 casos en `tests\react\Traslados.test.jsx`, regresiones de Consulta,
+RespuestasInternas y SeguimientoEntrega, build y navegador Edge aislado con
+fixtures a 320/390/1440 px. No requiere migraciones ni cambios de backend.
 
 Se mantienen numero, fechas, documentos, estado operativo y vencimiento.
 No aplica a globales ni radicados finalizados. El origen pierde acceso al
@@ -337,6 +393,28 @@ solo la pagina actual, mientras el mensaje informa el total real. Cambiar de
 dependencia descarta respuestas pendientes de la oficina anterior. Una respuesta
 o cambio de estado exitoso recarga Consulta y las alertas seleccionadas; errores
 de carga se muestran explicitamente y Consulta permite reintentar.
+
+El panel **Alertas por dependencia** conserva el selector restringido y
+preseleccionado del funcionario; Ventanilla y administrador eligen entre sus
+dependencias permitidas. Sin seleccion muestra orientacion, sin grupos ni
+paginacion vacios. Una consulta valida sin alertas muestra un aviso unico;
+errores de catalogo/consulta se distinguen de carga y ausencia de resultados.
+Actualizar vuelve a consultar, sin acciones nuevas ni notificaciones.
+
+Los grupos **Proximos a vencer** y **Vencidos** usan tarjetas con radicado,
+remitente, etiqueta textual de urgencia y fecha limite actual recibida de la API.
+Una fecha ausente se indica como No registrada, sin calcular ni alterar plazos.
+Los conteos de grupo estan etiquetados **en esta pagina**; el total real y
+cantidad mostrada se informan aparte. Un grupo sin filas no significa que no
+existan alertas de ese tipo en otras paginas. La paginacion independiente se
+muestra solo con una consulta valida de varias paginas.
+Los estilos estan acotados al panel, con columnas en escritorio, apilado en
+movil y foco visible, sin cambiar la paginacion de radicados ni paneles vecinos.
+Las tarjetas no conceden acceso a expedientes ni incorporan acciones de gestion.
+Se verifican seleccion inicial, vacio/error/carga, fechas ausentes, grupos,
+conteos, paginacion y descarte de respuestas tardias, incluida seleccion vacia.
+Navegador Edge aislado: 45 escenarios a 320/390/1440 px con tres roles y
+datos ficticios, sin escrituras; navegacion por teclado comprobada.
 
 Reinicia el backend actualizado antes de usar esta interfaz: necesita los campos
 de paginacion y resumen nuevos de `/api/radicados` y `/api/alertas`. No requiere

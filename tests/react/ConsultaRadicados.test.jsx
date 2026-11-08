@@ -1511,6 +1511,123 @@ describe("consulta de radicados React", () => {
     expect(screen.getByText(/ALERTA-1/)).toBeTruthy();
   });
 
+  it("orienta antes de seleccionar sin grupos, navegación ni consultas de alertas", async () => {
+    await abrirConsulta();
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.getByText("Elige una dependencia para consultar alertas.")).toBeTruthy();
+    expect(panel.queryByRole("region", { name: "Próximos a vencer" })).toBeNull();
+    expect(panel.queryByRole("navigation")).toBeNull();
+    expect(panel.getByRole("button", { name: "Actualizar alertas" }).disabled).toBe(true);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.startsWith("/api/alertas?"))).toBe(false);
+  });
+
+  it("agrupa tarjetas y distingue conteos de página del total sin añadir acciones", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? Promise.resolve(respuestaJson({ success: true, total: 30, paginas: 2,
+        alertas: [
+          { ...crearRadicados()[0], numero_radicado: "ALERTA-PROXIMA", fecha_limite_actual: "2026-11-12" },
+          { ...crearRadicados()[2], numero_radicado: "ALERTA-VENCIDA" },
+        ] })) : base(ruta, opciones));
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.getByText("30 alertas encontradas. Mostrando 2.")).toBeTruthy();
+    const proximas = within(panel.getByRole("region", { name: "Próximos a vencer" }));
+    const vencidas = within(panel.getByRole("region", { name: "Vencidos" }));
+    expect(proximas.getByText("1 en esta página")).toBeTruthy();
+    expect(vencidas.getByText("1 en esta página")).toBeTruthy();
+    expect(proximas.getByRole("heading", { name: "ALERTA-PROXIMA" })).toBeTruthy();
+    expect(proximas.getByText("2026-11-12")).toBeTruthy();
+    expect(vencidas.getByText("No registrada")).toBeTruthy();
+    expect(proximas.queryByRole("button")).toBeNull();
+    expect(vencidas.queryByRole("link")).toBeNull();
+  });
+
+  it("distingue grupo vacío de ausencia global y oculta paginación de una sola página", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? Promise.resolve(respuestaJson({ success: true, total: 1, paginas: 1,
+        alertas: [{ ...crearRadicados()[0], numero_radicado: "ALERTA-UNICA" }] })) : base(ruta, opciones));
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(within(panel.getByRole("region", { name: "Vencidos" })).getByText("Sin alertas de este grupo en esta página.")).toBeTruthy();
+    expect(panel.queryByRole("navigation")).toBeNull();
+    expect(panel.queryByText("Sin alertas para esta dependencia")).toBeNull();
+  });
+
+  it("muestra ausencia de alertas sin columnas ni paginación vacías", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? Promise.resolve(respuestaJson({ success: true, total: 0, paginas: 0, alertas: [] })) : base(ruta, opciones));
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.getByRole("heading", { name: "Sin alertas para esta dependencia" })).toBeTruthy();
+    expect(panel.queryByRole("region", { name: "Vencidos" })).toBeNull();
+    expect(panel.queryByRole("navigation")).toBeNull();
+  });
+
+  it("presenta carga y error explícitos y permite reintentar sin mostrarlos como vacío", async () => {
+    const base = solicitarApi.getMockImplementation();
+    const lenta = diferida();
+    let intento = 0;
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? ++intento === 1 ? lenta.promise : Promise.resolve(respuestaJson({ success: true, total: 0, paginas: 0, alertas: [] }))
+      : base(ruta, opciones));
+    await abrirConsulta();
+    fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } });
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.getByRole("status").textContent).toBe("Consultando alertas…");
+    expect(panel.queryByRole("navigation")).toBeNull();
+    await act(async () => lenta.reject(new Error("Error de alertas ficticio")));
+    expect(panel.getByRole("alert").textContent).toBe("Error de alertas ficticio");
+    expect(panel.queryByText("Sin alertas para esta dependencia")).toBeNull();
+    await act(async () => fireEvent.click(panel.getByRole("button", { name: "Actualizar alertas" })));
+    expect(panel.queryByRole("alert")).toBeNull();
+    expect(panel.getByRole("heading", { name: "Sin alertas para esta dependencia" })).toBeTruthy();
+  });
+
+  it("descarta alertas pendientes al volver a selección vacía", async () => {
+    const base = solicitarApi.getMockImplementation();
+    const lenta = diferida();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?") ? lenta.promise : base(ruta, opciones));
+    await abrirConsulta();
+    fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "" } });
+    await act(async () => lenta.resolve(respuestaJson({ success: true, total: 1, paginas: 1,
+      alertas: [{ ...crearRadicados()[0], numero_radicado: "ALERTA-DESCARTADA" }] })));
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.queryByText("ALERTA-DESCARTADA")).toBeNull();
+    expect(panel.getByText("Elige una dependencia para consultar alertas.")).toBeTruthy();
+  });
+
+  it("expone un fallo del catálogo en el panel de alertas", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/dependencias"
+      ? Promise.reject(new Error("Catálogo de dependencias no disponible")) : base(ruta, opciones));
+    await abrirConsulta();
+    expect(within(screen.getByRole("region", { name: "Alertas por dependencia" })).getByRole("alert").textContent).toBe("Catálogo de dependencias no disponible");
+  });
+
+  it.each([
+    { total: -1, paginas: 0, alertas: [] },
+    { total: 26, paginas: 1, alertas: [] },
+    { total: 1, paginas: 1, alertas: [null] },
+    { total: 1, paginas: 1, alertas: [{ numero_radicado: "INVÁLIDA", semaforo: { nivel: "a_tiempo" } }] },
+  ])("no presenta respuestas de alertas inválidas como resultados: %j", async datos => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? Promise.resolve(respuestaJson({ success: true, ...datos })) : base(ruta, opciones));
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    const panel = within(screen.getByRole("region", { name: "Alertas por dependencia" }));
+    expect(panel.getByRole("alert").textContent).toBe("La respuesta de alertas no tiene el formato esperado.");
+    expect(panel.queryByRole("list")).toBeNull();
+    expect(panel.queryByRole("navigation")).toBeNull();
+  });
+
   it("envía un cambio de estado y muestra el estado confirmado por el servidor", async () => {
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();

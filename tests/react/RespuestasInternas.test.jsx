@@ -198,8 +198,8 @@ describe("respuestas internas digitales", () => {
   it("la bandeja conserva resumen compacto y el detalle comparte receptor e hitos con el modal", async () => {
     render(<RespuestasInternas usuario={usuario} />);
     await abrirBandeja();
-    expect(screen.getByText(`Respuesta dirigida a: ${recepcion.dependencia_remitente}`)).toBeTruthy();
-    expect(screen.getByText(`Dependencia que respondió: ${recepcion.dependencia_destino}`)).toBeTruthy();
+    expect(screen.getByText(recepcion.dependencia_remitente)).toBeTruthy();
+    expect(screen.getByText(recepcion.dependencia_destino)).toBeTruthy();
     expect(screen.getByText("Pendiente de primera apertura por la dependencia de origen")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Hitos de recepción digital interna" })).toBeNull();
     expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
@@ -211,5 +211,114 @@ describe("respuestas internas digitales", () => {
     expect(within(hitos).getByRole("heading", { name: "Primera apertura registrada" })).toBeTruthy();
     expect(within(hitos).getByText(confirmada.actor_nombre)).toBeTruthy();
     expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+  });
+
+  it.each([
+    ["todas", "Aún no hay respuestas internas"],
+    ["pendientes", "Sin respuestas pendientes de apertura"],
+    ["leidas", "Sin respuestas con apertura registrada"],
+  ])("distingue vacío para %s sin paginación y permite quitar el filtro", async (estado, titulo) => {
+    solicitarApi.mockResolvedValue(json({ registros: [], pagina: 1, paginas: 0, total: 0,
+      resumen: { total: 0, pendientes: 0, leidas: 0 } }));
+    render(<RespuestasInternas usuario={usuario} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver bandeja interna" })));
+    if (estado !== "todas") await act(async () => fireEvent.change(screen.getByLabelText("Filtrar respuestas internas"), { target: { value: estado } }));
+    expect(screen.getByRole("heading", { name: titulo })).toBeTruthy();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Abrir respuesta interna/ })).toBeNull();
+    if (estado !== "todas") {
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver todas las respuestas internas" })));
+      expect(screen.getByLabelText("Filtrar respuestas internas").value).toBe("todas");
+      expect(solicitarApi).toHaveBeenLastCalledWith("/api/respuestas-internas?pagina=1&estado=todas", undefined);
+    }
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+  });
+
+  it("resume fechas y oficinas en la tarjeta sin cargar el detalle ni acreditar", async () => {
+    solicitarApi.mockResolvedValue(lista(confirmada));
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja();
+    const tarjeta = screen.getByRole("list", { name: "Respuestas disponibles" }).querySelector("li");
+    expect(within(tarjeta).getByRole("heading", { name: confirmada.numero_radicado })).toBeTruthy();
+    expect(within(tarjeta).getByText("Respuesta dirigida a")).toBeTruthy();
+    expect(within(tarjeta).getByText("Dependencia que respondió")).toBeTruthy();
+    expect(within(tarjeta).getByText("Disponibilidad (Bogotá)")).toBeTruthy();
+    expect(within(tarjeta).getByText("Primera apertura (Bogotá)")).toBeTruthy();
+    expect(tarjeta.textContent).toContain("10:00");
+    expect(tarjeta.textContent).toContain("10:10");
+    expect(solicitarApi).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("article")).toBeNull();
+  });
+
+  it.each([0, 1])("aclara fechas ausentes e históricas en tarjeta: histórica=%s", async historica => {
+    solicitarApi.mockResolvedValue(lista({ ...recepcion, historica,
+      disponible_en_utc: historica ? recepcion.disponible_en_utc : null,
+      dependencia_remitente: " ", dependencia_destino: "" }));
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja();
+    expect(screen.getByText(historica ? "Respuesta histórica; disponibilidad anterior desconocida" : "Fecha de disponibilidad no registrada")).toBeTruthy();
+    expect(screen.getByText("Sin apertura registrada")).toBeTruthy();
+    expect(screen.getByText("Dependencia de origen no registrada")).toBeTruthy();
+    expect(screen.getByText("No registrada")).toBeTruthy();
+    expect(solicitarApi).toHaveBeenCalledTimes(1);
+  });
+
+  it("organiza contenido y adjuntos vacíos y conserva foco tras refrescar la lista", async () => {
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja(); await abrirDetalle();
+    const detalle = screen.getByRole("article", { name: "Respuesta interna abierta" });
+    expect(document.activeElement).toBe(within(detalle).getByRole("heading", { name: recepcion.numero_radicado }));
+    expect(within(detalle).getByRole("region", { name: "Contenido de la respuesta" })).toBeTruthy();
+    expect(within(detalle).getByRole("region", { name: "Adjuntos de la respuesta" }).textContent).toContain("Esta respuesta no tiene adjuntos.");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar bandeja interna" })));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Actualizar bandeja interna" }));
+  });
+
+  it("reintenta la carga PDF sin acuse prematuro y libera URLs parciales", async () => {
+    let fallar = true;
+    URL.createObjectURL.mockReturnValueOnce("blob:parcial").mockReturnValueOnce("blob:uno").mockReturnValueOnce("blob:dos");
+    solicitarApi.mockImplementation(ruta => {
+      if (ruta.includes("?")) return Promise.resolve(lista(recepcion));
+      if (ruta.endsWith("/documentos/5") && fallar) return Promise.reject(new Error("PDF de prueba ausente"));
+      if (ruta.includes("/documentos/")) return Promise.resolve({ blob: async () => new Blob(["PDF fixture"]) });
+      return Promise.resolve(ruta.endsWith("/apertura") ? json({ recepcion: confirmada })
+        : json({ recepcion, documentos: [{ id: 4, nombre_archivo: "uno.pdf", tamano_bytes: 2048 }, { id: 5, nombre_archivo: "dos.pdf", tamano_bytes: 1024 }] }));
+    });
+    render(<RespuestasInternas usuario={usuario} />); await abrirBandeja();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Abrir respuesta interna/ })));
+    expect(screen.getByText("PDF de prueba ausente")).toBeTruthy();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:parcial");
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+    fallar = false;
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reintentar carga de respuesta" })));
+    expect(screen.getByRole("link", { name: "uno.pdf" })).toBeTruthy();
+    expect(screen.getByText("PDF · 2 KiB · Abre en otra pestaña")).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:uno");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:dos");
+  });
+
+  it("pagina y descarta respuestas tardías al filtrar sin acreditar aperturas", async () => {
+    const lenta = diferida();
+    solicitarApi.mockResolvedValue(json({ registros: [recepcion], pagina: 1, paginas: 2, total: 26,
+      resumen: { total: 30, pendientes: 26, leidas: 4 } }));
+    render(<RespuestasInternas usuario={usuario} />); await abrirBandeja();
+    solicitarApi.mockReturnValueOnce(lenta.promise).mockResolvedValueOnce(json({ registros: [confirmada], pagina: 1, paginas: 1, total: 4,
+      resumen: { total: 30, pendientes: 26, leidas: 4 } }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    await act(async () => fireEvent.change(screen.getByLabelText("Filtrar respuestas internas"), { target: { value: "leidas" } }));
+    await act(async () => lenta.resolve(json({ registros: [recepcion], pagina: 2, paginas: 2, total: 26,
+      resumen: { total: 30, pendientes: 26, leidas: 4 } })));
+    expect(screen.getByText("4 respuestas en este filtro")).toBeTruthy();
+    const resumen = screen.getByRole("status", { name: "Resumen de respuestas de tu dependencia" });
+    expect(within(resumen).getByText("30")).toBeTruthy();
+    expect(within(resumen).getByText("26")).toBeTruthy();
+    expect(screen.getByText("Primera apertura registrada")).toBeTruthy();
+    expect(screen.queryByText("Sin apertura registrada")).toBeNull();
+    expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas?pagina=2&estado=todas", undefined);
+    expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas?pagina=1&estado=leidas", undefined);
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
   });
 });

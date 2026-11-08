@@ -43,6 +43,10 @@ const peticionesOperacion = () => solicitarApi.mock.calls.filter(([ruta]) => rut
 async function esperarDestinos() {
   await screen.findByRole("option", { name: "Destino B" });
 }
+async function abrirDecisiones() {
+  const botones = await screen.findAllByRole("button", { name: "Resolver traslado" });
+  await act(async () => botones.forEach((boton) => fireEvent.click(boton)));
+}
 
 describe("solicitud de traslado", () => {
   it("distingue carga, error y reintento sin permitir envíos sin destinos", async () => {
@@ -167,6 +171,7 @@ describe("bandeja de traslados", () => {
     });
     const vista = render(<BandejaTraslados usuario={{ id: 1, rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await abrirDecisiones();
     await screen.findAllByRole("form");
     expect(lecturas).toBe(1);
     vista.rerender(<BandejaTraslados usuario={{ id: 2, rol: "administrador" }} revision={0} alGuardar={vi.fn()} />);
@@ -187,6 +192,7 @@ describe("bandeja de traslados", () => {
     });
     render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await abrirDecisiones();
     await screen.findByRole("form");
     await screen.findByText("Destinos no disponibles");
     expect(screen.getByRole("button", { name: "Confirmar decisión" }).disabled).toBe(true);
@@ -205,6 +211,7 @@ describe("bandeja de traslados", () => {
     expect(solicitarApi).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
     const tarjeta = await screen.findByRole("article", { name: "Traslado RAD-001" });
+    fireEvent.click(within(tarjeta).getByText("Ver motivos y trazabilidad"));
     expect(within(tarjeta).getByText("Actor fixture")).toBeTruthy();
     expect(within(tarjeta).getByText("2026-11-20")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Confirmar decisión" })).toBeNull();
@@ -219,6 +226,7 @@ describe("bandeja de traslados", () => {
     render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={alGuardar} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
     await screen.findByRole("article");
+    await abrirDecisiones();
     await esperarDestinos();
     fireEvent.change(screen.getByLabelText("Destino aprobado"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText(/Justificación/), { target: { value: "Se cambia destino por competencia." } });
@@ -241,11 +249,18 @@ describe("bandeja de traslados", () => {
     render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={alGuardar} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
     await screen.findByRole("article");
+    await abrirDecisiones();
     fireEvent.change(screen.getByLabelText("Decisión de Ventanilla"), { target: { value: "rechazada" } });
     fireEvent.change(screen.getByLabelText(/Justificación/), { target: { value: "El origen debe continuar con su tramite." } });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar decisión" }));
     await screen.findByText("Fallo al confirmar");
     expect(screen.getByLabelText("Decisión de Ventanilla").disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Cerrar decisión" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Ocultar traslados" }).disabled).toBe(true);
+    expect(screen.getByLabelText("Estado del traslado").disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Actualizar traslados" }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar decisión" }));
+    expect(screen.getByRole("form", { name: "Resolver traslado RAD-001" })).toBeTruthy();
     expect(screen.queryByLabelText("Destino aprobado")).toBeNull();
     expect(alGuardar).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar decisión" }));
@@ -260,12 +275,14 @@ describe("bandeja de traslados", () => {
     simularApi((ruta, opciones) => opciones ? pendiente.promise : Promise.resolve(bandeja()));
     render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await abrirDecisiones();
     const formulario = await screen.findByRole("form", { name: "Resolver traslado RAD-001" });
     await esperarDestinos();
     fireEvent.submit(formulario); fireEvent.submit(formulario);
     expect(solicitarApi.mock.calls.filter(([, opciones]) => opciones)).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Actualizar traslados" }).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Ocultar traslados" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Cerrar decisión" }).disabled).toBe(true);
     await act(async () => pendiente.resolve(json({ success: true, traslado })));
   });
 
@@ -277,9 +294,10 @@ describe("bandeja de traslados", () => {
     render(<BandejaTraslados usuario={{ rol: "funcionario" }} revision={0} alGuardar={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
     fireEvent.change(screen.getByLabelText("Estado del traslado"), { target: { value: "rechazada" } });
-    await screen.findByText("RAD-001 · Rechazada");
+    const tarjeta = await screen.findByRole("article", { name: "Traslado RAD-001" });
+    expect(within(tarjeta).getByText("Rechazada")).toBeTruthy();
     await act(async () => lenta.resolve(bandeja()));
-    expect(screen.queryByText("RAD-001 · Pendiente de Ventanilla")).toBeNull();
+    expect(within(tarjeta).queryByText("Pendiente de Ventanilla")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     await screen.findByText("No hay solicitudes para mostrar.");
     expect(solicitarApi.mock.calls[2][0]).toBe("/api/traslados?pagina=2&estado=rechazada");
@@ -291,6 +309,114 @@ describe("bandeja de traslados", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Actualizar traslados" }));
-    await screen.findByText("No hay solicitudes para mostrar.");
+    await screen.findByText("Sin traslados pendientes");
+  });
+
+  it.each(["ventanilla", "administrador", "funcionario"])("presenta resumen y detalles bajo demanda para %s", async (rol) => {
+    simularApi(async () => bandeja());
+    render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={vi.fn()} />);
+    const titulo = rol === "funcionario" ? "Solicitudes de mi dependencia de origen" : "Revisión de Ventanilla";
+    expect(screen.getAllByRole("heading", { name: titulo })).toHaveLength(1);
+    expect(solicitarApi).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados" }));
+    const tarjeta = await screen.findByRole("article", { name: "Traslado RAD-001" });
+    expect(screen.getAllByRole("heading", { name: titulo })).toHaveLength(1);
+    expect(within(tarjeta).getByText("Destino sugerido")).toBeTruthy();
+    expect(within(tarjeta).getByText("2026-11-20")).toBeTruthy();
+    const detalles = within(tarjeta).getByText("Ver motivos y trazabilidad").closest("details");
+    expect(detalles.open).toBe(false);
+    fireEvent.click(within(tarjeta).getByText("Ver motivos y trazabilidad"));
+    expect(detalles.open).toBe(true);
+    expect(within(detalles).getByText("Revisar competencia de prueba.")).toBeTruthy();
+    expect(within(detalles).getByText("Solicitud (Bogotá)")).toBeTruthy();
+    expect(screen.queryByRole("form")).toBeNull();
+    if (rol === "funcionario") expect(screen.queryByRole("button", { name: "Resolver traslado" })).toBeNull();
+    else {
+      await abrirDecisiones();
+      expect(screen.getByRole("form", { name: "Resolver traslado RAD-001" })).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByLabelText("Decisión de Ventanilla"));
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar decisión" }));
+      expect(screen.queryByRole("form")).toBeNull();
+      expect(screen.getByRole("button", { name: "Resolver traslado" })).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Resolver traslado" }));
+    }
+  });
+
+  it.each([
+    ["pendiente", "Pendiente de Ventanilla"], ["aprobada", "Aprobada"],
+    ["rechazada", "Rechazada"], ["cancelada_por_finalizacion", "Cancelada por finalización"],
+  ])("identifica el estado %s y mantiene todos sus datos sin decisiones no permitidas", async (estado, nombre) => {
+    const registro = { ...traslado, estado, destino_aprobado_nombre: estado === "aprobada" ? "Destino C" : null };
+    simularApi(async () => bandeja([registro]));
+    render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    const tarjeta = await screen.findByRole("article");
+    expect(within(tarjeta).getByText(nombre).className).toContain(`traslados-estado--${estado}`);
+    const resumen = tarjeta.querySelector(".traslados-resumen-tarjeta");
+    expect(within(resumen).getByText(estado === "aprobada" ? "Destino aprobado" : "Destino sugerido")).toBeTruthy();
+    expect(within(resumen).getByText(estado === "aprobada" ? "Destino C" : "Destino B")).toBeTruthy();
+    expect(within(tarjeta).queryByRole("button", { name: "Resolver traslado" }) !== null).toBe(estado === "pendiente");
+  });
+
+  it("diferencia el contador del filtro, el vacío y la navegación a todos los estados", async () => {
+    solicitarApi.mockResolvedValue(json({ success: true, traslados: [], total: 0, paginas: 0, pendientes: 3 }));
+    render(<BandejaTraslados usuario={{ rol: "funcionario" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
+    await screen.findByText("Sin traslados pendientes");
+    const resumen = screen.getByRole("status");
+    expect(within(resumen).getByText("3")).toBeTruthy();
+    expect(within(resumen).getByText("0")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Paginación de traslados" })).toBeNull();
+    expect(screen.queryByRole("article")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ver todos los estados" }));
+    await screen.findByText("Aún no hay solicitudes de traslado en esta bandeja.");
+    expect(solicitarApi.mock.calls.at(-1)[0]).toBe("/api/traslados?pagina=1&estado=");
+    expect(screen.queryByRole("button", { name: "Ver todos los estados" })).toBeNull();
+  });
+
+  it("no presenta un error como bandeja vacía y conserva carga explícita", async () => {
+    const lenta = diferida();
+    solicitarApi.mockReturnValue(lenta.promise);
+    render(<BandejaTraslados usuario={{ rol: "funcionario" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
+    expect(screen.getByText("Cargando traslados…")).toBeTruthy();
+    expect(screen.queryByText("Sin traslados pendientes")).toBeNull();
+    await act(async () => lenta.reject(new Error("Error de prueba")));
+    expect(screen.getByRole("alert").textContent).toBe("Error de prueba");
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(screen.queryByText("Sin traslados pendientes")).toBeNull();
+  });
+
+  it("actualizar permite consultar un resultado incierto sin enviar otra decisión", async () => {
+    simularApi(async (_, opciones) => {
+      if (opciones) throw Object.assign(new Error("Confirmación incierta"), { status: 500 });
+      return bandeja();
+    });
+    render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await abrirDecisiones();
+    await esperarDestinos();
+    fireEvent.change(screen.getByLabelText(/Justificación/), { target: { value: "Motivo de prueba completo." } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar decisión" }));
+    await screen.findByText("Confirmación incierta");
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar traslados" }));
+    await screen.findByRole("button", { name: "Resolver traslado" });
+    expect(solicitarApi.mock.calls.filter(([, opciones]) => opciones)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Ocultar traslados" }).disabled).toBe(false);
+  });
+
+  it("muestra ausencias explícitas sin inventar origen, fechas ni actores", async () => {
+    const registro = { ...traslado, origen_nombre: null, destino_sugerido_nombre: null,
+      solicitante_nombre: null, creado_en_utc: null, motivo_solicitud: null, fecha_limite_conservada: null };
+    solicitarApi.mockResolvedValue(bandeja([registro]));
+    render(<BandejaTraslados usuario={{ rol: "funcionario" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mis solicitudes de traslado" }));
+    const tarjeta = await screen.findByRole("article");
+    expect(within(tarjeta).getByText("Sin origen registrado")).toBeTruthy();
+    expect(within(tarjeta).getByText("Sin destino sugerido registrado")).toBeTruthy();
+    expect(within(tarjeta).getByText("Sin plazo de respuesta registrado")).toBeTruthy();
+    fireEvent.click(within(tarjeta).getByText("Ver motivos y trazabilidad"));
+    for (const texto of ["Sin solicitante registrado", "Sin fecha de solicitud registrada", "Sin motivo registrado", "Sin decisor registrado", "Sin decisión", "Sin justificación registrada"])
+      expect(within(tarjeta).getByText(texto)).toBeTruthy();
   });
 });

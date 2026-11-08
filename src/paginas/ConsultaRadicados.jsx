@@ -226,8 +226,9 @@ function VistaConsultaRadicados({ usuario }) {
   const [estadoAlertas, setEstadoAlertas] = useState(
     "Elige una dependencia para consultar alertas.",
   );
+  const [errorAlertas, setErrorAlertas] = useState("");
   const [paginaAlertas, setPaginaAlertas] = useState(1);
-  const [paginacionAlertas, setPaginacionAlertas] = useState({ paginas: 0 });
+  const [paginacionAlertas, setPaginacionAlertas] = useState({ paginas: 0, total: 0 });
   const [cargandoAlertas, setCargandoAlertas] = useState(false);
   const [consultaAlertasValida, setConsultaAlertasValida] = useState(false);
   const solicitudAlertas = useRef(0);
@@ -426,7 +427,7 @@ function VistaConsultaRadicados({ usuario }) {
       })
       .catch((error) => {
         if (!vigente) return;
-        setEstadoAlertas(error.message);
+        setErrorAlertas(error.message);
       });
     return () => {
       vigente = false;
@@ -442,6 +443,7 @@ function VistaConsultaRadicados({ usuario }) {
     }
     const solicitud = ++solicitudAlertas.current;
     setCargandoAlertas(true);
+    setErrorAlertas("");
     setConsultaAlertasValida(false);
     setResumenAlertas({ porVencer: [], vencidos: [] });
     setEstadoAlertas("Consultando alertas…");
@@ -454,8 +456,12 @@ function VistaConsultaRadicados({ usuario }) {
       if (
         resultado.success !== true ||
         !Array.isArray(resultado.alertas) ||
-        !Number.isInteger(resultado.total) ||
-        !Number.isInteger(resultado.paginas)
+        resultado.alertas.length > 25 ||
+        !Number.isSafeInteger(resultado.total) || resultado.total < 0 ||
+        resultado.paginas !== Math.ceil(resultado.total / 25) ||
+        resultado.alertas.some(radicado => !radicado ||
+          typeof radicado.numero_radicado !== "string" ||
+          !["alerta", "vencido"].includes(radicado.semaforo?.nivel))
       )
         throw new Error(
           resultado.message ||
@@ -472,13 +478,13 @@ function VistaConsultaRadicados({ usuario }) {
       setEstadoAlertas(
         `${resultado.total} alertas encontradas. Mostrando ${resultado.alertas.length}.`,
       );
-      setPaginacionAlertas({ paginas: resultado.paginas });
+      setPaginacionAlertas({ paginas: resultado.paginas, total: resultado.total });
       setConsultaAlertasValida(true);
       if (paginaAlertas > Math.max(1, resultado.paginas))
         setPaginaAlertas(Math.max(1, resultado.paginas));
     } catch (error) {
       if (solicitud === solicitudAlertas.current)
-        setEstadoAlertas(error.message);
+        setErrorAlertas(error.message);
     } finally {
       if (solicitud === solicitudAlertas.current) setCargandoAlertas(false);
     }
@@ -1422,7 +1428,9 @@ function VistaConsultaRadicados({ usuario }) {
           aria-labelledby="alertas-titulo"
         >
           <h2 id="alertas-titulo">Alertas por dependencia</h2>
+          <p className="alertas-nota">Seguimiento de plazos de respuesta de la dependencia seleccionada.</p>
           <div className="alerts-controls">
+            <div className="alertas-filtro">
             <label htmlFor="alertas-dependencia">Dependencia</label>
             <select
               id="alertas-dependencia"
@@ -1434,7 +1442,8 @@ function VistaConsultaRadicados({ usuario }) {
                 setCargandoAlertas(false);
                 setDependenciaAlertas(evento.target.value);
                 setResumenAlertas({ porVencer: [], vencidos: [] });
-                setPaginacionAlertas({ paginas: 0 });
+                setPaginacionAlertas({ paginas: 0, total: 0 });
+                setErrorAlertas("");
                 setConsultaAlertasValida(false);
                 setEstadoAlertas(
                   "Elige una dependencia para consultar alertas.",
@@ -1448,6 +1457,7 @@ function VistaConsultaRadicados({ usuario }) {
                 </option>
               ))}
             </select>
+            </div>
             <button
               type="button"
               disabled={!dependenciaAlertas || cargandoAlertas}
@@ -1456,40 +1466,39 @@ function VistaConsultaRadicados({ usuario }) {
               Actualizar alertas
             </button>
           </div>
-          <MensajeEstado>{estadoAlertas}</MensajeEstado>
-          <div className="alerts-columns">
-            <div>
-              <h3>Próximos a vencer</h3>
-              <ul>
-                {resumenAlertas.porVencer.map((radicado) => (
-                  <li key={claveEstado(radicado)}>
-                    {radicado.numero_radicado} · {radicado.remitente_nombre} ·{" "}
-                    {radicado.semaforo?.texto}
-                  </li>
-                ))}
-                {consultaAlertasValida &&
-                  resumenAlertas.porVencer.length === 0 && (
-                    <li>Sin alertas de este grupo en esta página.</li>
-                  )}
-              </ul>
-            </div>
-            <div>
-              <h3>Vencidos</h3>
-              <ul>
-                {resumenAlertas.vencidos.map((radicado) => (
-                  <li key={claveEstado(radicado)}>
-                    {radicado.numero_radicado} · {radicado.remitente_nombre} ·{" "}
-                    {radicado.semaforo?.texto}
-                  </li>
-                ))}
-                {consultaAlertasValida &&
-                  resumenAlertas.vencidos.length === 0 && (
-                    <li>Sin alertas de este grupo en esta página.</li>
-                  )}
-              </ul>
-            </div>
-          </div>
-          <nav className="alerts-controls" aria-label="Paginación de alertas">
+          {errorAlertas ? <p className="alertas-error" role="alert">{errorAlertas}</p>
+            : !dependenciaAlertas ? <div className="alertas-vacio"><MensajeEstado>{estadoAlertas}</MensajeEstado></div>
+            : cargandoAlertas ? <MensajeEstado>{estadoAlertas}</MensajeEstado>
+            : consultaAlertasValida && <>
+              {paginacionAlertas.total === 0 ? <div className="alertas-vacio">
+                <h3>Sin alertas para esta dependencia</h3>
+                <p>No hay radicados próximos a vencer ni vencidos en esta consulta.</p>
+              </div> : <>
+                <MensajeEstado>{estadoAlertas}</MensajeEstado>
+                <div className="alerts-columns">
+                  {[["porVencer", "Próximos a vencer", "alerta"], ["vencidos", "Vencidos", "vencido"]].map(([grupo, titulo, nivel]) => (
+                    <section className={`alertas-grupo alertas-grupo--${nivel}`} key={grupo} aria-label={titulo}>
+                      <div className="alertas-grupo-cabecera">
+                        <h3>{titulo}</h3><span>{resumenAlertas[grupo].length} en esta página</span>
+                      </div>
+                      {resumenAlertas[grupo].length ? <ul className="alertas-listado">
+                        {resumenAlertas[grupo].map(radicado => (
+                          <li className="alertas-tarjeta" key={claveEstado(radicado)}>
+                            <h4>{radicado.numero_radicado}</h4>
+                            <span className={`alertas-etiqueta alertas-etiqueta--${nivel}`}>{radicado.semaforo?.texto || titulo}</span>
+                            <dl>
+                              <div><dt>Remitente</dt><dd>{radicado.remitente_nombre || "No registrado"}</dd></div>
+                              <div><dt>Fecha límite</dt><dd>{radicado.fecha_limite_actual || "No registrada"}</dd></div>
+                            </dl>
+                          </li>
+                        ))}
+                      </ul> : <p className="alertas-grupo-vacio">Sin alertas de este grupo en esta página.</p>}
+                    </section>
+                  ))}
+                </div>
+              </>}
+            </>}
+          {consultaAlertasValida && !cargandoAlertas && paginacionAlertas.paginas > 1 && <nav className="alerts-controls alertas-paginacion" aria-label="Paginación de alertas">
             <button
               type="button"
               disabled={
@@ -1513,7 +1522,7 @@ function VistaConsultaRadicados({ usuario }) {
             >
               Siguientes
             </button>
-          </nav>
+          </nav>}
         </section>
       </main>
       <PiePagina />
