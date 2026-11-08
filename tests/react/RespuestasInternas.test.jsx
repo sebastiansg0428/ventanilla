@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prepararEstilosDom } from "./helpers/estilos-dom.js";
 import { RespuestasInternas, TrazabilidadInterna } from "../../src/componentes/RespuestasInternas";
@@ -7,7 +7,8 @@ vi.mock("../../src/servicios/api", () => ({ solicitarApi: vi.fn() }));
 const usuario = { id: 1, rol: "funcionario", dependencia_id: 7 };
 const recepcion = { id: 1, respuesta_id: 10, dependencia_origen_id: 7, historica: 0,
   numero_radicado: "INTERNO-FICTICIO", contenido: "Respuesta institucional de prueba.",
-  dependencia_destino: "Oficina ficticia", disponible_en_utc: "2026-11-05 15:00:00.000000",
+  dependencia_remitente: "Oficina de origen ficticia", dependencia_destino: "Oficina ficticia",
+  disponible_en_utc: "2026-11-05 15:00:00.000000",
   primera_apertura_utc: null, actor_nombre: null };
 const confirmada = { ...recepcion, primera_apertura_utc: "2026-11-05 15:10:00.000000", actor_nombre: "Actor ficticio" };
 const json = datos => ({ json: async () => ({ success: true, ...datos }) });
@@ -91,7 +92,7 @@ describe("respuestas internas digitales", () => {
     render(<RespuestasInternas usuario={usuario} />); await abrirBandeja(); await abrirDetalle();
     await screen.findByText(/Confirmación incierta/);
     expect(screen.getByText("Respuesta institucional de prueba.")).toBeTruthy();
-    expect(screen.getByText("Sin primera apertura registrada")).toBeTruthy();
+    expect(screen.getByText("Sin primera apertura registrada por la dependencia de origen.")).toBeTruthy();
     fallo = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar registro de apertura" }));
     await screen.findByText(/Actor ficticio/);
@@ -122,8 +123,93 @@ describe("respuestas internas digitales", () => {
       render(<TrazabilidadInterna radicado={{ numero_radicado: recepcion.numero_radicado, dependencia_remitente_id: 7 }}
         usuario={{ id: 2, rol, dependencia_id: rol === "funcionario" ? 9 : null }} />);
       fireEvent.click(screen.getByRole("button", { name: "Ver recepción digital" }));
-      await screen.findByText("Sin primera apertura registrada");
+      await screen.findByText("Sin primera apertura registrada por la dependencia de origen.");
       expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
     });
   }
+
+  it("identifica al origen y muestra dos hitos pendientes sin registrar apertura desde Ventanilla", async () => {
+    solicitarApi.mockResolvedValue(json({ recepcion }));
+    render(<TrazabilidadInterna radicado={{ numero_radicado: recepcion.numero_radicado }}
+      usuario={{ id: 2, rol: "ventanilla" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver recepción digital" })));
+    const hitos = screen.getByRole("list", { name: "Hitos de recepción digital interna" });
+    expect(within(hitos).getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText("Respuesta dirigida a")).toBeTruthy();
+    expect(screen.getByText(recepcion.dependencia_remitente)).toBeTruthy();
+    expect(within(hitos).getByRole("heading", { name: "Respuesta disponible" })).toBeTruthy();
+    expect(within(hitos).getByRole("heading", { name: "Primera apertura pendiente" })).toBeTruthy();
+    expect(hitos.textContent).toContain("10:00");
+    expect(screen.getByText("La apertura no acredita comprensión ni notificación legal.")).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+  });
+
+  it.each([null, "", "   "])("no sustituye un origen sin nombre (%s) por la oficina que respondió", async nombre => {
+    solicitarApi.mockResolvedValue(json({ recepcion: { ...recepcion, dependencia_remitente: nombre } }));
+    render(<TrazabilidadInterna radicado={{ numero_radicado: recepcion.numero_radicado }}
+      usuario={{ id: 2, rol: "administrador" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver recepción digital" })));
+    expect(screen.getByText("Dependencia de origen no registrada")).toBeTruthy();
+    expect(screen.queryByText(recepcion.dependencia_destino, { exact: true })).toBeNull();
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+  });
+
+  it.each([true, false])("aclara disponibilidad sin fecha; histórica=%s", async historica => {
+    solicitarApi.mockResolvedValue(json({ recepcion: {
+      ...recepcion, historica: historica ? 1 : 0, disponible_en_utc: null,
+    } }));
+    render(<TrazabilidadInterna radicado={{ numero_radicado: recepcion.numero_radicado }}
+      usuario={{ id: 2, rol: "ventanilla" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver recepción digital" })));
+    const hitos = screen.getByRole("list", { name: "Hitos de recepción digital interna" });
+    expect(within(hitos).getByText(historica
+      ? "Respuesta histórica; fecha de disponibilidad anterior desconocida" : "No registrada")).toBeTruthy();
+    expect(hitos.textContent).not.toContain("10:00");
+    expect(within(hitos).getByRole("heading", { name: "Primera apertura pendiente" })).toBeTruthy();
+  });
+
+  it("registra apertura desde el origen y conserva los hitos al actualizar o reabrir el panel", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let actual = recepcion;
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (opciones?.method === "POST") {
+        actual = confirmada;
+        return Promise.resolve(json({ recepcion: actual }));
+      }
+      if (ruta.endsWith("/recepcion-interna")) return Promise.resolve(json({ recepcion: actual }));
+      return base(ruta, opciones);
+    });
+    render(<TrazabilidadInterna radicado={{
+      numero_radicado: recepcion.numero_radicado, dependencia_remitente_id: 7,
+    }} usuario={usuario} />);
+    await screen.findByText(confirmada.actor_nombre);
+    const hitos = screen.getByRole("list", { name: "Hitos de recepción digital interna" });
+    expect(within(hitos).getByRole("heading", { name: "Primera apertura registrada" })).toBeTruthy();
+    expect(within(hitos).getByText("Registrada por")).toBeTruthy();
+    expect(hitos.textContent).toContain("10:10");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar recepción digital" })));
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar recepción digital" }));
+    expect(screen.queryByRole("list", { name: "Hitos de recepción digital interna" })).toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver recepción digital" })));
+    expect(screen.getByText(confirmada.actor_nombre)).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+  });
+
+  it("la bandeja conserva resumen compacto y el detalle comparte receptor e hitos con el modal", async () => {
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja();
+    expect(screen.getByText(`Respuesta dirigida a: ${recepcion.dependencia_remitente}`)).toBeTruthy();
+    expect(screen.getByText(`Dependencia que respondió: ${recepcion.dependencia_destino}`)).toBeTruthy();
+    expect(screen.getByText("Pendiente de primera apertura por la dependencia de origen")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Hitos de recepción digital interna" })).toBeNull();
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+    await abrirDetalle();
+    const detalle = screen.getByRole("article", { name: "Respuesta interna abierta" });
+    expect(within(detalle).getByText(recepcion.dependencia_remitente)).toBeTruthy();
+    const hitos = within(detalle).getByRole("list", { name: "Hitos de recepción digital interna" });
+    expect(within(hitos).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(hitos).getByRole("heading", { name: "Primera apertura registrada" })).toBeTruthy();
+    expect(within(hitos).getByText(confirmada.actor_nombre)).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+  });
 });

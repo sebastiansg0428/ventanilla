@@ -1,7 +1,7 @@
-// Usa la copia UMD local que se carga en las páginas que generan comprobantes.
+import { cargarJsPdf } from './cargar-jspdf.js';
+
 export async function crearPdfComprobante(datos) {
-  const JsPdf = window.jspdf?.jsPDF;
-  if (!JsPdf) throw new Error('No se cargó jsPDF desde el archivo local.');
+  const JsPdf = await cargarJsPdf();
 
   const documentoPdf = new JsPdf();
   const respuestaEscudo = await fetch(`${import.meta.env.BASE_URL}img/escudo-miranda.png`);

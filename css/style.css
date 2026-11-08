@@ -2684,6 +2684,98 @@ button.dashboard-card {
   min-height: 2.75rem;
   white-space: normal;
 }
+.recepcion-interna {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+  overflow-wrap: anywhere;
+}
+.recepcion-interna-destinatario {
+  padding: 0.85rem 1rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+.recepcion-interna-destinatario p {
+  margin: 0.35rem 0;
+  font-weight: 600;
+}
+.recepcion-interna-destinatario small,
+.recepcion-interna-nota {
+  color: #475569;
+}
+.recepcion-interna-hitos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.85rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.recepcion-interna-hito {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+}
+.recepcion-interna-hito > div {
+  min-width: 0;
+}
+.recepcion-interna-hito h4 {
+  margin: 0 0 0.5rem;
+  color: #0f172a;
+}
+.recepcion-interna-hito p,
+.recepcion-interna-hito dl {
+  margin: 0;
+}
+.recepcion-interna-hito dt {
+  font-size: 0.85rem;
+  color: #475569;
+}
+.recepcion-interna-hito dd {
+  margin: 0.25rem 0 0.65rem;
+}
+.recepcion-interna-hito dd:last-child {
+  margin-bottom: 0;
+}
+.recepcion-interna-indicador {
+  flex: 0 0 1.75rem;
+  display: grid;
+  place-items: center;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+}
+.recepcion-interna-hito--registrado .recepcion-interna-indicador {
+  background: #dcfce7;
+  color: #166534;
+}
+.recepcion-interna-hito--pendiente .recepcion-interna-indicador {
+  background: #fef3c7;
+  color: #92400e;
+}
+.recepcion-interna-estado {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.recepcion-interna-estado--registrada {
+  background: #dcfce7;
+  color: #166534;
+}
+.recepcion-interna-estado--pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
 .internas-bandeja {
   min-width: 0;
   max-width: 100%;

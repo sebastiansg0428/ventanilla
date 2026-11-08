@@ -19,13 +19,42 @@ async function datosApi(ruta, opciones) {
   if (datos.success !== true) throw new Error(datos.message || "Respuesta interna inválida.");
   return datos;
 }
+function nombreOrigen(recepcion) {
+  return typeof recepcion.dependencia_remitente === "string" && recepcion.dependencia_remitente.trim()
+    ? recepcion.dependencia_remitente.trim() : "Dependencia de origen no registrada";
+}
 function EstadoRecepcion({ recepcion }) {
-  return <dl className="traslados-datos">
-    <div><dt>Disponibilidad digital (Bogotá)</dt><dd>{recepcion.historica
-      ? "Respuesta histórica; fecha de disponibilidad anterior desconocida" : fecha(recepcion.disponible_en_utc)}</dd></div>
-    <div><dt>Primera apertura en el sistema (Bogotá)</dt><dd>{recepcion.primera_apertura_utc
-      ? `${fecha(recepcion.primera_apertura_utc)} · ${recepcion.actor_nombre}` : "Sin primera apertura registrada"}</dd></div>
-  </dl>;
+  const abierta = Boolean(recepcion.primera_apertura_utc);
+  const disponibilidadConFecha = !recepcion.historica && Boolean(recepcion.disponible_en_utc);
+  return <div className="recepcion-interna">
+    <div className="recepcion-interna-destinatario">
+      <strong>Respuesta dirigida a</strong>
+      <p>{nombreOrigen(recepcion)}</p>
+      <small>Es la dependencia que inició el radicado, no la oficina que respondió.</small>
+    </div>
+    <ol className="recepcion-interna-hitos" aria-label="Hitos de recepción digital interna">
+      <li className={`recepcion-interna-hito ${disponibilidadConFecha ? "recepcion-interna-hito--registrado" : "recepcion-interna-hito--sin-fecha"}`}>
+        <span className="recepcion-interna-indicador" aria-hidden="true">1</span>
+        <div>
+          <h4>Respuesta disponible</h4>
+          {recepcion.historica
+            ? <p>Respuesta histórica; fecha de disponibilidad anterior desconocida</p>
+            : <dl><dt>Disponibilidad digital (Bogotá)</dt><dd>{fecha(recepcion.disponible_en_utc)}</dd></dl>}
+        </div>
+      </li>
+      <li className={`recepcion-interna-hito ${abierta ? "recepcion-interna-hito--registrado" : "recepcion-interna-hito--pendiente"}`}>
+        <span className="recepcion-interna-indicador" aria-hidden="true">2</span>
+        <div>
+          <h4>{abierta ? "Primera apertura registrada" : "Primera apertura pendiente"}</h4>
+          {abierta ? <dl>
+            <dt>Primera apertura en el sistema (Bogotá)</dt><dd>{fecha(recepcion.primera_apertura_utc)}</dd>
+            <dt>Registrada por</dt><dd>{recepcion.actor_nombre.trim() || "Nombre del funcionario no registrado"}</dd>
+          </dl> : <p>Sin primera apertura registrada por la dependencia de origen.</p>}
+        </div>
+      </li>
+    </ol>
+    <p className="recepcion-interna-nota">La apertura no acredita comprensión ni notificación legal.</p>
+  </div>;
 }
 function useApertura(recepcion, usuario, alConfirmar) {
   const [error, setError] = useState("");
@@ -72,7 +101,7 @@ export function TrazabilidadInterna({ radicado, usuario }) {
   const falloApertura = useApertura(abierto && auto ? recepcion : null, usuario, setRecepcion);
   return <section className="detalle-seccion respuesta-grupo entregas-panel">
     <h3>Recepción digital interna</h3>
-    <p>Disponible dentro del sistema, sin evidencia física de envío. Una apertura no certifica comprensión ni notificación legal.</p>
+    <p>Disponible dentro del sistema, sin evidencia física de envío.</p>
     <button className="entregas-boton" type="button" aria-expanded={abierto} onClick={() => setAbierto(v => !v)}>
       {abierto ? "Ocultar recepción digital" : "Ver recepción digital"}
     </button>
@@ -169,7 +198,12 @@ export function RespuestasInternas({ usuario }) {
       {lista && <><p role="status">Total: {lista.resumen.total} · Sin apertura: {lista.resumen.pendientes} · Con apertura: {lista.resumen.leidas}</p>
         {!lista.registros.length && <p>No hay respuestas internas para este filtro.</p>}
         <ul className="detalle-archivos">{lista.registros.map(r => <li key={r.id}>
-          <strong>{r.numero_radicado}</strong> · {r.dependencia_destino} · {r.primera_apertura_utc ? "Con apertura" : "Sin apertura"}
+          <strong>{r.numero_radicado}</strong>
+          <p>Respuesta dirigida a: {nombreOrigen(r)}</p>
+          <p>Dependencia que respondió: {r.dependencia_destino || "No registrada"}</p>
+          <span className={`recepcion-interna-estado ${r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
+            {r.primera_apertura_utc ? "Primera apertura registrada" : "Pendiente de primera apertura por la dependencia de origen"}
+          </span>
           <button type="button" className="entregas-boton" onClick={e => {
             botonAbrir.current = e.currentTarget; abrirRespuesta(r.id);
           }}>Abrir respuesta interna {r.numero_radicado}</button>

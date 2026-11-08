@@ -88,8 +88,9 @@ function paginaRadicados(radicados, ruta) {
 }
 
 async function abrirConsulta() {
-  const vista = render(<PaginaConsultaRadicados />);
-  await screen.findByText("RAD-001", { selector: "button" });
+  let vista;
+  await act(async () => { vista = render(<PaginaConsultaRadicados />); });
+  screen.getByText("RAD-001", { selector: "button" });
   screen.getByText("RAD-002", { selector: "button" });
   screen.getByText("RAD-003", { selector: "button" });
   return vista;
@@ -1159,6 +1160,14 @@ describe("consulta de radicados React", () => {
     const post = diferida();
     solicitarApi.mockImplementation((ruta, opciones) => {
       if (opciones?.method === "POST") return post.promise;
+      if (ruta.endsWith("/recepcion-interna")) return Promise.resolve(respuestaJson({
+        success: true, recepcion: {
+          id: 21, respuesta_id: 20, dependencia_origen_id: 7,
+          dependencia_remitente: "Oficina de origen confirmada", dependencia_destino: "Oficina confirmada",
+          numero_radicado: "RAD-001", contenido: respuesta.contenido, historica: 0,
+          disponible_en_utc: "2026-11-06 15:00:00.000000", primera_apertura_utc: null, actor_nombre: null,
+        },
+      }));
       if (ruta.includes("/respuesta")) return Promise.resolve(respuestaJson({ success: true, respuesta }));
       if (ruta === "/uploads/confirmado.pdf") return Promise.resolve({ blob: async () => new Blob(["PDF"]) });
       return base(ruta, opciones);
@@ -1193,6 +1202,14 @@ describe("consulta de radicados React", () => {
     }
     if (pdf) expect(within(modal).getByRole("link", { name: "confirmado.pdf" }).getAttribute("href")).toBe("blob:confirmado");
     else expect(within(modal).getByText("La respuesta no tiene PDF adjuntos.")).toBeTruthy();
+    if (tipo === "Interna") {
+      await act(async () => fireEvent.click(within(modal).getByRole("button", { name: "Ver recepción digital" })));
+      expect(within(modal).getByText("Oficina de origen confirmada")).toBeTruthy();
+      const hitos = within(modal).getByRole("list", { name: "Hitos de recepción digital interna" });
+      expect(within(hitos).getAllByRole("listitem")).toHaveLength(2);
+      expect(within(hitos).getByRole("heading", { name: "Primera apertura pendiente" })).toBeTruthy();
+      expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
+    }
     fireEvent.click(within(modal).getAllByRole("button", { name: "Cerrar" })[0]);
     if (pdf) expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:confirmado");
     const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
@@ -1225,16 +1242,16 @@ describe("consulta de radicados React", () => {
     await abrirRespuesta(); prepararDialogos();
     const modal = document.querySelector(".respuesta-dialog");
     fireEvent.change(within(modal).getByLabelText("Plantilla institucional"), { target: { value: "general" } });
-    fireEvent.submit(modal.querySelector("form"));
-    expect(await within(modal).findByRole("alert")).toBeTruthy();
+    await act(async () => fireEvent.submit(modal.querySelector("form")));
+    expect(within(modal).getByRole("alert")).toBeTruthy();
     expect(modal.open).toBe(true);
     expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
     expect(within(modal).queryByText("La respuesta no tiene PDF adjuntos.")).toBeNull();
     expect(within(modal).queryByRole("button", { name: "Enviar respuesta" })).toBeNull();
     if (fallo === "PDF") expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:recuperado");
     fallar = false;
-    fireEvent.click(within(modal).getByRole("button", { name: "Reintentar consulta de respuesta" }));
-    await within(modal).findByText("Respuesta recuperada");
+    await act(async () => fireEvent.click(within(modal).getByRole("button", { name: "Reintentar consulta de respuesta" })));
+    expect(within(modal).getByText("Respuesta recuperada")).toBeTruthy();
     expect(within(modal).getAllByRole("link")).toHaveLength(2);
     expect(within(modal).queryByRole("alert")).toBeNull();
     expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
@@ -1258,8 +1275,8 @@ describe("consulta de radicados React", () => {
     await abrirRespuesta(); prepararDialogos();
     const modal = document.querySelector(".respuesta-dialog");
     fireEvent.change(within(modal).getByLabelText("Plantilla institucional"), { target: { value: "general" } });
-    fireEvent.submit(modal.querySelector("form"));
-    await within(modal).findByText(/Respuesta guardada correctamente/);
+    await act(async () => fireEvent.submit(modal.querySelector("form")));
+    expect(within(modal).getByText(/Respuesta guardada correctamente/)).toBeTruthy();
     if (accion === "cerrar" || accion === "PDF tardío") {
       if (accion === "PDF tardío") await waitFor(() =>
         expect(solicitarApi).toHaveBeenCalledWith("/uploads/tardio.pdf"));
@@ -1407,21 +1424,34 @@ describe("consulta de radicados React", () => {
     solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/radicados?")
       ? Promise.resolve(paginaRadicados(filas, ruta)) : base(ruta, opciones));
     await abrirConsulta();
-    const navegacion = within(screen.getByRole("navigation", { name: "Paginación de radicados" }));
+    const elementoNavegacion = screen.getByLabelText("Paginación de radicados");
+    expect(elementoNavegacion.tagName).toBe("NAV");
+    const navegacion = within(elementoNavegacion);
+    const siguiente = navegacion.getByRole("button", { name: "Siguiente" });
+    const buscar = screen.getByLabelText("Buscar radicados");
     expect(screen.getByText("Página 1 de 3")).toBeTruthy();
     expect(within(screen.getByLabelText("Resumen y filtros")).getByRole("button", { name: /Total/ }).textContent).toContain("53");
     expect(screen.queryByText("RAD-026", { selector: "button" })).toBeNull();
-    await act(async () => fireEvent.click(navegacion.getByRole("button", { name: "Siguiente" })));
+    await act(async () => fireEvent.click(siguiente));
     expect(screen.getByText("RAD-026", { selector: "button" })).toBeTruthy();
     expect(screen.queryByText("RAD-001", { selector: "button" })).toBeNull();
     expect(screen.getByText("Página 2 de 3")).toBeTruthy();
     const user = userEvent.setup({ delay: null });
-    await user.click(screen.getByLabelText("Buscar radicados"));
-    await user.paste("final");
-    expect(await screen.findByText("RAD-053", { selector: "button" })).toBeTruthy();
-    expect(navegacion.getByText("Página 1 de 1")).toBeTruthy();
-    expect(navegacion.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
-    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("pagina=1") && ruta.includes("busqueda=final"))).toBe(true);
+    await user.click(buscar);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      fireEvent.change(buscar, { target: { value: "final" } });
+      expect(screen.queryByText("RAD-053", { selector: "button" })).toBeNull();
+      await act(async () => { await vi.advanceTimersByTimeAsync(249); });
+      expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("busqueda=final"))).toBe(false);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(screen.getByText("RAD-053", { selector: "button" })).toBeTruthy();
+      expect(navegacion.getByText("Página 1 de 1")).toBeTruthy();
+      expect(navegacion.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
+      expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("pagina=1") && ruta.includes("busqueda=final"))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("descarta una consulta tardia cuando se cambian los filtros", async () => {
@@ -1484,7 +1514,8 @@ describe("consulta de radicados React", () => {
   it("envía un cambio de estado y muestra el estado confirmado por el servidor", async () => {
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
-    const selectorEstado = screen.getByRole("combobox", {
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const selectorEstado = within(fila).getByRole("combobox", {
       name: "Estado de RAD-001",
     });
 
@@ -1514,7 +1545,8 @@ describe("consulta de radicados React", () => {
     });
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
-    const selectorEstado = screen.getByRole("combobox", {
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const selectorEstado = within(fila).getByRole("combobox", {
       name: "Estado de RAD-001",
     });
 
@@ -1543,9 +1575,10 @@ describe("consulta de radicados React", () => {
     expect(selector.disabled).toBe(true);
     expect(within(fila).getByText("Guardando estado…")).toBeTruthy();
     Object.assign(filas[0], { estado: "Enterado", semaforo: { nivel: "completado", texto: "Enterado" } });
-    confirmar(respuestaJson({ success: true, estado: "Enterado",
-      fecha_enterado: "2026-10-21 15:30:00", semaforo: { nivel: "completado", texto: "Enterado" } }));
-    await waitFor(() => expect(within(fila).queryByRole("combobox")).toBeNull());
+    await act(async () => confirmar(respuestaJson({ success: true, estado: "Enterado",
+      fecha_enterado: "2026-10-21 15:30:00", semaforo: { nivel: "completado", texto: "Enterado" } })));
+    expect(selector.isConnected).toBe(false);
+    expect(within(fila).queryByRole("combobox")).toBeNull();
     expect(within(fila).getByLabelText("Estado de RAD-001: Enterado")).toBeTruthy();
     expect(within(fila).queryByRole("button", { name: "Ver respuesta" })).toBeNull();
   });
@@ -1576,8 +1609,8 @@ describe("consulta de radicados React", () => {
     const botones = await screen.findAllByText("RAD-001", { selector: "button" });
     const primera = botones[0].closest("tr");
     const segunda = botones[1].closest("tr");
-    fireEvent.change(within(primera).getByRole("combobox"), { target: { value: "Enterado" } });
-    await waitFor(() => expect(within(primera).queryByRole("combobox")).toBeNull());
+    await act(async () => fireEvent.change(within(primera).getByRole("combobox"), { target: { value: "Enterado" } }));
+    expect(within(primera).queryByRole("combobox")).toBeNull();
     expect(within(segunda).getByRole("combobox").value).toBe("Recibido");
     const llamada = solicitarApi.mock.calls.find(([ruta, opciones]) =>
       ruta.endsWith("/estado") && opciones.method === "PUT");

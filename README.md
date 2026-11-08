@@ -16,6 +16,37 @@ Para generar la versión de publicación ejecuta `npm run build`; para verla loc
 - `src/componentes/Compartidos.jsx` reúne componentes que varias pantallas reutilizan, como la protección de sesión y la navegación.
 - `src/servicios/api.js` centraliza las solicitudes autenticadas al backend; `src/servicios/comprobante.js` genera el recibo.
 - `public/vendor/jspdf.umd.min.js` contiene la copia local de jsPDF, por lo que no se depende de un CDN.
+
+### Carga perezosa de jsPDF
+
+Radicación y Consulta no descargan jsPDF al abrir la página. El servicio de
+comprobantes carga la copia UMD local mediante `src/servicios/cargar-jspdf.js`
+solo cuando necesita generar un PDF, respetando la ruta base de Vite. En
+Consulta ocurre al pulsar **Ver comprobante**; en Radicación se conserva la
+generación automática después del guardado confirmado y el reintento manual.
+Consultar una respuesta o sus PDF adjuntos no necesita esta librería.
+
+Las solicitudes concurrentes comparten una carga y las siguientes generaciones
+reutilizan el constructor. Un error de red, exportación inválida o espera de
+más de 15 segundos informa un fallo y permite reintentar; no vuelve a radicar
+un documento ya guardado. Este límite es de carga del recurso, no de las
+pruebas. No se modifica el contenido, escudo, nombre ni paginación del PDF,
+ni el generador legado.
+
+La copia local pesa 441160 bytes (430,8 KiB sin comprimir): se difiere esa
+descarga, no se elimina. La primera generación puede tardar más porque ahora
+incluye cargar/evaluar la librería. Para verificarlo, usar el build con caché
+desactivada en Network: cero solicitudes `jspdf.umd.min.js` al inicio, una al
+primer comprobante y ninguna carga adicional en el segundo. Los bytes
+transferidos dependen de compresión, caché y servidor.
+
+Validación dirigida:
+
+```powershell
+npm run test:react -- tests\react\CargarJsPdf.test.jsx tests\react\Comprobante.test.jsx tests\react\Radicacion.test.jsx tests\react\ConsultaRadicados.test.jsx
+npm run test:legacy
+npm run build
+```
 - `css/style.css` conserva los estilos existentes y los complementa para los componentes de React.
 
 ## Diagrama de flujo
@@ -112,6 +143,20 @@ y botón de reintento sin ocultar el contenido ni fingir un acuse confirmado.
 La hora se muestra en Bogotá. Las respuestas históricas no inventan lecturas
 ni disponibilidad anterior; la apertura técnica no acredita comprensión legal.
 Se descartan respuestas tardías al cerrar y se liberan los enlaces blob.
+
+El modal de respuesta institucional y el detalle de la bandeja identifican
+**Respuesta dirigida a** con la dependencia de origen, distinta de la oficina
+que respondió. Comparten dos hitos: **Respuesta disponible**, con fecha de
+disponibilidad en Bogotá, y **Primera apertura pendiente/registrada**, con fecha
+y funcionario cuando está confirmada. La bandeja muestra un resumen compacto
+del receptor, la oficina que respondió y el estado de apertura; listar no marca
+apertura. Un nombre de origen ausente se indica como **Dependencia de origen no
+registrada**, sin sustituirlo por la oficina responsable de responder. Las
+fechas ausentes e históricas se aclaran sin inventar disponibilidad anterior.
+Los indicadores siempre incluyen texto y los hitos se apilan en pantallas
+pequeñas. Esto no agrega correo ni actualización automática, ni cambia quién
+puede registrar apertura. La apertura no acredita comprensión ni notificación
+legal.
 
 Requiere **027 aplicada y verificada en desarrollo**, con respaldo restaurado y
 ensayo local previo. Se incorporaron cuatro respuestas históricas sin inventar
@@ -358,6 +403,25 @@ npm run test:legacy
 npm run build
 ```
 
+En las pruebas de Consulta, los helpers completan con `act` el render y los mocks
+inmediatos antes de consultar sus resultados. Los escenarios de solicitudes
+pendientes conservan sus promesas diferidas y las comprobaciones de cierre,
+permisos, doble envío y limpieza de PDF.
+
+La prueba de paginación conserva 53 registros y comprueba el debounce de búsqueda:
+no hay consulta antes de 250 ms y al cumplirse ese plazo se vuelve a la primera
+página. Solo esa fase usa reloj falso, restaurado en `finally`; las interacciones
+de `userEvent` se ejecutan antes, con reloj real. No combinar ese reloj falso con
+las esperas asíncronas de Testing Library: su drenaje de cola usa un temporizador
+de cero ms y esta configuración Vitest no lo avanza automáticamente. El pegado
+con `userEvent` sigue cubierto por las pruebas de filtros.
+
+Las cuatro suites del comando dirigido conservaron los mismos 108 casos y
+aprobaron dos ejecuciones completas consecutivas, sin aumentar timeouts ni
+desactivar el aislamiento. Estos resultados no garantizan tiempos constantes
+bajo cualquier carga del equipo ni sustituyen validar toda React cuando se
+modifica el setup compartido.
+
 `tests/react/` cubre formularios, sesion, catalogos, consulta, adjuntos y
 comprobantes con React Testing Library y servicios simulados. Las pruebas
 legadas cubren `legacy/js/`; no sustituyen las pruebas React. Ninguna de estas
@@ -385,7 +449,8 @@ Para validar solo consulta, seguimiento de entrega y respuestas internas:
 npm run test:react -- tests\react\ConsultaRadicados.test.jsx tests\react\SeguimientoEntrega.test.jsx tests\react\RespuestasInternas.test.jsx
 ```
 
-Estas tres suites conservan 94 casos. Acotan las consultas con `within` al
+Estas tres suites incluyen 102 casos, con regresiones de receptor e hitos de
+recepción interna. Acotan las consultas con `within` al
 modal, fila o seccion y reutilizan controles cuando siguen montados, evitando
 recalcular nombres accesibles de toda la pagina. No omiten las comprobaciones
 de visibilidad, foco ni bloqueo de controles. Para mocks de respuesta inmediata,
@@ -399,7 +464,7 @@ consuma el tiempo del primer caso. No sustituye `getComputedStyle` ni elimina
 ese coste del tiempo total. Se mantienen los timeouts, el aislamiento, las
 interacciones de `userEvent` y los archivos PDF reales de las pruebas de limites.
 Al ajustar estos helpers, repetir el comando dirigido dos veces consecutivas;
-ambas ejecuciones deben aprobar los 94 casos sin omisiones ni errores no
+ambas ejecuciones deben aprobar todos los casos sin omisiones ni errores no
 controlados. La duracion total puede variar con la carga del equipo.
 
 Para ensayos reales de navegador, usar backend/base/uploads y perfil separados,
