@@ -128,6 +128,7 @@ export function RespuestasInternas({ usuario }) {
   const cabecera = useRef(null);
   const botonAbrir = useRef(null);
   const botonActualizar = useRef(null);
+  const aperturaInicialResuelta = useRef(false);
   function liberar() { urls.current.forEach(u => URL.revokeObjectURL(u)); urls.current.clear(); }
   useEffect(() => () => { solicitud.current++; liberar(); }, []);
   function cerrarDetalle() {
@@ -137,7 +138,6 @@ export function RespuestasInternas({ usuario }) {
   }
   useEffect(() => { if (detalle) cabecera.current?.focus(); }, [detalle?.recepcion.id]);
   useEffect(() => {
-    if (!abierto) return;
     let vigente = true;
     setCargando(true); setError(""); setLista(null);
     datosApi(`/api/respuestas-internas?pagina=${pagina}&estado=${estado}`).then(datos => {
@@ -149,12 +149,16 @@ export function RespuestasInternas({ usuario }) {
         datos.resumen.total !== datos.resumen.pendientes + datos.resumen.leidas) throw new Error("Bandeja interna inválida.");
       if (vigente) {
         setLista(datos);
+        if (!aperturaInicialResuelta.current) {
+          aperturaInicialResuelta.current = true;
+          if (datos.resumen.pendientes > 0) setAbierto(true);
+        }
         if (pagina > Math.max(1, datos.paginas)) setPagina(Math.max(1, datos.paginas));
       }
     }).catch(e => { if (vigente) setError(e.message); })
       .finally(() => { if (vigente) setCargando(false); });
     return () => { vigente = false; };
-  }, [abierto, pagina, estado, revision]);
+  }, [pagina, estado, revision]);
   async function abrirRespuesta(id, numero) {
     cerrarDetalle();
     const actual = ++solicitud.current;
@@ -191,8 +195,28 @@ export function RespuestasInternas({ usuario }) {
     <div className="internas-cabecera">
       <div><p className="internas-antetitulo">Recepción digital de tu dependencia</p><h2>Respuestas internas recibidas</h2></div>
       <button type="button" className="entregas-boton" aria-expanded={abierto} aria-controls="internas-contenido"
-        onClick={() => { cerrarDetalle(); setAbierto(v => !v); }}>{abierto ? "Ocultar bandeja interna" : "Ver bandeja interna"}</button>
+        onClick={() => { aperturaInicialResuelta.current = true; cerrarDetalle(); setAbierto(v => !v); }}>{abierto ? "Ocultar bandeja interna" : "Ver bandeja interna"}</button>
     </div>
+    <p className="internas-nota">Aquí encuentras las respuestas a los radicados que inició tu dependencia. No aparecen en el listado de documentos recibidos de abajo.</p>
+    {cargando && <p className="internas-mensaje" role="status">Cargando bandeja interna…</p>}
+    {error && <div className="internas-error" role="alert">
+      <p>{error}</p>
+      <button className="entregas-boton" type="button" disabled={cargando}
+        onClick={() => setRevision(n => n + 1)}>Reintentar carga de bandeja interna</button>
+    </div>}
+    {lista && <>
+      <div className="internas-indicadores" role="status" aria-label="Resumen de respuestas de tu dependencia">
+        <p><strong>{lista.resumen.total}</strong><span>Total</span></p>
+        <p><strong>{lista.resumen.pendientes}</strong><span>Sin apertura</span></p>
+        <p><strong>{lista.resumen.leidas}</strong><span>Con apertura</span></p>
+      </div>
+      {lista.resumen.pendientes > 0 && <p className="internas-aviso" role="status">
+        Tienes {lista.resumen.pendientes} {lista.resumen.pendientes === 1 ? "respuesta interna sin abrir" : "respuestas internas sin abrir"}.
+        {" "}Usa «Abrir respuesta» para consultar el contenido y sus adjuntos.
+      </p>}
+    </>}
+    {!abierto && <button className="entregas-boton" type="button" disabled={cargando}
+      onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>}
     {abierto && <div id="internas-contenido">
       <p className="internas-nota">Respuesta digital dirigida a tu dependencia de origen. Se registra la primera apertura al mostrar correctamente la respuesta y sus adjuntos.</p>
       <div className="internas-controles">
@@ -201,14 +225,7 @@ export function RespuestasInternas({ usuario }) {
         </select></label>
         <button ref={botonActualizar} className="entregas-boton" type="button" disabled={cargando} onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>
       </div>
-      {cargando && <p className="internas-mensaje" role="status">Cargando bandeja interna…</p>}
-      {error && <p className="internas-error" role="alert">{error}</p>}
       {lista && <>
-        <div className="internas-indicadores" role="status" aria-label="Resumen de respuestas de tu dependencia">
-          <p><strong>{lista.resumen.total}</strong><span>Total</span></p>
-          <p><strong>{lista.resumen.pendientes}</strong><span>Sin apertura</span></p>
-          <p><strong>{lista.resumen.leidas}</strong><span>Con apertura</span></p>
-        </div>
         {estado !== "todas" && <p className="internas-total-filtro">{lista.total} respuestas en este filtro</p>}
         {!lista.registros.length ? <div className="internas-vacio">
           <h3>{estado === "pendientes" ? "Sin respuestas pendientes de apertura" : estado === "leidas" ? "Sin respuestas con apertura registrada" : "Aún no hay respuestas internas"}</h3>

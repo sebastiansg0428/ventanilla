@@ -315,7 +315,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const estadoActual = item.estado || 'Recibido';
             const sinRespuesta = item.requiere_respuesta === 0 || item.requiere_respuesta === false;
             const final = ['Respondido', 'Enterado'].includes(estadoActual);
-            const opcionesEstado = [...estadosDisponibles, ...(sinRespuesta ? ['Enterado'] : [])];
+            const opcionesEstado = [
+                ...estadosDisponibles.filter(estado => estado !== 'Recibido' || normalizarTexto(estadoActual) === 'recibido'),
+                ...(sinRespuesta ? ['Enterado'] : [])
+            ];
             if (!opcionesEstado.includes(estadoActual)) opcionesEstado.push(estadoActual);
             const tipoNormalizado = obtenerTipo(item);
             const tipoBadgeClass = tipoNormalizado === 'interna'

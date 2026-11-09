@@ -3270,6 +3270,14 @@ button.dashboard-card {
   color: #1e3a8a;
   font-size: 1.25rem;
 }
+.internas-bandeja .internas-aviso {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid #d97706;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  color: #92400e;
+}
 .internas-bandeja .internas-total-filtro,
 .internas-bandeja .internas-oficina {
   color: #475569;

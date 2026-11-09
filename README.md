@@ -1,5 +1,26 @@
 # Ventanilla Única — interfaz React + Vite
 
+## Estado de los radicados
+
+El selector de Consulta conserva `Recibido` mientras sea el estado inicial.
+Al avanzar a `En trámite` o `Pendiente`, deja de ofrecer el retorno a
+`Recibido`; los dos estados intermedios pueden alternarse. Esto aplica también
+al seguimiento de cada dependencia en radicados globales y al cliente legacy.
+La API verifica la misma restricción. Si falla el guardado, se restablecen el
+estado anterior y sus opciones; no cambian las reglas de cierre.
+
+## Visibilidad de respuestas internas
+
+Consulta carga la bandeja interna al entrar y muestra siempre los conteos de
+respuestas totales, sin apertura y con apertura, incluso con el panel plegado.
+Si inicialmente hay respuestas sin abrir, despliega sus tarjetas automáticamente.
+Plegarla manualmente se respeta durante los filtros y actualizaciones.
+Las respuestas al radicado de la dependencia de origen se presentan aquí,
+separadas del listado de documentos recibidos. Mostrar tarjetas o contadores no
+registra apertura: se mantiene la confirmación solo tras cargar el contenido y
+los adjuntos mediante **Abrir respuesta**. Los errores y el reintento quedan
+visibles también con la bandeja plegada.
+
 ## Iniciar en el computador
 
 1. Abre una terminal en esta carpeta y ejecuta `npm install`.

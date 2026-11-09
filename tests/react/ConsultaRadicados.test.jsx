@@ -746,7 +746,7 @@ describe("consulta de radicados React", () => {
     expect(within(timeline).getByText("Cambio de estado")).toBeTruthy();
     expect(within(timeline).getByText("Recibido → En trámite")).toBeTruthy();
     expect(within(timeline).getByText("María").textContent).toBe("Registrado por: María");
-    expect(within(timeline).getByText("Planeación").textContent).toBe("Dependencia atendida: Planeación");
+    expect(within(timeline).getByText("Planeación").textContent).toBe("Dependencia responsable: Planeación");
     expect(within(timeline).getByRole("heading", { name: "Cambio de estado", level: 4 })).toBeTruthy();
     expect(within(timeline).getByText("Se actualizó el estado del expediente.")).toBeTruthy();
     expect(timeline.textContent).toContain("25/10/2026");
@@ -758,6 +758,25 @@ describe("consulta de radicados React", () => {
     expect(within(timeline).getByText("Hacienda").textContent).toBe("Dependencia destinataria: Hacienda");
     expect(timeline.querySelector("li").textContent).toContain("Asignado a dependencia");
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/historial?limite=25&cursor=8");
+  });
+
+  it("identifica la dependencia que respondió en el registro y los adjuntos de respuesta", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.endsWith("/historial?limite=25")
+      ? Promise.resolve(respuestaJson({
+          historial: ["respuesta_enviada", "documentos_respuesta_adjuntados"].map((event_type, indice) => ({
+            id: indice + 1, event_type, actor_name: "Funcionario",
+            dependencia_nombre: "SEDAM", ocurrido_en_utc: "2026-11-09 20:55:44.000000",
+          })),
+          next_cursor: null, has_more: false,
+        }))
+      : base(ruta, opciones));
+    const timeline = await abrirHistorial();
+    for (const titulo of ["Respuesta institucional registrada", "Documentos de respuesta adjuntados"]) {
+      const evento = within(timeline).getByRole("heading", { name: titulo }).closest("article");
+      expect(within(evento).getByText("SEDAM").textContent).toBe("Dependencia que respondió: SEDAM");
+      expect(evento.textContent).not.toContain("Dependencia atendida");
+    }
   });
 
   it("separa los eventos iniciales y describe cambios sin imprimir valores JSON", async () => {
@@ -854,7 +873,7 @@ describe("consulta de radicados React", () => {
     expect(within(grupos[0]).getAllByText("Planeación").every(p =>
       p.textContent === "Dependencia destinataria: Planeación")).toBe(true);
     expect(grupos[1].querySelectorAll("article")).toHaveLength(1);
-    expect(grupos[2].textContent).toContain("Dependencia atendida: Hacienda");
+    expect(grupos[2].textContent).toContain("Dependencia responsable: Hacienda");
     const regla = within(grupos[0]).getByRole("heading", { name: "Regla de respuesta aplicada" }).closest("article");
     expect(regla.textContent).toContain("No registrada en este evento");
     expect(regla.textContent).not.toContain("Planeación");
@@ -1639,10 +1658,31 @@ describe("consulta de radicados React", () => {
     await user.selectOptions(selectorEstado, "En trámite");
 
     await waitFor(() => expect(selectorEstado.value).toBe("En trámite"));
+    expect(within(selectorEstado).queryByRole("option", { name: "Recibido" })).toBeNull();
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/estado", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ estado: "En trámite", radicado_dependencia_id: null }),
+    });
+  });
+
+  it.each(["En trámite", "Pendiente"])("no ofrece Recibido desde %s y conserva los estados intermedios", async (estado) => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], { estado, destino_todas_dependencias: 1, radicado_dependencia_id: 50 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? paginaRadicados(filas, ruta) : base(ruta, opciones));
+    await abrirConsulta();
+    const selector = screen.getByLabelText("Estado de RAD-001");
+    expect(Array.from(selector.options).map(opcion => opcion.value)).toEqual(["En trámite", "Pendiente"]);
+    expect(selector.value).toBe(estado);
+    expect(screen.getByLabelText("Estado de RAD-002").value).toBe("Recibido");
+    const siguiente = estado === "En trámite" ? "Pendiente" : "En trámite";
+    await act(async () => fireEvent.change(selector, { target: { value: siguiente } }));
+    expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/estado", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: siguiente, radicado_dependencia_id: 50 }),
     });
   });
 
@@ -1670,6 +1710,7 @@ describe("consulta de radicados React", () => {
     await user.selectOptions(selectorEstado, "En trámite");
 
     await waitFor(() => expect(selectorEstado.value).toBe("Recibido"));
+    expect(within(selectorEstado).getByRole("option", { name: "Recibido" })).toBeTruthy();
     expect(alertar).toHaveBeenCalledWith("No se pudo guardar el estado.");
   });
 

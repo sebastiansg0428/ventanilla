@@ -121,9 +121,9 @@ const CONTEXTO_DEPENDENCIA = {
   radicado_creado: "Dependencia destinataria",
   radicado_asignado: "Dependencia destinataria",
   documentos_radicado_adjuntados: "Dependencia destinataria",
-  estado_cambiado: "Dependencia atendida",
-  respuesta_enviada: "Dependencia atendida",
-  documentos_respuesta_adjuntados: "Dependencia atendida",
+  estado_cambiado: "Dependencia responsable",
+  respuesta_enviada: "Dependencia que respondió",
+  documentos_respuesta_adjuntados: "Dependencia que respondió",
   traslado_solicitado: "Oficina que solicita el traslado",
   traslado_aprobado: "Oficina de origen del traslado",
   traslado_rechazado: "Oficina de origen del traslado",
@@ -1302,7 +1302,11 @@ function VistaConsultaRadicados({ usuario }) {
                             }
                           >
                             {[
-                              ...ESTADOS_POSIBLES,
+                              ...ESTADOS_POSIBLES.filter(
+                                (estado) =>
+                                  estado !== "Recibido" ||
+                                  normalizarTexto(radicado.estado || "Recibido") === "recibido",
+                              ),
                               ...(!requiereRespuesta(radicado)
                                 ? ["Enterado"]
                                 : []),

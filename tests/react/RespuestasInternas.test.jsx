@@ -22,7 +22,9 @@ function diferida() {
   return { promise, resolve };
 }
 async function abrirBandeja() {
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver bandeja interna" })));
+  await waitFor(() => expect(screen.queryByText("Cargando bandeja interna…")).toBeNull());
+  const boton = screen.queryByRole("button", { name: "Ver bandeja interna" });
+  if (boton) await act(async () => fireEvent.click(boton));
   expect(screen.getByRole("button", { name: "Abrir respuesta interna INTERNO-FICTICIO" })).toBeTruthy();
 }
 async function abrirDetalle() {
@@ -37,10 +39,42 @@ beforeEach(() => {
     : ruta.endsWith("/apertura") ? json({ recepcion: confirmada }) : json({ recepcion, documentos: [] })));
 });
 describe("respuestas internas digitales", () => {
-  it("carga diferida y listar no registran apertura; mostrar contenido si la registra", async () => {
+  it("mantiene resumen y aviso al plegar y no reabre al actualizar", async () => {
     render(<RespuestasInternas usuario={usuario} />);
-    expect(solicitarApi).not.toHaveBeenCalled();
     await abrirBandeja();
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar bandeja interna" }));
+    expect(screen.getByRole("status", { name: "Resumen de respuestas de tu dependencia" }).textContent).toContain("1Sin apertura");
+    expect(screen.getByText(/Tienes 1 respuesta interna sin abrir/)).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Respuestas disponibles" })).toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar bandeja interna" })));
+    expect(screen.getByRole("button", { name: "Ver bandeja interna" }).getAttribute("aria-expanded")).toBe("false");
+    expect(solicitarApi).toHaveBeenCalledTimes(2);
+    expect(solicitarApi.mock.calls.every(([ruta, opciones]) => ruta.includes("?") && !opciones?.method)).toBe(true);
+  });
+  it("con respuestas ya abiertas muestra resumen sin desplegar ni cargar contenido", async () => {
+    solicitarApi.mockResolvedValue(lista(confirmada));
+    render(<RespuestasInternas usuario={usuario} />);
+    const resumen = await screen.findByRole("status", { name: "Resumen de respuestas de tu dependencia" });
+    expect(resumen.textContent).toContain("1Con apertura");
+    expect(screen.getByRole("button", { name: "Ver bandeja interna" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Respuestas disponibles" })).toBeNull();
+    expect(solicitarApi).toHaveBeenCalledTimes(1);
+  });
+  it("un error inicial queda visible sin abrir la bandeja y permite recuperar", async () => {
+    solicitarApi.mockRejectedValueOnce(new Error("No se pudo consultar la bandeja."));
+    render(<RespuestasInternas usuario={usuario} />);
+    await screen.findByText("No se pudo consultar la bandeja.");
+    expect(screen.getByRole("button", { name: "Ver bandeja interna" })).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reintentar carga de bandeja interna" })));
+    expect(screen.getByRole("list", { name: "Respuestas disponibles" })).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+  });
+  it("carga al entrar y muestra las pendientes sin registrar apertura; mostrar contenido sí la registra", async () => {
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja();
+    expect(solicitarApi).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Ocultar bandeja interna" })).toBeTruthy();
+    expect(screen.getByText(/Tienes 1 respuesta interna sin abrir/)).toBeTruthy();
     expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
     await abrirDetalle();
     await screen.findByText(/Actor ficticio/);

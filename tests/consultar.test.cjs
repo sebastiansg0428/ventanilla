@@ -152,6 +152,21 @@ function soporteMarcaAgua() {
     };
 }
 
+test('legacy ofrece Recibido solo en estado inicial y permite alternar estados intermedios', async () => {
+    const data = records().slice(0, 3);
+    data[1].estado = 'En trámite';
+    data[2].estado = 'Pendiente';
+    const app = await setup({ data });
+    const html = app.get('tabla-radicados').innerHTML;
+    const selector = numero => html.match(new RegExp(`<select[^>]*data-radicado="${numero}"[^>]*>[\\s\\S]*?</select>`))[0];
+    assert.match(selector('A'), /value="Recibido"/);
+    for (const numero of ['B', 'C']) {
+        assert.doesNotMatch(selector(numero), /value="Recibido"/);
+        assert.match(selector(numero), /value="En trámite"/);
+        assert.match(selector(numero), /value="Pendiente"/);
+    }
+});
+
 function entornoMarcaAgua() {
     return {
         URL,
