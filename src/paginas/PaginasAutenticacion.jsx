@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   solicitarApi,
   guardarSesion,
@@ -110,6 +110,205 @@ const FORMULARIO_VACIO = {
   dependencia_id: "",
 };
 
+const ROLES_USUARIOS = {
+  administrador: "Administrador",
+  ventanilla: "Ventanilla Única",
+  funcionario: "Funcionario de dependencia",
+};
+
+function CamposUsuario({ formulario, dependencias, actualizarCampo, edicion = false }) {
+  const prefijo = edicion ? "editar-" : "";
+  const esFuncionario = formulario.rol === "funcionario";
+  return (
+    <>
+      <div className="auth-field">
+        <label htmlFor={`${prefijo}nombre`}>Nombre completo *</label>
+        <input id={`${prefijo}nombre`} name="nombre" value={formulario.nombre}
+          onChange={actualizarCampo} autoComplete="name" maxLength="150" required />
+      </div>
+      <div className="auth-field">
+        <label htmlFor={`${prefijo}register-email`}>Correo electrónico *</label>
+        <input id={`${prefijo}register-email`} name="email" type="email" value={formulario.email}
+          onChange={actualizarCampo} autoComplete="email" maxLength="254" required />
+      </div>
+      <div className="auth-field">
+        <label htmlFor={`${prefijo}rol`}>Rol en el sistema *</label>
+        <select id={`${prefijo}rol`} name="rol" value={formulario.rol} onChange={actualizarCampo} required>
+          <option value="">Selecciona un rol</option>
+          {Object.entries(ROLES_USUARIOS).map(([valor, etiqueta]) => (
+            <option key={valor} value={valor}>{etiqueta}</option>
+          ))}
+        </select>
+      </div>
+      <div className="auth-field">
+        <label htmlFor={`${prefijo}dependencia_id`}>Dependencia asignada</label>
+        <select id={`${prefijo}dependencia_id`} name="dependencia_id" value={formulario.dependencia_id}
+          onChange={actualizarCampo} disabled={!esFuncionario} required={esFuncionario}>
+          <option value="">Selecciona la dependencia</option>
+          {dependencias.map(dep => <option key={dep.id} value={dep.id}>{dep.nombre}</option>)}
+        </select>
+      </div>
+      <div className="auth-field auth-field--full">
+        <label htmlFor={`${prefijo}register-password`}>Contraseña {edicion ? "(opcional)" : "*"}</label>
+        <input id={`${prefijo}register-password`} name="password" type="password" value={formulario.password}
+          onChange={actualizarCampo} autoComplete="new-password" minLength={formulario.password ? 10 : undefined}
+          maxLength="72" aria-describedby={`${prefijo}politica-contrasena`}
+          aria-invalid={formulario.password !== "" && !contrasenaValida(formulario.password)}
+          required={!edicion} placeholder={edicion ? "Déjalo vacío para conservar la contraseña" : ""} />
+        <small id={`${prefijo}politica-contrasena`}>{POLITICA_CONTRASENA}</small>
+      </div>
+    </>
+  );
+}
+
+function DrawerEdicionUsuario({ id, usuario, dependencias, cargarUsuarios, cargarDependencias, alCerrar, alGuardar }) {
+  const dialogo = useRef(null);
+  const titulo = useRef(null);
+  const ocupado = useRef(false);
+  const vigente = useRef(false);
+  const [formulario, setFormulario] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
+
+  useEffect(() => {
+    const panel = dialogo.current;
+    const origen = document.activeElement;
+    const overflow = document.body.style.overflow;
+    vigente.current = true;
+    document.body.style.overflow = "hidden";
+    panel.showModal();
+    titulo.current.focus({ preventScroll: true });
+    return () => {
+      vigente.current = false;
+      panel.close();
+      document.body.style.overflow = overflow;
+      const destino = origen?.isConnected ? origen
+        : document.querySelector(`[data-editar-usuario="${id}"]`) ||
+          document.querySelector(".users-layout .users-table-toolbar > button");
+      destino?.focus({ preventScroll: true });
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let cancelado = false;
+    async function cargar() {
+      try {
+        const respuesta = await solicitarApi(`/api/usuarios/${id}`);
+        const resultado = await respuesta.json();
+        if (cancelado) return;
+        if (!resultado.usuario || String(resultado.usuario.id) !== String(id)) {
+          throw new Error("La respuesta no incluye los datos del usuario solicitado.");
+        }
+        const registro = resultado.usuario;
+        setFormulario({ nombre: registro.nombre || "", email: registro.email || "", password: "",
+          rol: registro.rol || "", dependencia_id: registro.dependencia_id ? String(registro.dependencia_id) : "" });
+      } catch (error) {
+        if (cancelado) return;
+        if (error.status === 404) await cargarUsuarios();
+        if (error.status === 422) await cargarDependencias();
+        if (!cancelado) setMensaje({ texto: error.message, tono: "error" });
+      } finally {
+        if (!cancelado) setCargando(false);
+      }
+    }
+    cargar();
+    return () => { cancelado = true; };
+  }, [id]);
+
+  function cerrar() {
+    if (!ocupado.current) alCerrar();
+  }
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    if (ocupado.current || !formulario) return;
+    if (formulario.password !== "" && !contrasenaValida(formulario.password)) {
+      setMensaje({ texto: POLITICA_CONTRASENA, tono: "error" });
+      return;
+    }
+    ocupado.current = true;
+    setGuardando(true);
+    setMensaje({ texto: "Guardando los cambios del usuario…", tono: "" });
+    const datos = { nombre: formulario.nombre.trim(), email: formulario.email.trim(), rol: formulario.rol,
+      dependencia_id: formulario.rol === "funcionario" ? Number(formulario.dependencia_id) : null };
+    if (formulario.password !== "") datos.password = formulario.password;
+    try {
+      const respuesta = await solicitarApi(`/api/usuarios/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos),
+      });
+      const resultado = await respuesta.json();
+      if (!vigente.current) return;
+      if (String(id) === String(usuario.id)) {
+        limpiarSesion();
+        window.location.replace("login.html");
+        return;
+      }
+      const listaActualizada = await cargarUsuarios();
+      if (vigente.current) alGuardar(resultado.message || "Usuario actualizado con éxito.", listaActualizada);
+    } catch (error) {
+      if (!vigente.current) return;
+      if (error.status === 404) await cargarUsuarios();
+      if (error.status === 422) await cargarDependencias();
+      if (vigente.current) setMensaje({ texto: error.message, tono: "error" });
+    } finally {
+      ocupado.current = false;
+      if (vigente.current) setGuardando(false);
+    }
+  }
+
+  return (
+    <dialog ref={dialogo} className="users-edit-drawer" aria-labelledby="usuarios-edicion-titulo"
+      onCancel={evento => { evento.preventDefault(); cerrar(); }}
+      onKeyDown={evento => {
+        if (evento.key !== "Tab") return;
+        const controles = Array.from(dialogo.current.querySelectorAll("button, input, select, textarea"))
+          .filter(control => !control.matches(":disabled") && control.tabIndex >= 0);
+        const primero = controles[0];
+        const ultimo = controles.at(-1);
+        if (!primero) {
+          evento.preventDefault();
+          titulo.current.focus({ preventScroll: true });
+          return;
+        }
+        if (evento.shiftKey && (document.activeElement === primero || !controles.includes(document.activeElement))) {
+          evento.preventDefault();
+          ultimo?.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+          evento.preventDefault();
+          primero?.focus();
+        }
+      }}>
+      <header className="users-drawer-heading">
+        <div>
+          <p className="auth-eyebrow">Administración de acceso</p>
+          <h2 ref={titulo} id="usuarios-edicion-titulo" tabIndex={-1}>Editar usuario</h2>
+        </div>
+        <button type="button" onClick={cerrar} disabled={guardando}>Cerrar edición</button>
+      </header>
+      {cargando ? <p role="status">Cargando los datos del usuario…</p> : formulario && (
+        <form className="auth-form auth-form--grid" onSubmit={guardar}>
+          <fieldset className="users-drawer-fields" disabled={guardando}>
+            <CamposUsuario formulario={formulario} dependencias={dependencias} edicion
+              actualizarCampo={evento => {
+                const { name, value } = evento.target;
+                setFormulario(actual => ({ ...actual, [name]: value,
+                  ...(name === "rol" && value !== "funcionario" ? { dependencia_id: "" } : {}) }));
+              }} />
+          </fieldset>
+          <div className="users-drawer-actions">
+            <button type="submit" className="auth-submit" disabled={guardando}>
+              {guardando ? "Guardando…" : "Guardar cambios"}
+            </button>
+            <button type="button" onClick={cerrar} disabled={guardando}>Cancelar edición</button>
+          </div>
+        </form>
+      )}
+      <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
+    </dialog>
+  );
+}
+
 function GestionUsuarios({ usuario }) {
   const [usuarios, setUsuarios] = useState([]);
   const [dependencias, setDependencias] = useState([]);
@@ -168,51 +367,15 @@ function GestionUsuarios({ usuario }) {
     }));
   }
 
-  function cancelarEdicion() {
-    setUsuarioEnEdicion(null);
-    setFormulario(FORMULARIO_VACIO);
-    setMensaje({ texto: "", tono: "" });
-  }
-
-  async function editarUsuario(id) {
-    setMensaje({ texto: "Cargando los datos del usuario…", tono: "" });
-    try {
-      const respuesta = await solicitarApi(`/api/usuarios/${id}`);
-      const resultado = await respuesta.json();
-      if (!resultado.usuario) {
-        throw new Error("La respuesta no incluye los datos del usuario.");
-      }
-      const usuarioEditado = resultado.usuario;
-      setUsuarioEnEdicion(usuarioEditado);
-      setFormulario({
-        nombre: usuarioEditado.nombre || "",
-        email: usuarioEditado.email || "",
-        password: "",
-        rol: usuarioEditado.rol || "",
-        dependencia_id: usuarioEditado.dependencia_id
-          ? String(usuarioEditado.dependencia_id)
-          : "",
-      });
-      setMensaje({ texto: "", tono: "" });
-    } catch (error) {
-      if (error.status === 404) await cargarUsuarios();
-      if (error.status === 422) await cargarDependencias();
-      setMensaje({ texto: error.message, tono: "error" });
-    }
-  }
-
   async function enviarFormulario(evento) {
     evento.preventDefault();
-    if ((!usuarioEnEdicion || formulario.password !== "") &&
-        !contrasenaValida(formulario.password)) {
+    if (!contrasenaValida(formulario.password)) {
       setMensaje({ texto: POLITICA_CONTRASENA, tono: "error" });
       return;
     }
     setEnProceso(true);
     setMensaje({
-      texto: usuarioEnEdicion
-        ? "Guardando los cambios del usuario…"
-        : "Creando el usuario…",
+      texto: "Creando el usuario…",
       tono: "",
     });
 
@@ -225,44 +388,23 @@ function GestionUsuarios({ usuario }) {
           ? Number(formulario.dependencia_id)
           : null,
     };
-    if (!usuarioEnEdicion || formulario.password !== "") {
-      datos.password = formulario.password;
-    }
+    datos.password = formulario.password;
 
     try {
       const respuesta = await solicitarApi(
-        usuarioEnEdicion
-          ? `/api/usuarios/${usuarioEnEdicion.id}`
-          : "/api/usuarios",
+        "/api/usuarios",
         {
-          method: usuarioEnEdicion ? "PUT" : "POST",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(datos),
         },
       );
       const resultado = await respuesta.json();
-      const usuarioActualizadoEsPropio =
-        usuarioEnEdicion &&
-        String(usuarioEnEdicion.id) === String(usuario.id);
-
-      if (usuarioActualizadoEsPropio) {
-        limpiarSesion();
-        window.location.replace("login.html");
-        return;
-      }
-
-      if (!usuarioEnEdicion) {
-        setFormulario(FORMULARIO_VACIO);
-      } else {
-        setUsuarioEnEdicion(null);
-        setFormulario(FORMULARIO_VACIO);
-      }
+      setFormulario(FORMULARIO_VACIO);
       setMensaje({
         texto:
           resultado.message ||
-          (usuarioEnEdicion
-            ? "Usuario actualizado con éxito."
-            : "Usuario registrado con éxito."),
+          "Usuario registrado con éxito.",
         tono: "success",
       });
       await cargarUsuarios();
@@ -314,141 +456,48 @@ function GestionUsuarios({ usuario }) {
     }
   }
 
-  const esFuncionario = formulario.rol === "funcionario";
-
   return (
     <div className="app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="usuarios" />
-      <main className="users-management-main">
+      <main className="users-management-main users-layout">
+        <header className="auth-heading users-page-heading">
+          <p className="auth-eyebrow">Administración de acceso</p>
+          <h1 id="register-title">Gestión de usuarios</h1>
+          <p>Crea, edita, activa e inactiva cuentas del sistema.</p>
+        </header>
         <section
           className="auth-card users-management-card"
-          aria-labelledby="register-title"
+          aria-labelledby="usuarios-formulario-titulo"
         >
-          <div className="auth-heading">
-            <p className="auth-eyebrow">Administración de acceso</p>
-            <h1 id="register-title">Gestión de usuarios</h1>
-            <p>Crea, edita, activa e inactiva cuentas del sistema.</p>
-          </div>
           <form
-            className="auth-form auth-form--grid"
+            className="auth-form auth-form--grid users-registration-form"
             onSubmit={enviarFormulario}
           >
-            <h2 className="auth-field--full">
-              {usuarioEnEdicion ? "Editar usuario" : "Registrar usuario"}
+            <h2 id="usuarios-formulario-titulo" className="auth-field--full">
+              Registrar usuario
             </h2>
-            <div className="auth-field auth-field--full">
-              <label htmlFor="nombre">Nombre completo *</label>
-              <input
-                id="nombre"
-                name="nombre"
-                value={formulario.nombre}
-                onChange={actualizarCampo}
-                autoComplete="name"
-                maxLength="150"
-                required
-              />
-            </div>
-            <div className="auth-field auth-field--full">
-              <label htmlFor="register-email">Correo electrónico *</label>
-              <input
-                id="register-email"
-                name="email"
-                type="email"
-                value={formulario.email}
-                onChange={actualizarCampo}
-                autoComplete="email"
-                maxLength="254"
-                required
-              />
-            </div>
-            <div className="auth-field auth-field--full">
-              <label htmlFor="register-password">
-                Contraseña {usuarioEnEdicion ? "(opcional)" : "*"}
-              </label>
-              <input
-                id="register-password"
-                name="password"
-                type="password"
-                value={formulario.password}
-                onChange={actualizarCampo}
-                autoComplete="new-password"
-                minLength={formulario.password ? 10 : undefined}
-                maxLength="72"
-                aria-describedby="politica-contrasena"
-                aria-invalid={formulario.password !== "" && !contrasenaValida(formulario.password)}
-                required={!usuarioEnEdicion}
-                placeholder={
-                  usuarioEnEdicion
-                    ? "Déjalo vacío para conservar la contraseña"
-                    : ""
-                }
-              />
-              <small id="politica-contrasena">{POLITICA_CONTRASENA}</small>
-            </div>
-            <div className="auth-field auth-field--full">
-              <label htmlFor="rol">Rol en el sistema *</label>
-              <select
-                id="rol"
-                name="rol"
-                value={formulario.rol}
-                onChange={actualizarCampo}
-                required
-              >
-                <option value="">Selecciona un rol</option>
-                <option value="administrador">Administrador</option>
-                <option value="ventanilla">Ventanilla Única</option>
-                <option value="funcionario">Funcionario de dependencia</option>
-              </select>
-            </div>
-            <div className="auth-field auth-field--full">
-              <label htmlFor="dependencia_id">Dependencia asignada</label>
-              <select
-                id="dependencia_id"
-                name="dependencia_id"
-                value={formulario.dependencia_id}
-                onChange={actualizarCampo}
-                disabled={!esFuncionario}
-                required={esFuncionario}
-              >
-                <option value="">Selecciona la dependencia</option>
-                {dependencias.map((dep) => (
-                  <option key={dep.id} value={dep.id}>
-                    {dep.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="auth-field auth-field--full">
+            <CamposUsuario formulario={formulario} dependencias={dependencias} actualizarCampo={actualizarCampo} />
+            <div className="auth-field--full users-form-actions">
               <button
                 className="auth-submit"
                 type="submit"
                 disabled={enProceso}
               >
-                {enProceso
-                  ? "Guardando…"
-                  : usuarioEnEdicion
-                    ? "Guardar cambios"
-                    : "Registrar usuario"}
+                {enProceso ? "Guardando…" : "Registrar usuario"}
               </button>
-              {usuarioEnEdicion && (
-                <button
-                  type="button"
-                  onClick={cancelarEdicion}
-                  disabled={enProceso}
-                >
-                  Cancelar edición
-                </button>
-              )}
             </div>
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
           </form>
-
+        </section>
           <section
-            className="users-table-section"
+            className="auth-card users-management-card users-table-section"
             aria-labelledby="usuarios-titulo"
           >
             <div className="users-table-toolbar">
-              <h2 id="usuarios-titulo">Usuarios registrados en el sistema</h2>
+              <div>
+                <h2 id="usuarios-titulo">Usuarios registrados en el sistema</h2>
+                <p className="users-table-description">Consulta las cuentas y administra sus datos y acceso al sistema.</p>
+              </div>
               <button
                 type="button"
                 onClick={cargarUsuarios}
@@ -492,21 +541,28 @@ function GestionUsuarios({ usuario }) {
                       );
                       return (
                         <tr role="row" key={usuarioFila.id}>
-                          <CeldaAdaptable etiqueta="Nombre">{usuarioFila.nombre}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Nombre"><strong className="users-account-name">{usuarioFila.nombre}</strong></CeldaAdaptable>
                           <CeldaAdaptable etiqueta="Correo">{usuarioFila.email}</CeldaAdaptable>
-                          <CeldaAdaptable etiqueta="Rol">{usuarioFila.rol}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Rol">{ROLES_USUARIOS[usuarioFila.rol] || usuarioFila.rol}</CeldaAdaptable>
                           <CeldaAdaptable etiqueta="Dependencia">{dependencia?.nombre || "—"}</CeldaAdaptable>
-                          <CeldaAdaptable etiqueta="Estado">{estaActivo ? "Activo" : "Inactivo"}</CeldaAdaptable>
+                          <CeldaAdaptable etiqueta="Estado">
+                            <span className={`users-status-badge users-status-badge--${estaActivo ? "active" : "inactive"}`}>
+                              {estaActivo ? "Activo" : "Inactivo"}
+                            </span>
+                          </CeldaAdaptable>
                           <CeldaAdaptable etiqueta="Acciones">
                             <div className="users-table-actions">
                               <button
+                                className="users-action-edit"
+                                data-editar-usuario={usuarioFila.id}
                                 type="button"
-                                onClick={() => editarUsuario(usuarioFila.id)}
+                                onClick={() => setUsuarioEnEdicion(usuarioFila.id)}
                                 disabled={enProceso}
                               >
                                 Editar
                               </button>
                               <button
+                                className={estaActivo ? "users-action-deactivate" : "users-action-activate"}
                                 type="button"
                                 onClick={() =>
                                   cambiarEstadoUsuario(usuarioFila)
@@ -534,8 +590,20 @@ function GestionUsuarios({ usuario }) {
           <p className="auth-switch">
             <a href="index.html">Volver al sistema</a>
           </p>
-        </section>
       </main>
+      {usuarioEnEdicion !== null && (
+        <DrawerEdicionUsuario key={usuarioEnEdicion} id={usuarioEnEdicion} usuario={usuario}
+          dependencias={dependencias} cargarUsuarios={cargarUsuarios} cargarDependencias={cargarDependencias}
+          alCerrar={() => setUsuarioEnEdicion(null)}
+          alGuardar={(texto, listaActualizada) => {
+            setUsuarioEnEdicion(null);
+            if (listaActualizada) setMensaje({ texto, tono: "success" });
+            else setMensaje(actual => ({
+              texto: `Los cambios se guardaron, pero no se pudo actualizar la lista. ${actual.texto}`,
+              tono: "error",
+            }));
+          }} />
+      )}
       <PiePagina />
     </div>
   );

@@ -117,7 +117,7 @@ describe("gestión de catálogos React", () => {
     const tramiteFila = screen.getByRole("cell", { name: "Petición general" }).closest("tr");
     expect(etiquetas(tramiteFila)).toEqual(["Nombre", "Código", "Categoría", "Término vigente", "Estado", "Acciones"]);
     expect(within(tramiteFila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
-    fireEvent.click(within(tramiteFila).getByRole("button", { name: "Nueva versión de término" }));
+    fireEvent.click(within(tramiteFila).getByRole("button", { name: "Actualizar plazo" }));
     const historial = await screen.findByRole("table", { name: "Términos legales" });
     const filaTermino = within(historial).getAllByRole("row")[1];
     expect(etiquetas(filaTermino)).toEqual(["Días", "Tipo", "Fundamento legal", "Vigente desde", "Vigente hasta"]);
@@ -352,7 +352,7 @@ describe("gestión de catálogos React", () => {
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
     const row = within(screen.getByRole("table")).getAllByRole("row")[1];
     await user.click(
-      within(row).getByRole("button", { name: "Nueva versión de término" }),
+      within(row).getByRole("button", { name: "Actualizar plazo" }),
     );
     await user.type(screen.getByLabelText("Plazo (días) *"), "20");
     await user.selectOptions(document.getElementById("termino-tipo-dias"), "calendario");
@@ -361,7 +361,7 @@ describe("gestión de catálogos React", () => {
       "Nueva norma",
     );
     await user.click(
-      screen.getByRole("button", { name: "Registrar nueva versión" }),
+      screen.getByRole("button", { name: "Guardar plazo" }),
     );
 
     await waitFor(() => {
@@ -378,7 +378,49 @@ describe("gestión de catálogos React", () => {
         }),
       );
     });
-    expect(await screen.findByText("Término registrado.")).toBeTruthy();
+    expect(await screen.findByText(/Término registrado\. Se aplicará a nuevas radicaciones/)).toBeTruthy();
+  });
+
+  it.each(["habiles", "calendario"])("configura el primer plazo en %s sin cambiar los datos del trámite", async tipoDias => {
+    const user = userEvent.setup({ delay: null });
+    const base = solicitarApi.getMockImplementation();
+    let configurado = false;
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/tipos-tramite?")) return respuestaJson({
+        success: true, tipos_tramite: [{ ...tipoTramite, requiere_respuesta: 1,
+          termino_legal_id: configurado ? 23 : null }],
+      });
+      if (ruta === "/api/terminos-legales?tipo_tramite_id=10") {
+        return respuestaJson({ success: true, terminos_legales: [] });
+      }
+      if (ruta === "/api/terminos-legales" && opciones.method === "POST") configurado = true;
+      return base(ruta, opciones);
+    });
+    render(<PaginaGestionCatalogos />);
+    await screen.findByText("Planeación");
+    await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
+    await user.click(screen.getByRole("button", { name: "Configurar plazo" }));
+    expect(screen.getByRole("heading", { name: "Configurar plazo: Petición general" })).toBeTruthy();
+    const dias = screen.getByLabelText("Plazo (días) *");
+    const fundamento = screen.getByLabelText("Fundamento legal *");
+    expect(dias.required).toBe(true);
+    expect(fundamento.required).toBe(true);
+    expect(dias.min).toBe("1");
+    await user.click(screen.getByRole("button", { name: "Guardar plazo" }));
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+    await user.type(dias, "12");
+    await user.selectOptions(screen.getByLabelText("Tipo de días *"), tipoDias);
+    await pegarTexto(user, fundamento, "Norma de prueba validada");
+    fireEvent.change(screen.getByLabelText("Vigente desde (opcional)"), { target: { value: "2099-01-01" } });
+    expect(screen.getByText(/Una vigencia futura no habilita/)).toBeTruthy();
+    expect(within(dias.closest("form")).getByText(/Hábiles: no cuentan sábados, domingos ni festivos\. Calendario: cuenta todos los días\./)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Guardar plazo" }));
+    await waitFor(() => expect(solicitarApi).toHaveBeenCalledWith("/api/terminos-legales", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ tipo_tramite_id: 10, dias: 12, tipo_dias: tipoDias,
+        fundamento_legal: "Norma de prueba validada", vigente_desde: "2099-01-01" }),
+    })));
+    expect(await screen.findByRole("button", { name: "Actualizar plazo" })).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "PUT")).toBe(false);
   });
 
   it("impide entrar a funcionarios y evita solicitar los catálogos", async () => {

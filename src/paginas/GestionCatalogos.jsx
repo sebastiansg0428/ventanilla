@@ -349,7 +349,7 @@ function GestionCatalogos({ usuario }) {
       });
       const resultado = await leerResultado(respuesta);
       setMensaje({
-        texto: resultado.message || "Nueva versión del término registrada.",
+        texto: `${resultado.message || "Plazo guardado."} Se aplicará a nuevas radicaciones según su vigencia. Actualiza los trámites del formulario de radicación para consultar su disponibilidad.`,
         tono: "success",
       });
       setTramiteTerminoNuevo(null);
@@ -592,7 +592,7 @@ function GestionCatalogos({ usuario }) {
                         <option value="calendario">Días calendario</option>
                       </select>
                       <small id="tramite-tipo-dias-ayuda">
-                        Hábiles: no cuentan domingos ni festivos. Calendario:
+                        Hábiles: no cuentan sábados, domingos ni festivos. Calendario:
                         cuenta todos los días.
                       </small>
                     </div>
@@ -754,7 +754,7 @@ function GestionCatalogos({ usuario }) {
                                   }}
                                   disabled={enProceso || !estaActivo(registro)}
                                 >
-                                  Nueva versión de término
+                                  {registro.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}
                                 </button>
                               )}
                               <button
@@ -778,7 +778,7 @@ function GestionCatalogos({ usuario }) {
           {tramiteTerminoNuevo && catalogoActual === CATALOGO_TRAMITES && (
             <section className="catalog-term-panel">
               <div className="users-table-toolbar">
-                <h2>Nueva versión del término: {tramiteTerminoNuevo.nombre}</h2>
+                <h2>{tramiteTerminoNuevo.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}: {tramiteTerminoNuevo.nombre}</h2>
                 <button
                   type="button"
                   onClick={() => setTramiteTerminoNuevo(null)}
@@ -786,6 +786,9 @@ function GestionCatalogos({ usuario }) {
                   Cerrar
                 </button>
               </div>
+              <p>Indica el número de días y cómo contarlos, con su fundamento y fecha de vigencia.
+                {" "}El plazo se aplicará a nuevas radicaciones según esa fecha; no modifica los plazos ya registrados.
+                {" "}Si hay versiones anteriores o futuras, revisa su historial antes de guardar.</p>
               {terminosVigentes.length > 0 && (
                 <div className="table-card users-table-card">
                   <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
@@ -851,6 +854,7 @@ function GestionCatalogos({ usuario }) {
                     <option value="habiles">Días hábiles</option>
                     <option value="calendario">Días calendario</option>
                   </select>
+                  <small>Hábiles: no cuentan sábados, domingos ni festivos. Calendario: cuenta todos los días.</small>
                 </div>
                 <div className="auth-field auth-field--full">
                   <label htmlFor="termino-fundamento">Fundamento legal *</label>
@@ -882,6 +886,8 @@ function GestionCatalogos({ usuario }) {
                       }))
                     }
                   />
+                  <small>Si la dejas vacía, aplica desde hoy. No se admiten fechas anteriores a hoy.
+                    {" "}Una vigencia futura no habilita el trámite antes de esa fecha.</small>
                 </div>
                 <div className="auth-field--full">
                   <button
@@ -889,7 +895,7 @@ function GestionCatalogos({ usuario }) {
                     type="submit"
                     disabled={enProceso}
                   >
-                    {enProceso ? "Registrando…" : "Registrar nueva versión"}
+                    {enProceso ? "Registrando…" : "Guardar plazo"}
                   </button>
                 </div>
               </form>

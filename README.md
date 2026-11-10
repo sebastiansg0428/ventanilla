@@ -132,7 +132,63 @@ por el formulario. El comprobante conserva el responsable confirmado por el serv
 
 La pantalla `registro_usuario.html` es la gestión de usuarios, disponible solo para administradores. Consume `GET/POST /api/usuarios`, `GET/PUT /api/usuarios/:id`, `PATCH /api/usuarios/:id/estado` y `GET /api/dependencias` mediante el servicio centralizado, que adjunta el token guardado en `sessionStorage`. Las cuentas se activan o inactivan (no se eliminan físicamente). Al editar la propia cuenta, el administrador cierra la sesión local porque el backend revoca sus sesiones. El backend debe tener aplicada la migración `006_usuarios_activos.sql` antes de usar estas funciones.
 
-La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo envía también los datos de su término legal inicial. La edición del tipo solo modifica código, nombre, categoría y orden; los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
+La gestión presenta un encabezado y dos tarjetas independientes: el formulario
+arriba y el listado de usuarios debajo. En pantallas amplias, nombre/correo y
+rol/dependencia comparten fila; contraseña y su política ocupan el ancho completo.
+En móvil, los campos se apilan y se conserva la tabla adaptable. No se modifican
+permisos, validaciones ni contratos del backend.
+
+En la segunda etapa, el listado distingue **Activo** e **Inactivo** mediante
+badges con texto y colores contrastados, y presenta los roles como Administrador,
+Ventanilla Única y Funcionario de dependencia sin cambiar sus valores internos.
+Las acciones siguen siendo **Editar**, **Activar** e **Inactivar**, con la
+confirmación existente y el bloqueo de auto-inactivación del administrador.
+Se conservan Actualizar lista, los estados de carga/vacío/error y las seis
+columnas adaptables a móvil; no se agregan filtros ni paginación.
+
+La edición se abre en un **drawer lateral derecho** basado en un diálogo modal
+nativo. Conserva el borrador de registro, muestra carga y errores dentro del panel
+y utiliza identificadores de campos distintos de los del alta. Se cierra con
+**Cerrar edición**, **Cancelar edición** o Escape; el fondo no lo cierra.
+El foco permanece dentro del diálogo y vuelve a Editar al cerrar, o a Actualizar
+lista si la cuenta desapareció. Mientras se guarda, los campos y cierres se
+bloquean y no se permiten envíos repetidos. Un fallo conserva los datos para
+corregir o reintentar; el éxito actualiza la lista y muestra la confirmación fuera
+del panel. Si falla esa actualización, se muestra el error en lugar de afirmar
+que la lista está actualizada. La contraseña vacía no se envía en edición y
+editar la propia cuenta mantiene el cierre de sesión existente.
+El drawer se adapta al móvil y respeta la preferencia de movimiento reducido.
+
+La pantalla `catalogos.html` permite a administradores crear, editar e inactivar/reactivar dependencias y tipos de trámite. Usa los endpoints de `/api/dependencias` y `/api/tipos-tramite`; al crear un tipo que requiere respuesta envía también los datos de su término legal inicial. La edición del tipo permite modificar sus datos y la regla de respuesta para futuras radicaciones; no modifica términos ya aplicados. Los cambios de plazo se registran como nuevas versiones con `POST /api/terminos-legales` y `tipo_tramite_id`, para conservar el historial.
+
+### Configurar plazos y disponibilidad en radicación
+
+En **Gestión de catálogos → Tipos de trámite**, el administrador utiliza
+**Configurar plazo** cuando el trámite no tiene un término vigente o **Actualizar
+plazo** cuando ya lo tiene. Ambas acciones reutilizan el formulario de términos:
+
+- Número de días positivo, tipo **hábiles** o **calendario** y fundamento legal.
+- Vigencia desde hoy o una fecha posterior; dejarla vacía equivale a hoy.
+- Los días hábiles excluyen sábados, domingos y festivos colombianos; los días
+  calendario cuentan todos los días.
+
+Revisar el historial antes de guardar: puede haber versiones vencidas o futuras.
+Un plazo con vigencia futura no habilita el trámite antes de esa fecha. Los nuevos
+términos no reescriben los plazos guardados en radicados anteriores.
+
+El formulario de radicación ofrece los trámites activos con término vigente y los
+que no requieren respuesta. Los que requieren respuesta y no tienen término vigente
+quedan fuera del selector, con un aviso que indica cuántos están pendientes de
+configuración. Esto no significa que estén inactivos ni que haya fallado la carga.
+Después de configurar, usar **Actualizar trámites** para consultar la disponibilidad;
+si la selección dejó de ser válida, se limpia. Un catálogo vacío y un error de carga
+se informan por separado; **Reintentar trámites** aparece únicamente tras un error.
+
+Informativo sigue disponible sin exigir plazo cuando su regla es «No requiere
+respuesta», aunque conserve un término histórico en el catálogo. No se asignan
+plazos por defecto ni se certifican jurídicamente los valores existentes:
+el administrador debe configurarlos con el fundamento validado por el responsable
+competente.
 
 ## Detalle e historial de actuaciones
 

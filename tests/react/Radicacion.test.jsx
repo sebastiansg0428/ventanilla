@@ -83,6 +83,102 @@ describe("radicación React", () => {
     crearPdfComprobante.mockReset().mockReturnValue({ save: guardarPdf });
   });
 
+  it("explica siete pendientes entre 19 tipos sin ocultar Informativo ni alterar el orden disponible", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "ventanilla" });
+    const base = solicitarApi.getMockImplementation();
+    const registros = Array.from({ length: 19 }, (_, indice) => ({
+      id: indice + 1, nombre: `Trámite ${indice + 1}`, requiere_respuesta: 1,
+      termino_legal_id: indice < 12 ? indice + 1 : null,
+    }));
+    registros[0] = { id: 7, nombre: "Informativo", requiere_respuesta: 0, termino_legal_id: null };
+    registros[6].id = 1;
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/tipos-tramite"
+      ? Promise.resolve({ json: async () => ({ success: true, tipos_tramite: registros }) }) : base(ruta, opciones));
+    render(<PaginaRadicacion />);
+    await screen.findByRole("option", { name: "Informativo" });
+    const selector = screen.getByLabelText(/tipo de trámite/i);
+    expect(selector.options).toHaveLength(13);
+    expect(Array.from(selector.options).slice(1).map(opcion => opcion.textContent))
+      .toEqual(registros.slice(0, 12).map(tipo => tipo.nombre));
+    expect(screen.getByText(/7 trámites pendientes de configuración de plazo/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Actualizar trámites" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reintentar trámites" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /catálogos/i })).toBeNull();
+  });
+
+  it("actualiza la disponibilidad tras configurar el plazo y limpia una selección retirada", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let configurado = false;
+    let retirado = false;
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/tipos-tramite"
+      ? Promise.resolve({ json: async () => ({ tipos_tramite: [
+        { id: 10, nombre: "Solicitud general", termino_legal_id: retirado ? null : 22 },
+        { id: 11, nombre: "Trámite por configurar", termino_legal_id: configurado ? 23 : null },
+      ] }) }) : base(ruta, opciones));
+    const user = userEvent.setup({ delay: null });
+    await abrirRadicacion();
+    await user.selectOptions(screen.getByLabelText(/tipo de trámite/i), "10");
+    expect(screen.queryByRole("option", { name: "Trámite por configurar" })).toBeNull();
+    expect(screen.getByText(/1 trámite pendiente de configuración/)).toBeTruthy();
+    configurado = true;
+    await user.click(screen.getByRole("button", { name: "Actualizar trámites" }));
+    expect(await screen.findByRole("option", { name: "Trámite por configurar" })).toBeTruthy();
+    expect(screen.getByLabelText(/tipo de trámite/i).value).toBe("10");
+    expect(screen.queryByText(/pendiente de configuración de plazo/)).toBeNull();
+    retirado = true;
+    await user.click(screen.getByRole("button", { name: "Actualizar trámites" }));
+    await waitFor(() => expect(screen.getByLabelText(/tipo de trámite/i).value).toBe(""));
+    expect(screen.queryByRole("option", { name: "Solicitud general" })).toBeNull();
+  });
+
+  it.each([null, {}, { tipos_tramite: "incorrecto" }])("distingue catálogo inválido de catálogo vacío: %j", async resultado => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/tipos-tramite"
+      ? Promise.resolve({ json: async () => resultado }) : base(ruta, opciones));
+    render(<PaginaRadicacion />);
+    await screen.findByRole("button", { name: "Reintentar trámites" });
+    expect(screen.getByRole("alert").textContent).toContain("No se pudieron cargar los trámites");
+    expect(screen.queryByText(/pendientes de configuración/)).toBeNull();
+  });
+
+  it("permite reintentar un fallo de carga sin informar que faltan plazos", async () => {
+    const base = solicitarApi.getMockImplementation();
+    let fallo = true;
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/tipos-tramite" && fallo
+      ? Promise.reject(new Error("Fallo de red de prueba")) : base(ruta, opciones));
+    const user = userEvent.setup({ delay: null });
+    render(<PaginaRadicacion />);
+    await screen.findByRole("button", { name: "Reintentar trámites" });
+    expect(screen.getByRole("alert").textContent).toContain("Fallo de red de prueba");
+    expect(screen.getByLabelText(/tipo de trámite/i).disabled).toBe(true);
+    fallo = false;
+    await user.click(screen.getByRole("button", { name: "Reintentar trámites" }));
+    await screen.findByRole("option", { name: "Solicitud general" });
+    expect(screen.getByRole("button", { name: "Actualizar trámites" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it.each([
+    { registros: [] },
+    { registros: [{ id: 11, nombre: "Trámite con vigencia futura", requiere_respuesta: 1, termino_legal_id: null }] },
+  ])(
+    "distingue catálogo sin tipos de trámites sin plazo vigente: %j", async ({ registros }) => {
+      const base = solicitarApi.getMockImplementation();
+      solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/tipos-tramite"
+        ? Promise.resolve({ json: async () => ({ tipos_tramite: registros }) }) : base(ruta, opciones));
+      render(<PaginaRadicacion />);
+      await screen.findByRole("button", { name: "Actualizar trámites" });
+      expect(screen.getByLabelText(/tipo de trámite/i).disabled).toBe(true);
+      if (registros.length) {
+        expect(screen.getByText(/1 trámite pendiente de configuración de plazo/)).toBeTruthy();
+        expect(screen.getByText("No hay trámites disponibles para radicar hasta configurar sus plazos.")).toBeTruthy();
+      } else {
+        expect(screen.getByText("No hay tipos de trámite activos en el catálogo.")).toBeTruthy();
+        expect(screen.queryByText(/pendiente de configuración de plazo/)).toBeNull();
+      }
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
   it.each(["administrador", "ventanilla"])("muestra responsable autenticado de solo lectura para %s", async (rol) => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol });
     await abrirRadicacion();

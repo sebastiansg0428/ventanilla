@@ -25,6 +25,8 @@ export function PaginaRadicacion() {
 
 function FormularioRadicacion({ usuario }) {
   const [tiposTramite, setTiposTramite] = useState([]);
+  const [catalogoTramites, setCatalogoTramites] = useState({ cargando: true, error: "", pendientes: 0 });
+  const solicitudTramites = useRef(0);
   const [tipoTramiteIdSeleccionado, setTipoTramiteIdSeleccionado] =
     useState("");
   const [dependencias, setDependencias] = useState([]);
@@ -50,6 +52,8 @@ function FormularioRadicacion({ usuario }) {
   const [longitudAsunto, setLongitudAsunto] = useState(0);
   const selectorArchivo = useRef(null);
   async function cargarTiposTramite() {
+    const solicitud = ++solicitudTramites.current;
+    setCatalogoTramites({ cargando: true, error: "", pendientes: 0 });
     setEstadoCatalogos((estadoActual) => ({
       ...estadoActual,
       tiposTramite: "Cargando tipos de trámite…",
@@ -57,19 +61,34 @@ function FormularioRadicacion({ usuario }) {
     try {
       const respuesta = await solicitarApi("/api/tipos-tramite");
       const resultado = await respuesta.json();
-      const tiposDisponibles = (resultado.tipos_tramite || []).filter(
+      if (!resultado || resultado.success === false || !Array.isArray(resultado.tipos_tramite) ||
+        resultado.tipos_tramite.some(registro => !registro ||
+          !Number.isSafeInteger(registro.id) || registro.id < 1 ||
+          typeof registro.nombre !== "string" || !registro.nombre.trim())) {
+        throw new Error("El catálogo de trámites no tiene el formato esperado.");
+      }
+      if (solicitud !== solicitudTramites.current) return;
+      const tiposDisponibles = resultado.tipos_tramite.filter(
         (registro) => registro.requiere_respuesta === 0 ||
           registro.requiere_respuesta === false || registro.termino_legal_id != null,
       );
       setTiposTramite(tiposDisponibles);
+      setTipoTramiteIdSeleccionado(actual =>
+        tiposDisponibles.some(tipo => String(tipo.id) === actual) ? actual : "");
+      const pendientes = resultado.tipos_tramite.length - tiposDisponibles.length;
+      setCatalogoTramites({ cargando: false, error: "", pendientes });
       setEstadoCatalogos((estadoActual) => ({
         ...estadoActual,
         tiposTramite: tiposDisponibles.length
           ? "El servidor calcula el término legal."
-          : "No hay trámites con término legal disponible.",
+          : pendientes ? "No hay trámites disponibles para radicar hasta configurar sus plazos."
+          : "No hay tipos de trámite activos en el catálogo.",
       }));
     } catch (error) {
+      if (solicitud !== solicitudTramites.current) return;
       setTiposTramite([]);
+      setTipoTramiteIdSeleccionado("");
+      setCatalogoTramites({ cargando: false, error: error.message, pendientes: 0 });
       setEstadoCatalogos((estadoActual) => ({
         ...estadoActual,
         tiposTramite: `No se pudieron cargar los trámites. ${error.message}`,
@@ -104,6 +123,7 @@ function FormularioRadicacion({ usuario }) {
   useEffect(() => {
     cargarTiposTramite();
     cargarDependencias();
+    return () => { solicitudTramites.current++; };
   }, [usuario.id, usuario.rol]);
 
   function aceptarArchivos(archivosCandidatos) {
@@ -155,7 +175,7 @@ function FormularioRadicacion({ usuario }) {
     evento.preventDefault();
     if (envioEnProceso.current || comprobanteEnProceso.current) return;
     const formulario = evento.currentTarget;
-    if (!intentoRadicacion.current && (!tiposTramite.length || !dependencias.length)) {
+    if (!intentoRadicacion.current && (catalogoTramites.cargando || !tiposTramite.length || !dependencias.length)) {
       setMensaje({
         texto: "Espera a que los catálogos estén disponibles antes de radicar.",
         tono: "error",
@@ -305,7 +325,7 @@ function FormularioRadicacion({ usuario }) {
                     onChange={(evento) =>
                       setTipoTramiteIdSeleccionado(evento.target.value)
                     }
-                    disabled={!tiposTramite.length}
+                    disabled={catalogoTramites.cargando || !tiposTramite.length}
                   >
                     <option value="" disabled>
                       Selecciona el trámite…
@@ -316,13 +336,19 @@ function FormularioRadicacion({ usuario }) {
                       </option>
                     ))}
                   </select>
-                  <small role="status">{estadoCatalogos.tiposTramite}</small>
+                  <small role={catalogoTramites.error ? "alert" : "status"}>{estadoCatalogos.tiposTramite}</small>
+                  {catalogoTramites.pendientes > 0 && <small role="status">
+                    {catalogoTramites.pendientes} {catalogoTramites.pendientes === 1 ? "trámite pendiente" : "trámites pendientes"} de configuración de plazo.
+                    {" "}No aparecen en el selector hasta que el administrador configure un término vigente
+                    en Gestión de catálogos (días, tipo de días, fundamento y vigencia).
+                  </small>}
                   {tiposTramite.some((tipo) => String(tipo.id) === tipoTramiteIdSeleccionado &&
                     (tipo.requiere_respuesta === 0 || tipo.requiere_respuesta === false)) && (
                     <small>No requiere respuesta: el destino confirmará su revisión como Enterado, sin plazo de respuesta.</small>
                   )}
-                  <button type="button" onClick={cargarTiposTramite}>
-                    Reintentar trámites
+                  <button type="button" onClick={cargarTiposTramite}
+                    disabled={catalogoTramites.cargando || enProceso || confirmacionPendiente}>
+                    {catalogoTramites.cargando ? "Cargando trámites…" : catalogoTramites.error ? "Reintentar trámites" : "Actualizar trámites"}
                   </button>
                 </CampoFormulario>
                 <CampoFormulario etiqueta="Clase de comunicación">
