@@ -9,8 +9,10 @@ const registro = { id: 1, resultado: "entrega_acreditada", canal: "correo_electr
   destino: "fixture@example.test", actor_nombre: "Actor ficticio", observaciones: "Constancia ficticia",
   fecha_actuacion_utc: "2026-01-05 15:00:00.000000", creado_en_utc: "2026-01-05 15:00:00.000000",
   anulado_en_utc: null, evidencias: [{ id: 1, nombre_archivo: "evidencia.pdf", tamano_bytes: 100, sha256: "a".repeat(64) }] };
-const json = objeto => ({ json: async () => objeto });
+const json = objeto => ({ json: async () => Array.isArray(objeto.documentos)
+  ? { fecha_respuesta_epoch: 1735689600, ...objeto } : objeto });
 const historial = (registros = [], cambios = {}) => json({ success: true, registros,
+  automatico_disponible: true, fecha_real_disponible: true,
   resumen: registros.length ? "entrega_acreditada" : "pendiente_de_envio", total: registros.length,
   pagina: 1, paginas: registros.length ? 1 : 0, ...cambios });
 const props = (rol = "ventanilla") => ({ radicado, usuario: { id: 1, rol }, alProceso: vi.fn(), alPerderAcceso: vi.fn(() => false) });
@@ -39,7 +41,80 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
 });
 describe("seguimiento manual de entrega", () => {
-  it("preselecciona documentos, permite desmarcar y congela IDs/hash sin fecha del navegador", async () => {
+  it("sin 029 conserva lectura y evidencia pero explica y bloquea nuevos registros", async () => {
+    solicitarApi.mockResolvedValue(historial([registro], { fecha_real_disponible: false }));
+    render(<SeguimientoEntrega {...props()} />); await abrir();
+    expect(screen.getByRole("button", { name: "Registrar envío/entrega" }).disabled).toBe(true);
+    expect(screen.getByText(/requiere aplicar y verificar la migración 029/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Abrir evidencia: evidencia.pdf" })).toBeTruthy();
+  });
+  it("fecha anterior exige justificacion, rechaza futuro y congela la fecha durante replay", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    const campo = screen.getByLabelText("Fecha y hora de actuación (Bogotá)");
+    fireEvent.change(campo, { target: { value: "2024-12-01T10:30" } });
+    const motivo = screen.getByLabelText("Justificación de actuación anterior a la respuesta");
+    expect(motivo.required).toBe(true);
+    fireEvent.submit(formulario());
+    expect(screen.getByRole("alert").textContent).toContain("justifica");
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+    fireEvent.change(motivo, { target: { value: "Registro posterior de la respuesta." } });
+    const pendiente = diferida();
+    solicitarApi.mockReturnValueOnce(pendiente.promise);
+    fireEvent.submit(formulario());
+    const form = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST")[1].body;
+    expect(form.get("justificacion_fecha_anterior")).toBe("Registro posterior de la respuesta.");
+    expect(form.get("fecha_actuacion")).toContain("2024-12-01T10:30");
+    await act(async () => pendiente.reject(new Error("Sin confirmación")));
+    expect(campo.disabled).toBe(true);
+    expect(motivo.disabled).toBe(true);
+  });
+  it("fecha futura no permite POST, historico y fecha real se distinguen al consultar", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    fireEvent.change(screen.getByLabelText("Fecha y hora de actuación (Bogotá)"), { target: { value: "2999-01-01T10:00" } });
+    fireEvent.submit(formulario());
+    expect(screen.getByRole("alert").textContent).toContain("no futura");
+    expect(document.activeElement).toBe(screen.getByRole("alert"));
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Volver al historial" }));
+    solicitarApi.mockResolvedValue(historial([registro, { ...registro, id: 2, fecha_real_declarada: true,
+      justificacion_fecha_anterior: "Actuación anterior justificada." }]));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar entregas" })));
+    expect(screen.getByText("Fecha de actuación histórica")).toBeTruthy();
+    expect(screen.getByText("Fecha real de la actuación")).toBeTruthy();
+    expect(screen.getByText("Actuación anterior justificada.")).toBeTruthy();
+  });
+  it("recargar conserva marcado/desmarcado por ID y hash; nuevos, cambiados y retirados requieren revision", async () => {
+    let docs = [1, 2, 3, 4].map(id => ({ id, nombre_archivo: `oficio-${id}.pdf`, tamano_bytes: 100, sha256: String(id).repeat(64) }));
+    solicitarApi.mockImplementation(ruta => Promise.resolve(ruta.endsWith("/documentos-respuesta")
+      ? json({ success: true, documentos: docs }) : historial()));
+    render(<SeguimientoEntrega {...props()} />); await abrir();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" })));
+    fireEvent.click(screen.getByRole("checkbox", { name: /oficio-2/ }));
+    const archivo = new File(["fixture"], "constancia.pdf");
+    fireEvent.change(screen.getByLabelText("Evidencias PDF (opcionales)"), { target: { files: [archivo] } });
+    docs = [docs[0], docs[1], { ...docs[2], sha256: "a".repeat(64) },
+      { id: 5, nombre_archivo: "nuevo.pdf", tamano_bytes: 100, sha256: "b".repeat(64) }];
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Recargar lista de PDF" })));
+    expect(screen.getByRole("checkbox", { name: /oficio-1/ }).checked).toBe(true);
+    expect(screen.getByRole("checkbox", { name: /oficio-2/ }).checked).toBe(false);
+    expect(screen.getByRole("checkbox", { name: /oficio-3/ }).checked).toBe(false);
+    expect(screen.getByRole("checkbox", { name: /nuevo/ }).checked).toBe(false);
+    expect(screen.queryByRole("checkbox", { name: /oficio-4/ })).toBeNull();
+    expect(screen.getByText(/2 PDF nuevos o modificados sin seleccionar; 1 retirados/)).toBeTruthy();
+    expect(screen.getByText(/constancia.pdf/)).toBeTruthy();
+  });
+  it("seleccion invalida conserva PDF valido sin enviarlo accidentalmente", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    const input = screen.getByLabelText("Evidencias PDF (opcionales)");
+    fireEvent.change(input, { target: { files: [new File(["fixture"], "conservar.pdf")] } });
+    fireEvent.change(input, { target: { files: [new File(["x"], "invalido.pdf")] } });
+    expect(screen.getByText(/conservar.pdf/)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("conserva");
+    expect(document.activeElement).toBe(screen.getByRole("alert"));
+    fireEvent.submit(formulario());
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+  });
+  it("preselecciona documentos, permite desmarcar y congela IDs/hash y fecha real", async () => {
     const docs = [{ id: 8, nombre_archivo: "oficio-uno.pdf", tamano_bytes: 100, sha256: "a".repeat(64) },
       { id: 9, nombre_archivo: "oficio-dos.pdf", tamano_bytes: 200, sha256: "b".repeat(64) }];
     const pendiente = diferida();
@@ -50,7 +125,7 @@ describe("seguimiento manual de entrega", () => {
     const primero = screen.getByRole("checkbox", { name: /oficio-uno/ });
     const segundo = screen.getByRole("checkbox", { name: /oficio-dos/ });
     expect(primero.checked).toBe(true); expect(segundo.checked).toBe(true);
-    expect(screen.queryByLabelText("Fecha y hora de actuación (Bogotá)")).toBeNull();
+    expect(screen.getByLabelText("Fecha y hora de actuación (Bogotá)").required).toBe(true);
     fireEvent.click(primero);
     fireEvent.click(screen.getByRole("button", { name: "Volver al historial" }));
     fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
@@ -58,7 +133,7 @@ describe("seguimiento manual de entrega", () => {
     fireEvent.submit(formulario());
     const post = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST");
     expect(JSON.parse(post[1].body.get("documentos_respuesta"))).toEqual([{ id: 9, sha256: "b".repeat(64) }]);
-    expect(post[1].body.has("fecha_actuacion")).toBe(false);
+    expect(post[1].body.get("fecha_actuacion")).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d/);
     await act(async () => pendiente.reject(Object.assign(new Error("Confirmación incierta"), { status: 500 })));
     expect(screen.getByRole("checkbox", { name: /oficio-dos/ }).closest("fieldset").disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Volver al historial" }).disabled).toBe(true);
@@ -82,8 +157,8 @@ describe("seguimiento manual de entrega", () => {
     solicitarApi.mockResolvedValue(json({ success: true, documentos: [
       { id: 8, nombre_archivo: "oficio-actualizado.pdf", tamano_bytes: 100, sha256: "c".repeat(64) },
     ] }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar PDF de respuesta" })));
-    expect(screen.getByRole("checkbox", { name: /oficio-actualizado/ }).checked).toBe(true);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Recargar lista de PDF" })));
+    expect(screen.getByRole("checkbox", { name: /oficio-actualizado/ }).checked).toBe(false);
     expect(screen.getByLabelText("Destinatario").value).toBe("Persona de prueba");
   });
   it("sin 026 conserva historial pero bloquea nuevos registros", async () => {
@@ -125,7 +200,7 @@ describe("seguimiento manual de entrega", () => {
     fireEvent.click(screen.getByRole("button", { name: "Volver al historial" }));
     fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
     expect(screen.getByLabelText("Destinatario").value).toBe("Otro destinatario ficticio");
-    expect(screen.queryByLabelText("Fecha y hora de actuación (Bogotá)")).toBeNull();
+    expect(screen.getByLabelText("Fecha y hora de actuación (Bogotá)").value).toBeTruthy();
     expect(screen.getByText(/borrador.pdf/)).toBeTruthy();
     expect(screen.getByLabelText("Evidencias PDF (obligatorias)").required).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Quitar PDF seleccionados" }));
@@ -181,7 +256,7 @@ describe("seguimiento manual de entrega", () => {
     render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
     fireEvent.change(screen.getByLabelText("Evidencias PDF (opcionales)"), { target: { files: archivos } });
     fireEvent.submit(formulario());
-    expect(screen.getByRole("alert").textContent).toContain("hasta 5 PDF de 10 MB");
+    expect(screen.getByRole("alert").textContent).toContain("hasta 5 PDF no vacíos");
     expect(solicitarApi).toHaveBeenCalledTimes(2);
   });
   it("bloquea doble envio y reintenta exactamente FormData/UUID/PDF tras incertidumbre", async () => {
@@ -200,8 +275,8 @@ describe("seguimiento manual de entrega", () => {
     expect(screen.getByLabelText("Canal").disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Volver al historial" }).disabled).toBe(true);
     const datos = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST")[1].body;
-    expect(datos.has("fecha_actuacion")).toBe(false);
-    expect(datos.get("version")).toBe("2");
+    expect(datos.has("fecha_actuacion")).toBe(true);
+    expect(datos.get("version")).toBe("3");
     expect(datos.get("documentos_respuesta")).toBe("[]");
     expect(datos.get("archivos").name).toBe("evidencia.pdf");
     solicitarApi.mockImplementation((ruta, o) => Promise.resolve(o?.method === "POST"

@@ -309,8 +309,10 @@ internas individuales; los externos y la consulta histórica conservan su circui
 En Consulta → **Ver respuesta**, las respuestas externas individuales incluyen
 **Ver seguimiento de entrega**, con carga diferida, historial de 25 y evidencias.
 El panel destaca el estado y muestra acciones compactas. **Registrar envío/entrega**
-abre el formulario bajo demanda: dos columnas con espacio suficiente y una en
-móvil. **Volver al historial** conserva el borrador y los PDF seleccionados
+abre una vista dedicada dentro del mismo modal: oculta temporalmente respuesta
+e historial, sin abrir otro modal. Organiza datos, fecha, documentos y constancia
+en secciones, con dos columnas y una en móvil; las acciones permanecen en el pie
+y solo el contenido se desplaza. **Volver al historial** conserva el borrador y los PDF seleccionados
 mientras el componente siga montado; la lista permite quitar esos archivos.
 El formulario coloca el foco en Canal al abrir y vuelve al resumen tras confirmar.
 El historial usa tarjetas y solo muestra paginación si hay más de una página.
@@ -322,18 +324,35 @@ el código del módulo. Otras bases sin 025 muestran el error 503, sin impedir
 ver la respuesta. El nuevo formulario requiere además **026, aplicada y verificada
 en desarrollo** con respaldo restaurado y ensayo local previo. En otras bases
 sin 026 se muestra el aviso y no permite registrar nuevos envíos; el historial,
-descargas y anulaciones siguen funcionando. Cada base requiere autorización y
+descargas y anulaciones siguen funcionando. El registro con fecha real requiere
+también **029, aplicada y verificada en desarrollo local**, con respaldo SQL
+y adjuntos verificados, restauración y ensayo aislado; los históricos permanecen
+intactos. El usuario reinicia manualmente el backend después de la aplicación.
+Sin 029 se explica el requisito y no se permiten nuevos registros, manteniendo
+historial, descargas y anulaciones. Cada base requiere autorización y
 respaldo verificado independientes antes de aplicar migraciones.
 
 Se registra correo manual, presencial o mensajería, con destinatario/destino
-confirmados y resultado. La hora se genera en el servidor al confirmar y se
-muestra en Bogotá: no hay fecha editable ni registro retrospectivo. El reintento
-conserva la fecha original. Los PDF institucionales aparecen preseleccionados en
+confirmados y resultado. La fecha real de actuación es editable, obligatoria y
+no futura, en hora de Bogotá. Si precede al registro institucional de la respuesta,
+exige justificación de 10 a 2000 caracteres. La fecha de registro en el sistema
+se genera en el servidor al confirmar; ambas se muestran por separado.
+Reintentar la misma operación confirmada no crea duplicados y conserva ambas
+fechas originales. El historial y último resultado
+siguen la fecha real, con desempate ID y prioridad de acreditación vigente.
+Los históricos mantienen sus fechas y significado original, sin reconstrucción.
+Los PDF institucionales aparecen preseleccionados en
 una lista con casillas junto al selector de nuevas evidencias (el navegador no
 permite rellenar su input de archivos con rutas del servidor).
+**Recargar lista de PDF** conserva marcados y desmarcados si ID y SHA256 no
+cambiaron; los nuevos o modificados quedan sin marcar, se retiran los ausentes
+y se informa la diferencia. No cambia los PDF originales ni borra el borrador.
 Se admiten hasta 5 PDF de respuesta y 5 evidencias nuevas de 10 MB sin contraseña;
 los originales se conservan y se guarda una copia independiente por envío.
-Acreditar requiere evidencia adicional de recepción; adjuntar de nuevo el mismo
+Acreditar requiere evidencia adicional de recepción; en envío o intento fallido
+las evidencias adicionales son opcionales. Se validan cantidad, extensión y
+tamaño al seleccionar; una selección inválida conserva la anterior y bloquea
+su envío hasta corregir o quitar los archivos. Adjuntar de nuevo el mismo
 oficio no sirve como único soporte. La comparación detecta igualdad de bytes,
 no certifica validez jurídica del documento.
 Intento fallido exige

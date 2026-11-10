@@ -3889,10 +3889,14 @@ button.dashboard-card {
   cursor: pointer;
   text-align: center;
 }
-.respuesta-dialog .entregas-boton--primario {
+.respuesta-dialog .entregas-boton--primario,
+.respuesta-dialog .modal-footer .entregas-boton--primario {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #fff;
+}
+.respuesta-dialog .modal-footer .entregas-boton--primario:hover:not(:disabled) {
+  background: #1e40af;
 }
 .respuesta-dialog .entregas-boton--secundario {
   background: #f8fafc;
@@ -4001,8 +4005,45 @@ button.dashboard-card {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .respuesta-dialog .entregas-formulario--grid > h4,
+.respuesta-dialog .entregas-formulario--grid > h5,
 .respuesta-dialog .entregas-campo--ancho {
   grid-column: 1 / -1;
+}
+.respuesta-dialog [hidden] {
+  display: none !important;
+}
+.respuesta-dialog .respuesta-contenido-consultado {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.respuesta-dialog .entregas-formulario--grid > h5 {
+  margin: 0.4rem 0 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #dbe5ef;
+  font-size: 0.95rem;
+  color: #1e3a8a;
+}
+.respuesta-dialog .entregas-documentos {
+  display: grid;
+  gap: 0.65rem;
+}
+.respuesta-dialog .entregas-documentos > :is(p, small) {
+  margin: 0;
+}
+.respuesta-dialog .entregas-documentos > button {
+  justify-self: start;
+}
+.respuesta-dialog .entregas-pie-destino:empty {
+  display: none;
+}
+.respuesta-dialog .entregas-pie-destino {
+  flex: 1;
+  min-width: 0;
+}
+.respuesta-dialog .entregas-pie-destino .entregas-acciones {
+  justify-content: space-between;
+  margin: 0;
 }
 .respuesta-dialog .entregas-panel input[type="file"]::file-selector-button {
   margin-right: 0.5rem;

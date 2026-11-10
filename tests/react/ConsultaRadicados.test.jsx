@@ -267,9 +267,10 @@ describe("consulta de radicados React", () => {
         fecha_envio: "2026-01-05 10:00:00", contenido: "Respuesta ficticia.", documentos: [],
       } }));
       if (ruta.endsWith("/entregas") && o?.method === "POST") return pendiente.promise;
-      if (ruta.endsWith("/entregas/documentos-respuesta")) return Promise.resolve(respuestaJson({ success: true, documentos: [] }));
+      if (ruta.endsWith("/entregas/documentos-respuesta")) return Promise.resolve(respuestaJson({
+        success: true, documentos: [], fecha_respuesta_epoch: 1735689600 }));
       if (ruta.includes("/entregas?")) return Promise.resolve(respuestaJson({ success: true, resumen: "pendiente_de_envio",
-        registros: [], total: 0, pagina: 1, paginas: 0 }));
+        registros: [], total: 0, pagina: 1, paginas: 0, fecha_real_disponible: true }));
       return base(ruta, o);
     });
     await abrirConsulta(); prepararDialogos();
@@ -281,9 +282,12 @@ describe("consulta de radicados React", () => {
     await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Ver seguimiento de entrega" })));
     await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Registrar envío/entrega" })));
     const boton = consulta.getByRole("button", { name: "Confirmar envío/entrega" });
+    expect(consulta.getByRole("heading", { name: /Registrar envío\/entrega.*RAD-001/ })).toBeTruthy();
+    expect(consulta.queryByRole("region", { name: "Resumen de la respuesta" })).toBeNull();
+    expect(modal.querySelector(".modal-footer").contains(boton)).toBe(true);
     fireEvent.change(consulta.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
     expect(consulta.getByText("La respuesta institucional no tiene PDF adjuntos.")).toBeTruthy();
-    fireEvent.submit(boton.closest("form"));
+    fireEvent.submit(document.getElementById(boton.getAttribute("form")));
     const botonesCerrar = consulta.getAllByRole("button", { name: "Cerrar" });
     expect(botonesCerrar.every(b => b.disabled)).toBe(true);
     const cancel = new Event("cancel", { cancelable: true });

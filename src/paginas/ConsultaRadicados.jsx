@@ -276,6 +276,8 @@ function VistaConsultaRadicados({ usuario }) {
   const [errorArchivosRespuesta, setErrorArchivosRespuesta] = useState("");
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   const [guardandoEntrega, setGuardandoEntrega] = useState(false);
+  const [vistaRegistroEntrega, setVistaRegistroEntrega] = useState(false);
+  const pieEntrega = useRef(null);
   const [mensajeRespuesta, setMensajeRespuesta] = useState("");
   const [respuestaConsultada, setRespuestaConsultada] = useState(null);
   const dialogoDetalle = useRef(null);
@@ -331,6 +333,7 @@ function VistaConsultaRadicados({ usuario }) {
     liberarUrlsRespuestaEnCarga();
     setRespuestaSeleccionada(null);
     setRespuestaConsultada(null);
+    setVistaRegistroEntrega(false);
     if (dialogoRespuesta.current?.open) dialogoRespuesta.current.close();
   }
 
@@ -2046,7 +2049,7 @@ function VistaConsultaRadicados({ usuario }) {
                 ref={tituloRespuesta}
                 tabIndex={-1}
               >
-                Respuesta institucional{" "}
+                {vistaRegistroEntrega ? "Registrar envío/entrega" : "Respuesta institucional"}{" "}
                 <span className="respuesta-numero">
                   {respuestaConsultada.radicado.numero_radicado}
                 </span>
@@ -2062,7 +2065,7 @@ function VistaConsultaRadicados({ usuario }) {
               </button>
             </div>
             <div className="modal-content">
-              {respuestaConsultada.guardada && (
+              {respuestaConsultada.guardada && !vistaRegistroEntrega && (
                 <p role="status">
                   Respuesta guardada correctamente.
                   {String(respuestaConsultada.radicado.tipo_comunicacion)
@@ -2089,6 +2092,7 @@ function VistaConsultaRadicados({ usuario }) {
                 </div>
               ) : (
                 <>
+                  <div className="respuesta-contenido-consultado" hidden={vistaRegistroEntrega}>
                   <section
                     className="detalle-resumen"
                     aria-label="Resumen de la respuesta"
@@ -2167,6 +2171,7 @@ function VistaConsultaRadicados({ usuario }) {
                       <p>La respuesta no tiene PDF adjuntos.</p>
                     )}
                   </section>
+                  </div>
                   {String(respuestaConsultada.radicado.tipo_comunicacion)
                     .trim()
                     .toLowerCase() === "externa" &&
@@ -2176,6 +2181,8 @@ function VistaConsultaRadicados({ usuario }) {
                         key={`${respuestaConsultada.id}:${usuario.id}`}
                         radicado={respuestaConsultada.radicado}
                         usuario={usuario}
+                        alVistaRegistro={setVistaRegistroEntrega}
+                        contenedorAcciones={pieEntrega.current}
                         alProceso={(valor) => {
                           respuestaEnProceso.current = valor;
                           setGuardandoEntrega(valor);
@@ -2198,8 +2205,10 @@ function VistaConsultaRadicados({ usuario }) {
               )}
             </div>
             <div className="modal-footer">
+              <div ref={pieEntrega} className="entregas-pie-destino" />
               <button
                 type="button"
+                hidden={vistaRegistroEntrega}
                 onClick={cerrarRespuesta}
                 disabled={guardandoEntrega}
               >
