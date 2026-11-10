@@ -48,6 +48,23 @@ async function abrirDecisiones() {
   await act(async () => botones.forEach((boton) => fireEvent.click(boton)));
 }
 
+describe("presentación directa de traslados", () => {
+  it("carga al activar sin desplegador y conserva el filtro al volver", async () => {
+    solicitarApi.mockResolvedValue(bandeja([]));
+    const usuario = { id: 1, rol: "funcionario", dependencia_id: 3 };
+    const vista = render(<BandejaTraslados usuario={usuario} directa activa={false} alGuardar={vi.fn()} />);
+    expect(solicitarApi).not.toHaveBeenCalled();
+    vista.rerender(<BandejaTraslados usuario={usuario} directa alGuardar={vi.fn()} />);
+    await screen.findByText("Sin traslados pendientes");
+    expect(screen.queryByRole("button", { name: "Mis solicitudes de traslado" })).toBeNull();
+    await act(async () => fireEvent.change(screen.getByLabelText("Estado del traslado"), { target: { value: "" } }));
+    vista.rerender(<BandejaTraslados usuario={usuario} directa activa={false} alGuardar={vi.fn()} />);
+    vista.rerender(<BandejaTraslados usuario={usuario} directa alGuardar={vi.fn()} />);
+    await screen.findByText("No hay solicitudes para mostrar.");
+    expect(screen.getByLabelText("Estado del traslado").value).toBe("");
+  });
+});
+
 describe("solicitud de traslado", () => {
   it("distingue carga, error y reintento sin permitir envíos sin destinos", async () => {
     const lenta = diferida();

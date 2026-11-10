@@ -164,6 +164,13 @@ describe("consulta de radicados React", () => {
           dependencias: [{ id: 3, nombre: "Secretaría de Gobierno" }],
         });
       }
+      if (ruta.startsWith("/api/respuestas-internas?")) {
+        return respuestaJson({ success: true, registros: [], pagina: 1, paginas: 0, total: 0,
+          resumen: { total: 0, pendientes: 0, leidas: 0 } });
+      }
+      if (ruta.startsWith("/api/traslados?")) {
+        return respuestaJson({ success: true, traslados: [], total: 0, paginas: 0, pendientes: 0 });
+      }
       if (/^\/api\/radicados\/[^/]+\/historial(?:\?|$)/.test(ruta)) {
         return respuestaJson({ success: true, historial: [], siguiente_cursor: null });
       }
@@ -376,7 +383,83 @@ describe("consulta de radicados React", () => {
     await abrirConsulta();
     expect(screen.getAllByRole("button", { name: "Solicitar traslado" })).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Solicitar traslado" }).closest("tr").textContent).toContain("RAD-001");
-    expect(screen.getByRole("button", { name: "Mis solicitudes de traslado" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Traslados" })).toBeTruthy();
+  });
+
+  it("organiza dependencias en tres pestañas, entrando en Radicados sin desplegadores duplicados", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3, dependencia_nombre: "Talento Humano" });
+    await abrirConsulta();
+    expect(screen.getByRole("heading", { name: "Consultar radicados", level: 1 })).toBeTruthy();
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+    expect(screen.getByRole("tabpanel", { name: "Radicados" }).contains(screen.getByRole("heading", { name: "Alertas por dependencia" }))).toBe(true);
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.startsWith("/api/traslados?"))).toBe(false);
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Respuestas internas" })));
+    expect(screen.getByText("Aún no hay respuestas internas")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ver bandeja interna" })).toBeNull();
+    expect(screen.queryByRole("table", { name: "Radicados" })).toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Traslados" })));
+    expect(screen.getByText("Sin traslados pendientes")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mis solicitudes de traslado" })).toBeNull();
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  it("mantiene aviso de respuestas sin abrir sin cambiar la pestaña ni registrar apertura", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/respuestas-internas?")
+      ? Promise.resolve(respuestaJson({ success: true, registros: [], pagina: 1, paginas: 0, total: 0,
+        resumen: { total: 2, pendientes: 2, leidas: 0 } })) : base(ruta, opciones));
+    await abrirConsulta();
+    expect(screen.getByText("2 respuestas internas sin abrir")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver respuestas internas" })));
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Respuestas internas" }));
+    expect(screen.getByRole("tabpanel", { name: "Respuestas internas" })).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/respuestas-internas?"))).toHaveLength(1);
+  });
+
+  it("expone error del resumen fuera de Respuestas y permite reintentar sin informar cero", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    let fallo = true;
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.startsWith("/api/respuestas-internas?") && fallo) return Promise.reject(new Error("Fallo de prueba del resumen"));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    const aviso = within(screen.getByRole("region", { name: "Avisos de respuestas internas" }));
+    expect(aviso.getByRole("alert").textContent).toContain("No se pudo comprobar si hay respuestas sin abrir");
+    fallo = false;
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reintentar resumen de respuestas" })));
+    expect(aviso.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("tabpanel", { name: "Radicados" })).toBeTruthy();
+  });
+
+  it("navega pestañas con teclado y conserva filtros de Radicados", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    await abrirConsulta();
+    await act(async () => fireEvent.change(screen.getByLabelText("Tipo de comunicación"), { target: { value: "interna" } }));
+    const tab = screen.getByRole("tab", { name: "Radicados" });
+    await act(async () => fireEvent.keyDown(tab, { key: "ArrowRight" }));
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Respuestas internas" }));
+    await act(async () => fireEvent.keyDown(document.activeElement, { key: "End" }));
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Traslados" }));
+    await act(async () => fireEvent.keyDown(document.activeElement, { key: "Home" }));
+    expect(document.activeElement).toBe(tab);
+    expect(screen.getByLabelText("Tipo de comunicación").value).toBe("interna");
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  it.each(["administrador", "ventanilla"])("no cambia la organización existente de %s", async rol => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol });
+    await abrirConsulta();
+    expect(screen.queryByRole("tablist", { name: "Secciones de consulta" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Listado de documentos recibidos", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gestionar traslados" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Registrar nuevo radicado/ })).toBeTruthy();
   });
 
   it("carga destinos de traslado completos sin ampliar las dependencias de alertas del funcionario", async () => {
@@ -1434,7 +1517,24 @@ describe("consulta de radicados React", () => {
     ).toBeTruthy();
   });
 
-  it("pagina en servidor, conserva contadores globales y reinicia pagina al filtrar", async () => {
+  it.each(["funcionario", "administrador", "ventanilla"].flatMap(rol =>
+    [0, 1, 25].map(cantidad => ({ rol, cantidad }))
+  ))("oculta paginación para $rol con $cantidad registros", async ({ rol, cantidad }) => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol, dependencia_id: rol === "funcionario" ? 3 : null });
+    const filas = Array.from({ length: cantidad }, (_, i) => ({
+      ...crearRadicados()[0], numero_radicado: `RAD-PAG-${i + 1}`,
+    }));
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? Promise.resolve(paginaRadicados(filas, ruta)) : base(ruta, opciones));
+    await act(async () => render(<PaginaConsultaRadicados />));
+    expect(screen.getByRole("table", { name: "Radicados" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Paginación de radicados" })).toBeNull();
+    expect(document.querySelector('nav[aria-label="Paginación de radicados"]')).toBeNull();
+  });
+
+  it.each(["administrador", "funcionario", "ventanilla"])("pagina en servidor y reinicia al filtrar para %s", async rol => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol, dependencia_id: rol === "funcionario" ? 3 : null });
     const filas = Array.from({ length: 53 }, (_, i) => ({
       ...crearRadicados()[0], numero_radicado: `RAD-${String(i + 1).padStart(3, "0")}`,
       remitente_nombre: i === 52 ? "Remitente final" : "Otra persona",
@@ -1455,6 +1555,11 @@ describe("consulta de radicados React", () => {
     expect(screen.getByText("RAD-026", { selector: "button" })).toBeTruthy();
     expect(screen.queryByText("RAD-001", { selector: "button" })).toBeNull();
     expect(screen.getByText("Página 2 de 3")).toBeTruthy();
+    await act(async () => fireEvent.click(navegacion.getByRole("button", { name: "Anterior" })));
+    expect(screen.getByText("Página 1 de 3")).toBeTruthy();
+    expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
+    await act(async () => fireEvent.click(siguiente));
+    expect(screen.getByText("Página 2 de 3")).toBeTruthy();
     const user = userEvent.setup({ delay: null });
     await user.click(buscar);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -1465,8 +1570,7 @@ describe("consulta de radicados React", () => {
       expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("busqueda=final"))).toBe(false);
       await act(async () => { await vi.advanceTimersByTimeAsync(1); });
       expect(screen.getByText("RAD-053", { selector: "button" })).toBeTruthy();
-      expect(navegacion.getByText("Página 1 de 1")).toBeTruthy();
-      expect(navegacion.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
+      expect(screen.queryByRole("navigation", { name: "Paginación de radicados" })).toBeNull();
       expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("pagina=1") && ruta.includes("busqueda=final"))).toBe(true);
     } finally {
       vi.useRealTimers();

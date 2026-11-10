@@ -1600,6 +1600,181 @@ footer {
   cursor: wait;
 }
 
+/* Consulta de dependencias: paneles independientes de los selectores legacy. */
+.consulta-dependencia .consult-main {
+  min-width: 0;
+}
+.consulta-dependencia .consulta-intro {
+  margin-bottom: 1.25rem;
+  color: #475569;
+}
+.consulta-dependencia .consulta-antetitulo {
+  margin: 0 0 0.4rem;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.consulta-dependencia .consulta-intro h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+.consulta-dependencia .consulta-intro > p:last-child {
+  margin: 0;
+  line-height: 1.5;
+}
+.consulta-dependencia .consulta-pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.8rem;
+  background: #fff;
+}
+.consulta-dependencia .consulta-pestanas button {
+  flex: 1 1 10rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.consulta-dependencia .consulta-pestanas button:hover {
+  background: #eff6ff;
+}
+.consulta-dependencia .consulta-pestanas button[aria-selected="true"] {
+  background: #1d4ed8;
+  color: #fff;
+}
+.consulta-dependencia :is(button, input, select, [tabindex]):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.consulta-dependencia .consulta-panel {
+  min-width: 0;
+}
+.consulta-dependencia .consulta-panel[hidden] {
+  display: none;
+}
+.consulta-dependencia .consulta-aviso:empty {
+  display: none;
+}
+.consulta-dependencia .consulta-aviso > :is(div, p) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin: 0 0 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+.consulta-dependencia .consulta-aviso p {
+  margin: 0;
+}
+.consulta-dependencia .consulta-aviso button {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: 700;
+  cursor: pointer;
+}
+.consulta-dependencia .consult-heading {
+  margin: 1.25rem 0 1rem;
+}
+.consulta-dependencia .consult-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #1e293b;
+}
+.consulta-dependencia .dashboard-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.consulta-dependencia .dashboard-card {
+  min-height: 0;
+  padding: 0.9rem 1rem;
+}
+.consulta-dependencia .consult-filters {
+  grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr);
+  padding: 1rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.8rem;
+  background: #fff;
+}
+.consulta-dependencia .consult-filters > label:first-child {
+  grid-column: 1;
+  font-weight: 700;
+  color: #475569;
+}
+.consulta-dependencia .consult-filters > input {
+  grid-column: 1;
+  grid-row: 2;
+}
+.consulta-dependencia .consulta-tipo {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-weight: 700;
+  color: #475569;
+}
+.consulta-dependencia .consulta-tipo select {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.7rem;
+  background: #fff;
+  font: inherit;
+}
+.consulta-dependencia .consult-filters > div {
+  grid-column: 1 / -1;
+}
+.consulta-dependencia .filtros-activos-resumen:not(:has(ul)) {
+  display: none;
+}
+.consulta-dependencia :is(.internas-bandeja, .traslados-panel) {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .consulta-dependencia .consulta-pestanas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .consulta-dependencia .consulta-pestanas button {
+    padding: 0.75rem 0.25rem;
+    font-size: 0.8rem;
+  }
+  .consulta-dependencia .consult-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .consulta-dependencia .dashboard-card {
+    padding: 0.75rem 0.5rem;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+  }
+  .consulta-dependencia .dashboard-card small {
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+  .consulta-dependencia .consult-filters > input,
+  .consulta-dependencia .consulta-tipo {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 /* Tabla, filtros y alertas del módulo de consulta. */
 .app-page .consult-main {
   width: min(100% - 2rem, 72rem);

@@ -39,6 +39,33 @@ beforeEach(() => {
     : ruta.endsWith("/apertura") ? json({ recepcion: confirmada }) : json({ recepcion, documentos: [] })));
 });
 describe("respuestas internas digitales", () => {
+  it("ofrece contenido directo y comparte resumen sin registrar apertura mientras está inactiva", async () => {
+    const alResumen = vi.fn();
+    render(<RespuestasInternas usuario={usuario} directa activa={false} alResumen={alResumen} />);
+    await screen.findByRole("list", { name: "Respuestas disponibles" });
+    expect(screen.queryByRole("button", { name: "Ver bandeja interna" })).toBeNull();
+    expect(alResumen).toHaveBeenLastCalledWith({
+      resumen: { total: 1, pendientes: 1, leidas: 0 }, error: "", cargando: false,
+    });
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+  });
+
+  it("al abandonar el panel descarta la carga pendiente sin apertura tardía", async () => {
+    const pendiente = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/respuestas-internas/1"
+      ? pendiente.promise : base(ruta, opciones));
+    const vista = render(<RespuestasInternas usuario={usuario} directa />);
+    await screen.findByRole("list", { name: "Respuestas disponibles" });
+    fireEvent.click(screen.getByRole("button", { name: /Abrir respuesta interna/ }));
+    vista.rerender(<RespuestasInternas usuario={usuario} directa activa={false} />);
+    await act(async () => pendiente.resolve(json({ recepcion, documentos: [] })));
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+    vista.rerender(<RespuestasInternas usuario={usuario} directa />);
+    expect(screen.getByRole("button", { name: /Abrir respuesta interna/ }).getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("mantiene resumen y aviso al plegar y no reabre al actualizar", async () => {
     render(<RespuestasInternas usuario={usuario} />);
     await abrirBandeja();
@@ -306,7 +333,80 @@ describe("respuestas internas digitales", () => {
     expect(within(detalle).getByRole("region", { name: "Adjuntos de la respuesta" }).textContent).toContain("Esta respuesta no tiene adjuntos.");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar bandeja interna" })));
     fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: `Abrir respuesta interna ${recepcion.numero_radicado}` }));
+  });
+
+  it("abre el detalle en la tarjeta seleccionada antes de la siguiente y permite cambiar y cerrar", async () => {
+    const segunda = { ...confirmada, id: 2, respuesta_id: 11, numero_radicado: "SEGUNDO-INTERNO" };
+    solicitarApi.mockImplementation(ruta => Promise.resolve(ruta.includes("?")
+      ? json({ registros: [confirmada, segunda], pagina: 1, paginas: 1, total: 2,
+          resumen: { total: 2, pendientes: 0, leidas: 2 } })
+      : json({ recepcion: ruta.endsWith("/2") ? segunda : confirmada, documentos: [] })));
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja(); await abrirDetalle();
+    const tarjetas = screen.getByRole("list", { name: "Respuestas disponibles" }).children;
+    expect(within(tarjetas[0]).getByRole("article", { name: "Respuesta interna abierta" })).toBeTruthy();
+    expect(within(tarjetas[1]).queryByRole("article")).toBeNull();
+    const boton = screen.getByRole("button", { name: "Abrir respuesta interna SEGUNDO-INTERNO" });
+    await act(async () => fireEvent.click(boton));
+    expect(within(tarjetas[0]).queryByRole("article")).toBeNull();
+    const detalle = within(tarjetas[1]).getByRole("article", { name: "Respuesta interna abierta" });
+    expect(document.activeElement).toBe(within(detalle).getByRole("heading", { name: segunda.numero_radicado }));
+    expect(boton.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById(boton.getAttribute("aria-controls")).contains(detalle)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
+    expect(document.activeElement).toBe(boton);
+    expect(boton.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("conserva el detalle mientras actualiza y lo limpia si desaparece del filtro", async () => {
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja(); await abrirDetalle();
+    const detalle = screen.getByRole("article", { name: "Respuesta interna abierta" });
+    const refresco = diferida();
+    solicitarApi.mockReturnValueOnce(refresco.promise);
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar bandeja interna" }));
+    expect(screen.getByRole("article", { name: "Respuesta interna abierta" })).toBe(detalle);
+    await act(async () => refresco.resolve(json({ registros: [], pagina: 1, paginas: 0, total: 0,
+      resumen: { total: 0, pendientes: 0, leidas: 0 } })));
+    expect(screen.queryByRole("article")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Actualizar bandeja interna" }));
+  });
+
+  it("cambiar filtro invalida el detalle en carga sin registrar apertura tardía", async () => {
+    const pendiente = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/respuestas-internas/1"
+      ? pendiente.promise : base(ruta, opciones));
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja();
+    fireEvent.click(screen.getByRole("button", { name: /Abrir respuesta interna/ }));
+    await act(async () => fireEvent.change(screen.getByLabelText("Filtrar respuestas internas"), { target: { value: "leidas" } }));
+    await act(async () => pendiente.resolve(json({ recepcion, documentos: [] })));
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
+  });
+
+  it("cambiar de página cierra el detalle, libera adjuntos y permite abrir la nueva tarjeta", async () => {
+    solicitarApi.mockImplementation(ruta => {
+      if (ruta.includes("?")) return Promise.resolve(json({
+        registros: [confirmada], pagina: ruta.includes("pagina=2") ? 2 : 1, paginas: 2, total: 26,
+        resumen: { total: 26, pendientes: 0, leidas: 26 },
+      }));
+      if (ruta.includes("/documentos/")) return Promise.resolve({ blob: async () => new Blob(["pdf"]) });
+      return Promise.resolve(json({ recepcion: confirmada,
+        documentos: [{ id: 4, nombre_archivo: "Respuesta.pdf", tamano_bytes: 3 }] }));
+    });
+    render(<RespuestasInternas usuario={usuario} />);
+    await abrirBandeja(); await abrirDetalle();
+    expect(screen.getByRole("link", { name: "Respuesta.pdf" })).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Siguiente" })));
+    expect(screen.getByText("Página 2 de 2")).toBeTruthy();
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:ficticio");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Actualizar bandeja interna" }));
+    await abrirDetalle();
+    expect(screen.getByRole("link", { name: "Respuesta.pdf" })).toBeTruthy();
   });
 
   it("reintenta la carga PDF sin acuse prematuro y libera URLs parciales", async () => {

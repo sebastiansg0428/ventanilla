@@ -251,8 +251,9 @@ function TarjetaTraslado({ traslado, usuario, catalogo, alGuardar, alProceso, de
   );
 }
 
-export function BandejaTraslados({ usuario, revision, alGuardar }) {
-  const [abierta, setAbierta] = useState(false);
+export function BandejaTraslados({ usuario, revision, alGuardar, directa = false, activa = true }) {
+  const [desplegada, setAbierta] = useState(false);
+  const abierta = directa ? activa : desplegada;
   const [estado, setEstado] = useState("pendiente");
   const [pagina, setPagina] = useState(1);
   const [recarga, setRecarga] = useState(0);
@@ -303,9 +304,9 @@ export function BandejaTraslados({ usuario, revision, alGuardar }) {
           <p className="traslados-antetitulo">Traslados de radicados</p>
           <h2>{usuario.rol === "funcionario" ? "Solicitudes de mi dependencia de origen" : "Revisión de Ventanilla"}</h2>
         </div>
-        <button type="button" className="traslados-boton-secundario" aria-expanded={abierta} aria-controls="bandeja-traslados" onClick={() => setAbierta(!abierta)} disabled={decidiendo || Boolean(incierta)}>
+        {!directa && <button type="button" className="traslados-boton-secundario" aria-expanded={abierta} aria-controls="bandeja-traslados" onClick={() => setAbierta(!abierta)} disabled={decidiendo || Boolean(incierta)}>
           {abierta ? "Ocultar traslados" : usuario.rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados"}
-        </button>
+        </button>}
       </div>
       {abierta && <div id="bandeja-traslados">
         {confirmacion && <MensajeEstado tono="success">{confirmacion}</MensajeEstado>}

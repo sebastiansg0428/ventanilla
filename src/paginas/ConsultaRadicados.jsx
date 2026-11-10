@@ -194,7 +194,25 @@ export function PaginaConsultaRadicados() {
   );
 }
 
+const PESTANAS_DEPENDENCIA = [
+  ["radicados", "Radicados"],
+  ["respuestas", "Respuestas internas"],
+  ["traslados", "Traslados"],
+];
+
+function PanelConsulta({ habilitado, id, actual, children }) {
+  if (!habilitado) return <>{children}</>;
+  return <section id={`consulta-panel-${id}`} role="tabpanel"
+    aria-labelledby={`consulta-tab-${id}`} hidden={actual !== id} tabIndex={0}
+    className="consulta-panel">{children}</section>;
+}
+
 function VistaConsultaRadicados({ usuario }) {
+  const esDependencia = usuario.rol === "funcionario";
+  const [pestanaConsulta, setPestanaConsulta] = useState("radicados");
+  const [estadoInternas, setEstadoInternas] = useState({ resumen: null, error: "", cargando: true });
+  const [revisionInternas, setRevisionInternas] = useState(0);
+  const botonesPestanas = useRef({});
   const [solicitudTraslado, setSolicitudTraslado] = useState(null);
   const [mensajeTraslado, setMensajeTraslado] = useState("");
   const botonTraslado = useRef(null);
@@ -1020,25 +1038,73 @@ function VistaConsultaRadicados({ usuario }) {
     setRevisionConsulta((valor) => valor + 1);
   }
 
+  function navegarPestanas(evento, indice) {
+    let siguiente;
+    if (evento.key === "ArrowRight") siguiente = (indice + 1) % PESTANAS_DEPENDENCIA.length;
+    else if (evento.key === "ArrowLeft") siguiente = (indice + PESTANAS_DEPENDENCIA.length - 1) % PESTANAS_DEPENDENCIA.length;
+    else if (evento.key === "Home") siguiente = 0;
+    else if (evento.key === "End") siguiente = PESTANAS_DEPENDENCIA.length - 1;
+    else return;
+    evento.preventDefault();
+    const id = PESTANAS_DEPENDENCIA[siguiente][0];
+    setPestanaConsulta(id);
+    botonesPestanas.current[id]?.focus();
+  }
+
   return (
-    <div className="page-consult app-page">
+    <div className={`page-consult app-page${esDependencia ? " consulta-dependencia" : ""}`}>
       <EncabezadoAplicacion usuario={usuario} pantallaActual="consultar" />
       <main className="consult-main">
-        {usuario.rol === "funcionario" && (
-          <RespuestasInternas key={usuario.id} usuario={usuario} />
-        )}
+        {esDependencia && <>
+          <header className="consulta-intro">
+            <p className="consulta-antetitulo">Gestión documental · {usuario.dependencia_nombre || "Mi dependencia"}</p>
+            <h1>Consultar radicados</h1>
+            <p>Consulta tus documentos, revisa respuestas y sigue tus solicitudes de traslado.</p>
+          </header>
+          <nav className="consulta-pestanas" role="tablist" aria-label="Secciones de consulta">
+            {PESTANAS_DEPENDENCIA.map(([id, nombre], indice) => (
+              <button key={id} type="button" role="tab" id={`consulta-tab-${id}`}
+                ref={nodo => { botonesPestanas.current[id] = nodo; }}
+                aria-selected={pestanaConsulta === id} aria-controls={`consulta-panel-${id}`}
+                tabIndex={pestanaConsulta === id ? 0 : -1}
+                onClick={() => setPestanaConsulta(id)} onKeyDown={evento => navegarPestanas(evento, indice)}>
+                {nombre}
+              </button>
+            ))}
+          </nav>
+          {pestanaConsulta !== "respuestas" && <section className="consulta-aviso" aria-label="Avisos de respuestas internas">
+            {estadoInternas.cargando ? <p role="status">Comprobando respuestas internas…</p>
+              : estadoInternas.error ? <div role="alert">
+                <p>No se pudo comprobar si hay respuestas sin abrir. {estadoInternas.error}</p>
+                <button type="button" onClick={() => setRevisionInternas(n => n + 1)}>Reintentar resumen de respuestas</button>
+              </div>
+              : estadoInternas.resumen?.pendientes > 0 && <div role="status">
+                <p><strong>{estadoInternas.resumen.pendientes} {estadoInternas.resumen.pendientes === 1 ? "respuesta interna sin abrir" : "respuestas internas sin abrir"}</strong> para tu dependencia.</p>
+                <button type="button" onClick={() => {
+                  setPestanaConsulta("respuestas"); botonesPestanas.current.respuestas?.focus();
+                }}>Ver respuestas internas</button>
+              </div>}
+          </section>}
+          <PanelConsulta habilitado id="respuestas" actual={pestanaConsulta}>
+            <RespuestasInternas key={usuario.id} usuario={usuario} directa
+              activa={pestanaConsulta === "respuestas"} alResumen={setEstadoInternas} revisionExterna={revisionInternas} />
+          </PanelConsulta>
+        </>}
+        {esDependencia && <PanelConsulta habilitado id="traslados" actual={pestanaConsulta}>
+          <BandejaTraslados
+            usuario={usuario} revision={revisionConsulta} alGuardar={trasladoGuardado}
+            directa={esDependencia} activa={pestanaConsulta === "traslados"}
+          />
+        </PanelConsulta>}
+        <PanelConsulta habilitado={esDependencia} id="radicados" actual={pestanaConsulta}>
         <div className="consult-heading">
-          <h1>Listado de documentos recibidos</h1>
+          {esDependencia ? <h2>Listado de documentos recibidos</h2> : <h1>Listado de documentos recibidos</h1>}
           {usuario.rol !== "funcionario" && (
             <a href="index.html">← Registrar nuevo radicado</a>
           )}
         </div>
 
-        <BandejaTraslados
-          usuario={usuario}
-          revision={revisionConsulta}
-          alGuardar={trasladoGuardado}
-        />
+        {!esDependencia && <BandejaTraslados usuario={usuario} revision={revisionConsulta} alGuardar={trasladoGuardado} />}
         {mensajeTraslado && (
           <MensajeEstado tono="success">{mensajeTraslado}</MensajeEstado>
         )}
@@ -1090,7 +1156,7 @@ function VistaConsultaRadicados({ usuario }) {
             <strong>{radicadosHoy}</strong>
             <small>Activar o quitar filtro de hoy</small>
           </button>
-          <label className="dashboard-card">
+          {!esDependencia && <label className="dashboard-card">
             <span>Tipo de comunicación</span>
             <select
               id="filtro-tipo-comunicacion"
@@ -1104,7 +1170,7 @@ function VistaConsultaRadicados({ usuario }) {
               <option value="externa">Externa</option>
               <option value="sin-tipo">No especificado</option>
             </select>
-          </label>
+          </label>}
         </section>
         <div className="filtros-activos-resumen" aria-live="polite">
           {filtrosActivos.length ? (
@@ -1124,11 +1190,12 @@ function VistaConsultaRadicados({ usuario }) {
               ))}
             </ul>
           ) : (
-            <p>Sin filtros activos.</p>
+            !esDependencia && <p>Sin filtros activos.</p>
           )}
         </div>
 
         <section className="consult-filters">
+          {esDependencia && <label htmlFor="busqueda-radicados">Buscar radicados</label>}
           <input
             id="busqueda-radicados"
             name="busqueda_radicados"
@@ -1138,15 +1205,23 @@ function VistaConsultaRadicados({ usuario }) {
             placeholder="Buscar por radicado, documento o remitente…"
             aria-label="Buscar radicados"
           />
+          {esDependencia && <label className="consulta-tipo" htmlFor="filtro-tipo-comunicacion">
+            Tipo de comunicación
+            <select id="filtro-tipo-comunicacion" name="filtro_tipo_comunicacion"
+              value={filtroComunicacion} onChange={evento => setFiltroComunicacion(evento.target.value)} disabled={cargando}>
+              <option value="">Todos</option><option value="interna">Interna</option>
+              <option value="externa">Externa</option><option value="sin-tipo">No especificado</option>
+            </select>
+          </label>}
           <div>
             <p role="status" aria-live="polite">
               {cargando
                 ? "Cargando radicados…"
                 : mensajeError
                   ? `No se pudieron cargar radicados. ${mensajeError}`
-                  : `Mostrando ${radicadosVisibles.length} de ${resumenConsulta.total}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
+                  : `Mostrando ${radicadosVisibles.length} de ${esDependencia ? paginacion.total : resumenConsulta.total}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
             </p>
-            {!cargando && !mensajeError && (
+            {!esDependencia && !cargando && !mensajeError && (
               <p>{paginacion.total} registros coinciden con los filtros.</p>
             )}
             <button
@@ -1397,7 +1472,7 @@ function VistaConsultaRadicados({ usuario }) {
           </div>
         </section>
 
-        <nav className="alerts-controls" aria-label="Paginación de radicados">
+        {paginacion.paginas > 1 && <nav className="alerts-controls" aria-label="Paginación de radicados">
           <button
             type="button"
             disabled={cargando || paginaConsulta <= 1}
@@ -1425,7 +1500,7 @@ function VistaConsultaRadicados({ usuario }) {
           >
             Siguiente
           </button>
-        </nav>
+        </nav>}
         <section
           id="seccion-alertas"
           className="alerts-card"
@@ -1528,6 +1603,7 @@ function VistaConsultaRadicados({ usuario }) {
             </button>
           </nav>}
         </section>
+        </PanelConsulta>
       </main>
       <PiePagina />
 
