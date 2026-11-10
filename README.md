@@ -21,6 +21,43 @@ registra apertura: se mantiene la confirmación solo tras cargar el contenido y
 los adjuntos mediante **Abrir respuesta**. Los errores y el reintento quedan
 visibles también con la bandeja plegada.
 
+**Abrir respuesta** despliega el contenido dentro de la tarjeta seleccionada,
+no al final del listado. Solo se abre una respuesta a la vez; al cerrarla el
+foco vuelve a su botón. Las actualizaciones conservan el detalle mientras
+cargan; cambiar de filtro o página lo cierra y descarta cargas pendientes.
+Si una actualización retira la tarjeta del listado, se limpia el detalle y el
+foco vuelve al control de actualización.
+
+## Consulta para dependencias
+
+El panel de funcionarios organiza la consulta en tres pestañas:
+
+- **Radicados**: vista inicial con indicadores, búsqueda, tipo de comunicación,
+  listado, paginación y alertas por dependencia.
+- **Respuestas internas**: respuestas a documentos iniciados por la dependencia,
+  con filtros, recepción digital y detalle dentro de la tarjeta seleccionada.
+- **Traslados**: solicitudes propias y seguimiento de su estado.
+
+En el listado de radicados, la paginación solo se muestra cuando hay dos o más
+páginas de resultados, tanto para dependencias como para administrador y
+Ventanilla. Con cero o una página se oculta; no cambia la paginación de las otras
+bandejas.
+
+Las dos últimas muestran su contenido directamente, sin un segundo botón para
+desplegar la bandeja. Las pestañas admiten flechas izquierda/derecha, Inicio y Fin.
+Cambiar de pestaña conserva los filtros; salir de Respuestas internas cierra su
+detalle, libera adjuntos temporales y descarta cargas pendientes.
+
+Al ingresar siempre se muestra Radicados. Un aviso permite acceder a las respuestas
+sin abrir sin cambiar automáticamente de pestaña. Consultar el resumen o navegar
+no registra apertura: esta se confirma solo al mostrar la respuesta y sus PDF.
+Si falla el resumen, se informa el error con reintento, no se presume que hay cero
+pendientes. Traslados se consulta al acceder a su pestaña.
+
+La presentación institucional y adaptable se limita al panel de dependencias:
+no modifica la organización de administrador/Ventanilla, el cliente legacy,
+los permisos ni los endpoints del backend.
+
 ## Iniciar en el computador
 
 1. Abre una terminal en esta carpeta y ejecuta `npm install`.
