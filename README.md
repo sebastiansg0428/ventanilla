@@ -352,11 +352,55 @@ modal y sus formularios, sin modificar globalmente otros diálogos.
 
 ## Traslados mediados por Ventanilla
 
+### Avisos informativos de reiteracion y devolucion
+
+Se mantienen los traslados sin limite acumulado y una sola solicitud pendiente
+por radicado. Al abrir Solicitar traslado o Resolver traslado se consulta
+`GET /api/radicados/:numero_radicado/traslados/resumen`, con autorizacion de lectura
+del expediente. No se consulta por cada tarjeta ni desde los comprobantes
+historicos de oficinas que ya perdieron acceso.
+
+- Con dos o mas aprobaciones previas, se advierte que la aprobacion propuesta
+  seria la tercera o posterior. Solo cuentan movimientos aprobados, no
+  solicitudes rechazadas, pendientes o canceladas.
+- Se advierte si el destino seleccionado ya tuvo el radicado, incluida su
+  primera dependencia asignada cuando existe evidencia. Los IDs proceden de
+  movimientos aprobados, asignacion inicial registrada, primer origen conocido
+  y destino actual; no se confunden con la dependencia que remitio la comunicacion
+  ni se infieren visitas historicas a partir de nombres.
+- Los avisos se recalculan si cambia el destino aprobado; se ocultan al elegir
+  Rechazar. No agregan bloqueos, confirmaciones, requisitos de motivo ni topes.
+- En el detalle se muestra el total de aprobados registrados, independiente
+  de los eventos visibles o cargados en la linea de tiempo.
+
+La carga, los errores y el reintento se muestran expresamente. Si falla el
+resumen, no se presenta cero ni se afirma ausencia de riesgo; se permite continuar
+con las validaciones existentes. Las respuestas tardias se descartan al cerrar
+o cambiar expediente. Al reabrir se consultan antecedentes nuevamente y las
+decisiones conservan su refresco de bandeja/detalle.
+La informacion refleja los antecedentes registrados al consultar: no certifica
+un recorrido anterior sin evidencia ni reemplaza validaciones transaccionales.
+El aviso recuerda que el plazo no se suspende ni reinicia.
+Estilos locales `traslados-seguimiento` y `traslados-aviso`, con texto y estado
+accesible, no solo color. Backend y frontend deben actualizarse juntos.
+No requiere migracion adicional ni cambios de datos reales.
+Validacion dirigida: 138 pruebas React entre ResumenTraslados, Traslados y
+ConsultaRadicados, build de produccion y Edge aislado con fixtures a
+390/768/1440 px. Avisos sin desbordamiento horizontal, contraste 8.74:1,
+cambio de destino y rechazo comprobados; ningun POST real en la validacion visual.
+
+### Flujo y bandeja
+
 Requiere backend con la migracion **023** aplicada antes de iniciar esta version.
 Desde Consulta, el funcionario puede **Solicitar traslado** solo para radicados
 individuales abiertos. Indica motivo y dependencia activa sugerida; no cambia
 directamente el destino. Mientras se revisa, su dependencia sigue responsable,
 puede responder o registrar Enterado si corresponde y el plazo continua.
+
+Al confirmar la solicitud, el aviso indica «Solicitud de traslado confirmada
+para [radicado]. Consulta Traslados para ver su estado.», usando el número
+devuelto por el servidor. La dependencia consulta su seguimiento desde la
+pestaña **Traslados**, sin cambiar de pestaña automáticamente.
 
 Los selectores de solicitud y aprobacion usan `/api/traslados/dependencias`,
 independiente del catalogo limitado de alertas. Ofrecen todas las dependencias

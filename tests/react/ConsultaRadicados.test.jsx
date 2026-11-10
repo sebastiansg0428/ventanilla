@@ -171,6 +171,11 @@ describe("consulta de radicados React", () => {
       if (ruta.startsWith("/api/traslados?")) {
         return respuestaJson({ success: true, traslados: [], total: 0, paginas: 0, pendientes: 0 });
       }
+      if (ruta.endsWith("/traslados/resumen")) {
+        return respuestaJson({ success: true, resumen: {
+          total_aprobados: 0, umbral_reiteracion: 3, dependencias_visitadas_ids: [],
+        } });
+      }
       if (/^\/api\/radicados\/[^/]+\/historial(?:\?|$)/.test(ruta)) {
         return respuestaJson({ success: true, historial: [], siguiente_cursor: null });
       }
@@ -462,11 +467,16 @@ describe("consulta de radicados React", () => {
     expect(screen.getByRole("link", { name: /Registrar nuevo radicado/ })).toBeTruthy();
   });
 
-  it("carga destinos de traslado completos sin ampliar las dependencias de alertas del funcionario", async () => {
+  it("carga destinos completos y confirma la solicitud remitiendo a la pestaña Traslados", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     registrosSimulados.forEach((radicado) => { radicado.dependencia_destino_id = 3; });
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.endsWith("/traslados") && opciones?.method === "POST") {
+        return respuestaJson({ success: true, traslado: {
+          id: 1, estado: "pendiente", numero_radicado: "RAD-20261110-0003",
+        } });
+      }
       if (ruta === "/api/dependencias") return respuestaJson({ success: true,
         dependencias: [{ id: 3, nombre: "Oficina de Planeación", activo: 1 }] });
       if (ruta === "/api/traslados/dependencias") return respuestaJson({ success: true, dependencias: [
@@ -495,6 +505,15 @@ describe("consulta de radicados React", () => {
       const alertas = screen.getByLabelText("Dependencia", { selector: "select" });
       expect(alertas.disabled).toBe(true);
       expect(within(alertas).queryByRole("option", { name: "SEDAM" })).toBeNull();
+      fireEvent.change(screen.getByLabelText("Motivo de la solicitud"), {
+        target: { value: "Revisar competencia de la dependencia de destino." },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud a Ventanilla" }));
+      const aviso = await screen.findByText("Solicitud de traslado confirmada para RAD-20261110-0003. Consulta Traslados para ver su estado.");
+      expect(aviso.getAttribute("role")).toBe("status");
+      expect(aviso.getAttribute("data-state")).toBe("success");
+      expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByRole("tab", { name: "Traslados" }).getAttribute("aria-selected")).toBe("false");
     } finally {
       if (showModalOriginal) Object.defineProperty(HTMLDialogElement.prototype, "showModal", showModalOriginal);
       else delete HTMLDialogElement.prototype.showModal;
@@ -814,6 +833,10 @@ describe("consulta de radicados React", () => {
     };
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.endsWith("/traslados/resumen"))
+        return Promise.resolve(respuestaJson({ success: true, resumen: {
+          total_aprobados: 35, umbral_reiteracion: 3, dependencias_visitadas_ids: [3, 4],
+        } }));
       if (ruta.endsWith("/historial?limite=25"))
         return Promise.resolve(respuestaJson(primera));
       if (ruta.endsWith("/historial?limite=25&cursor=8"))
@@ -826,6 +849,8 @@ describe("consulta de radicados React", () => {
     });
     const timeline = await abrirHistorial();
     const modal = document.querySelector("#modal-detalle");
+    const resumen = within(modal).getByRole("region", { name: "Antecedentes de traslados" });
+    expect(await within(resumen).findByText("35", { selector: "strong" })).toBeTruthy();
     expect(within(timeline).getByText("Cambio de estado")).toBeTruthy();
     expect(within(timeline).getByText("Recibido → En trámite")).toBeTruthy();
     expect(within(timeline).getByText("María").textContent).toBe("Registrado por: María");
@@ -841,6 +866,8 @@ describe("consulta de radicados React", () => {
     expect(within(timeline).getByText("Hacienda").textContent).toBe("Dependencia destinataria: Hacienda");
     expect(timeline.querySelector("li").textContent).toContain("Asignado a dependencia");
     expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-001/historial?limite=25&cursor=8");
+    expect(within(resumen).getByText("35", { selector: "strong" })).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.endsWith("/traslados/resumen"))).toHaveLength(1);
   });
 
   it("identifica la dependencia que respondió en el registro y los adjuntos de respuesta", async () => {

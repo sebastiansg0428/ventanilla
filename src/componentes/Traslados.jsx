@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { solicitarApi } from "../servicios/api";
 import { MensajeEstado } from "./Compartidos";
+import { ResumenTraslados } from "./ResumenTraslados";
 
 const ESTADOS = {
   pendiente: "Pendiente de Ventanilla",
@@ -71,6 +72,7 @@ export function SolicitudTraslado({ radicado, alCerrar, alGuardar }) {
   const [enProceso, setEnProceso] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
   const [error, setError] = useState("");
+  const destinoSeleccionado = destinos.some((d) => String(d.id) === destino) ? destino : "";
   useEffect(() => { dialogo.current.showModal(); }, []);
   function cerrar() {
     if (!ocupado.current) alCerrar();
@@ -108,6 +110,7 @@ export function SolicitudTraslado({ radicado, alCerrar, alGuardar }) {
         </div>
         <div className="modal-content auth-form">
           <p>Tu dependencia sigue responsable hasta que Ventanilla apruebe. El plazo no se suspende ni reinicia.</p>
+          <ResumenTraslados numero={radicado.numero_radicado} destino={destinoSeleccionado} prospectivo />
           <div className="auth-field">
             <label htmlFor="traslado-destino">Dependencia sugerida</label>
             <select id="traslado-destino" required value={destino} onChange={(e) => setDestino(e.target.value)} disabled={enProceso || bloqueado || catalogo.cargando || Boolean(catalogo.error) || !destinos.length}>
@@ -141,6 +144,7 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
   const [error, setError] = useState("");
   const [enProceso, setEnProceso] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
+  const destinoSeleccionado = destinos.some((d) => String(d.id) === destino) ? destino : "";
   const intento = useRef(null);
   const ocupado = useRef(false);
   const formulario = useRef(null);
@@ -176,6 +180,7 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
   return (
     <form ref={formulario} className="auth-form traslados-decision" onSubmit={enviar} aria-label={`Resolver traslado ${traslado.numero_radicado}`}>
       <h4>Resolver solicitud</h4>
+      <ResumenTraslados numero={traslado.numero_radicado} destino={destinoSeleccionado} prospectivo={decision === "aprobada"} />
       <div className="auth-field">
         <label htmlFor={`decision-${traslado.id}`}>Decisión de Ventanilla</label>
         <select id={`decision-${traslado.id}`} value={decision} onChange={(e) => setDecision(e.target.value)} disabled={ocupadoExterno || enProceso || bloqueado}>
@@ -184,7 +189,7 @@ function DecisionTraslado({ traslado, catalogo, alGuardar, alProceso, ocupadoExt
       </div>
       {decision === "aprobada" && <div className="auth-field">
         <label htmlFor={`destino-${traslado.id}`}>Destino aprobado</label>
-        <select id={`destino-${traslado.id}`} value={destinos.some((d) => String(d.id) === destino) ? destino : ""} required onChange={(e) => setDestino(e.target.value)} disabled={ocupadoExterno || enProceso || bloqueado || catalogo.cargando || Boolean(catalogo.error) || !destinos.length}>
+        <select id={`destino-${traslado.id}`} value={destinoSeleccionado} required onChange={(e) => setDestino(e.target.value)} disabled={ocupadoExterno || enProceso || bloqueado || catalogo.cargando || Boolean(catalogo.error) || !destinos.length}>
           <option value="">Selecciona el destino activo</option>
           {destinos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
         </select>

@@ -35,11 +35,17 @@ function completarSolicitud() {
 function formularioSolicitud() {
   return screen.getByRole("button", { name: "Enviar solicitud a Ventanilla" }).closest("form");
 }
-function simularApi(operacion) {
-  solicitarApi.mockImplementation((ruta, opciones) => ruta === "/api/traslados/dependencias"
-    ? Promise.resolve(json({ success: true, dependencias })) : operacion(ruta, opciones));
+const resumenVacio = () => json({ success: true, resumen: {
+  total_aprobados: 0, umbral_reiteracion: 3, dependencias_visitadas_ids: [3],
+} });
+function simularApi(operacion, catalogo = () => Promise.resolve(json({ success: true, dependencias })),
+  resumen = resumenVacio) {
+  solicitarApi.mockImplementation((ruta, opciones) => ruta.endsWith("/traslados/resumen")
+    ? Promise.resolve().then(resumen) : ruta === "/api/traslados/dependencias"
+      ? catalogo() : operacion(ruta, opciones));
 }
-const peticionesOperacion = () => solicitarApi.mock.calls.filter(([ruta]) => ruta !== "/api/traslados/dependencias");
+const peticionesOperacion = () => solicitarApi.mock.calls.filter(([ruta]) =>
+  ruta !== "/api/traslados/dependencias" && !ruta.endsWith("/traslados/resumen"));
 async function esperarDestinos() {
   await screen.findByRole("option", { name: "Destino B" });
 }
@@ -66,10 +72,30 @@ describe("presentación directa de traslados", () => {
 });
 
 describe("solicitud de traslado", () => {
+  it.each([false, true])("permite solicitar con avisos o fallo de antecedentes (fallo=%s)", async (fallo) => {
+    simularApi(() => json({ success: true, traslado }), undefined, () => {
+      if (fallo) throw new Error("Antecedentes no disponibles");
+      return json({ success: true, resumen: { total_aprobados: 2, umbral_reiteracion: 3, dependencias_visitadas_ids: [3, 4] } });
+    });
+    const alGuardar = vi.fn();
+    render(<SolicitudTraslado radicado={radicado} alCerrar={vi.fn()} alGuardar={alGuardar} />);
+    await esperarDestinos();
+    completarSolicitud();
+    if (fallo) {
+      expect((await screen.findByRole("alert")).textContent).toContain("Antecedentes no disponibles");
+    } else {
+      await screen.findByText("Regreso a una dependencia anterior.");
+      expect(screen.getByText("Reiteración de traslados.")).toBeTruthy();
+    }
+    expect(screen.getByRole("button", { name: "Enviar solicitud a Ventanilla" }).disabled).toBe(false);
+    fireEvent.submit(formularioSolicitud());
+    await waitFor(() => expect(alGuardar).toHaveBeenCalledTimes(1));
+  });
+
   it("distingue carga, error y reintento sin permitir envíos sin destinos", async () => {
     const lenta = diferida();
-    solicitarApi.mockReturnValueOnce(lenta.promise)
-      .mockResolvedValueOnce(json({ success: true, dependencias }));
+    simularApi(vi.fn(), vi.fn().mockReturnValueOnce(lenta.promise)
+      .mockResolvedValueOnce(json({ success: true, dependencias })));
     render(<SolicitudTraslado radicado={radicado} alCerrar={vi.fn()} alGuardar={vi.fn()} />);
     expect(screen.getByText("Cargando dependencias de destino…")).toBeTruthy();
     expect(screen.getByLabelText("Dependencia sugerida").disabled).toBe(true);
@@ -79,13 +105,13 @@ describe("solicitud de traslado", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reintentar dependencias de destino" }));
     await esperarDestinos();
     expect(screen.getByLabelText("Dependencia sugerida").disabled).toBe(false);
-    expect(solicitarApi.mock.calls.map(([ruta]) => ruta)).toEqual([
+    expect(solicitarApi.mock.calls.filter(([ruta]) => !ruta.endsWith("/traslados/resumen")).map(([ruta]) => ruta)).toEqual([
       "/api/traslados/dependencias", "/api/traslados/dependencias",
     ]);
   });
 
   it.each([{ catalogo: [] }, { catalogo: [dependencias[0], dependencias[3]] }])("avisa si no hay destinos elegibles: $catalogo", async ({ catalogo }) => {
-    solicitarApi.mockResolvedValue(json({ success: true, dependencias: catalogo }));
+    simularApi(vi.fn(), () => json({ success: true, dependencias: catalogo }));
     render(<SolicitudTraslado radicado={radicado} alCerrar={vi.fn()} alGuardar={vi.fn()} />);
     await screen.findByText("No hay otras dependencias activas disponibles para el traslado.");
     expect(screen.getByLabelText("Dependencia sugerida").disabled).toBe(true);
@@ -93,7 +119,7 @@ describe("solicitud de traslado", () => {
   });
 
   it("expone un catálogo mal formado como error, no como ausencia de destinos", async () => {
-    solicitarApi.mockResolvedValue(json({ success: true, dependencias: [{ nombre: "Inválida" }] }));
+    simularApi(vi.fn(), () => json({ success: true, dependencias: [{ nombre: "Inválida" }] }));
     render(<SolicitudTraslado radicado={radicado} alCerrar={vi.fn()} alGuardar={vi.fn()} />);
     expect((await screen.findByRole("alert")).textContent).toContain("respuesta inválida");
     expect(screen.queryByText("No hay otras dependencias activas disponibles para el traslado.")).toBeNull();
@@ -181,6 +207,7 @@ describe("bandeja de traslados", () => {
     const lenta = diferida();
     let lecturas = 0;
     solicitarApi.mockImplementation(async (ruta) => {
+      if (ruta.endsWith("/traslados/resumen")) return resumenVacio();
       if (ruta === "/api/traslados/dependencias") {
         return ++lecturas === 1 ? lenta.promise : json({ success: true, dependencias });
       }
@@ -201,6 +228,7 @@ describe("bandeja de traslados", () => {
   it("permite rechazar aunque el catálogo falle y recupera las opciones de aprobación", async () => {
     let lecturas = 0;
     solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.endsWith("/traslados/resumen")) return resumenVacio();
       if (ruta === "/api/traslados/dependencias") {
         if (++lecturas === 1) throw new Error("Destinos no disponibles");
         return json({ success: true, dependencias });
@@ -238,14 +266,23 @@ describe("bandeja de traslados", () => {
 
   it.each(["ventanilla", "administrador"])("permite a %s aprobar con destino confirmado y refresca", async (rol) => {
     simularApi(async (ruta, opciones) => opciones
-      ? json({ success: true, traslado: { ...traslado, estado: "aprobada" } }) : bandeja());
+      ? json({ success: true, traslado: { ...traslado, estado: "aprobada" } }) : bandeja(), undefined,
+    () => json({ success: true, resumen: { total_aprobados: 2, umbral_reiteracion: 3, dependencias_visitadas_ids: [3, 5] } }));
     const alGuardar = vi.fn();
     render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={alGuardar} />);
     fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
     await screen.findByRole("article");
     await abrirDecisiones();
     await esperarDestinos();
+    await screen.findByText("Reiteración de traslados.");
+    expect(screen.queryByText("Regreso a una dependencia anterior.")).toBeNull();
     fireEvent.change(screen.getByLabelText("Destino aprobado"), { target: { value: "5" } });
+    expect(screen.getByText("Regreso a una dependencia anterior.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Decisión de Ventanilla"), { target: { value: "rechazada" } });
+    expect(screen.queryByText("Regreso a una dependencia anterior.")).toBeNull();
+    expect(screen.queryByText("Reiteración de traslados.")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Decisión de Ventanilla"), { target: { value: "aprobada" } });
+    expect(screen.getByText("Regreso a una dependencia anterior.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Justificación/), { target: { value: "Se cambia destino por competencia." } });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar decisión" }));
     await waitFor(() => expect(alGuardar).toHaveBeenCalledTimes(1));
@@ -253,6 +290,19 @@ describe("bandeja de traslados", () => {
     expect(peticion[0]).toBe("/api/traslados/1/decision");
     expect(JSON.parse(peticion[1].body)).toEqual({ decision: "aprobada", destino_id: 5, motivo: "Se cambia destino por competencia." });
     await waitFor(() => expect(peticionesOperacion().filter(([, opciones]) => !opciones)).toHaveLength(2));
+  });
+
+  it("no presenta devolución a un destino sugerido inactivo que no está seleccionado", async () => {
+    simularApi(() => bandeja([{ ...traslado, destino_sugerido_id: 6 }]), undefined,
+      () => json({ success: true, resumen: { total_aprobados: 0, umbral_reiteracion: 3, dependencias_visitadas_ids: [3, 6] } }));
+    render(<BandejaTraslados usuario={{ rol: "administrador" }} revision={0} alGuardar={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await abrirDecisiones();
+    await esperarDestinos();
+    await screen.findByText("0", { selector: ".traslados-seguimiento strong" });
+    expect(screen.getByLabelText("Destino aprobado").value).toBe("");
+    expect(screen.queryByText("Regreso a una dependencia anterior.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Confirmar decisión" }).disabled).toBe(true);
   });
 
   it("rechaza sin destino y conserva la decisión exacta tras un 500", async () => {

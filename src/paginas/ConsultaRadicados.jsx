@@ -9,6 +9,7 @@ import {
 import { solicitarApi } from "../servicios/api";
 import { crearPdfComprobante } from "../servicios/comprobante";
 import { BandejaTraslados, SolicitudTraslado } from "../componentes/Traslados";
+import { ResumenTraslados } from "../componentes/ResumenTraslados";
 import { SeguimientoEntrega } from "../componentes/SeguimientoEntrega";
 import {
   RespuestasInternas,
@@ -1118,7 +1119,7 @@ function VistaConsultaRadicados({ usuario }) {
             }}
             alGuardar={(resultado) => {
               setMensajeTraslado(
-                `Solicitud confirmada para ${resultado.numero_radicado}. Consulta Mis solicitudes de traslado para ver su estado.`,
+                `Solicitud de traslado confirmada para ${resultado.numero_radicado}. Consulta Traslados para ver su estado.`,
               );
               trasladoGuardado();
             }}
@@ -1834,6 +1835,7 @@ function VistaConsultaRadicados({ usuario }) {
                 aria-labelledby="historial-radicado-titulo"
               >
                 <h3 id="historial-radicado-titulo">Historial de actuaciones</h3>
+                <ResumenTraslados key={radicadoSeleccionado.numero_radicado} numero={radicadoSeleccionado.numero_radicado} />
                 <p className="timeline-ayuda">
                   Registros cargados en orden de registro, del más antiguo al
                   más reciente. Las fechas nuevas se muestran en hora de Bogotá.
