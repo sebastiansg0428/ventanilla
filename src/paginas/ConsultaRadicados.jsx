@@ -881,8 +881,20 @@ function VistaConsultaRadicados({ usuario }) {
     }
   }
 
+  function estadoBloqueadoPorTraslado(radicado) {
+    return usuario.rol === "funcionario" &&
+      !radicado.destino_todas_dependencias && radicado.traslado_pendiente;
+  }
+
   async function cambiarEstado(radicado, nuevoEstado) {
     const clave = claveEstado(radicado);
+    if (estadoBloqueadoPorTraslado(radicado) && nuevoEstado !== "Enterado") {
+      setErroresEstado((actual) => ({
+        ...actual,
+        [clave]: "Traslado pendiente de decisión. No puedes cambiar el estado mientras se resuelve la solicitud.",
+      }));
+      return;
+    }
     if (estadosEnProceso.current.has(clave)) return;
     estadosEnProceso.current.add(clave);
     setGuardandoEstados((actual) => ({ ...actual, [clave]: true }));
@@ -948,6 +960,7 @@ function VistaConsultaRadicados({ usuario }) {
       );
       window.alert(error.message);
       setErroresEstado((actual) => ({ ...actual, [clave]: error.message }));
+      if (error.status === 409) setRevisionConsulta((valor) => valor + 1);
     } finally {
       estadosEnProceso.current.delete(clave);
       setGuardandoEstados((actual) => ({ ...actual, [clave]: false }));
@@ -1370,6 +1383,7 @@ function VistaConsultaRadicados({ usuario }) {
                             aria-label={`Estado de ${radicado.numero_radicado}`}
                             disabled={
                               usuario.rol === "ventanilla" ||
+                              estadoBloqueadoPorTraslado(radicado) ||
                               guardandoEstados[claveEstado(radicado)]
                             }
                             value={radicado.estado || "Recibido"}
@@ -1403,6 +1417,20 @@ function VistaConsultaRadicados({ usuario }) {
                               </option>
                             ))}
                           </select>
+                        )}
+                        {estadoBloqueadoPorTraslado(radicado) && !esFinal(radicado) && (
+                            <>
+                              <small role="status">Traslado pendiente de decisión</small>
+                              {!requiereRespuesta(radicado) && (
+                                <button
+                                  type="button"
+                                  disabled={guardandoEstados[claveEstado(radicado)]}
+                                  onClick={() => cambiarEstado(radicado, "Enterado")}
+                                >
+                                  Registrar Enterado
+                                </button>
+                              )}
+                            </>
                         )}
                         {guardandoEstados[claveEstado(radicado)] && (
                           <small role="status">Guardando estado…</small>

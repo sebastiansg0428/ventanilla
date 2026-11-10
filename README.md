@@ -397,6 +397,16 @@ individuales abiertos. Indica motivo y dependencia activa sugerida; no cambia
 directamente el destino. Mientras se revisa, su dependencia sigue responsable,
 puede responder o registrar Enterado si corresponde y el plazo continua.
 
+Si el listado indica `traslado_pendiente`, el selector de estado del funcionario
+queda deshabilitado y muestra **Traslado pendiente de decisión**. Responder
+sigue disponible; para informativos aparece **Registrar Enterado**, que usa
+el mismo cierre existente y cancela la solicitud pendiente. Al confirmar una
+solicitud o actualizar su decision se recarga el listado: un rechazo libera
+el selector y una aprobacion respeta la nueva dependencia responsable.
+Si otra sesion creo la solicitud, el HTTP 409 revierte el cambio optimista,
+muestra el error y recarga Consulta. Administrador conserva sus permisos y
+Ventanilla sigue sin editar estados; no cambia plazos ni estados ya guardados.
+
 Al confirmar la solicitud, el aviso indica «Solicitud de traslado confirmada
 para [radicado]. Consulta Traslados para ver su estado.», usando el número
 devuelto por el servidor. La dependencia consulta su seguimiento desde la

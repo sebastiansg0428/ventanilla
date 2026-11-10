@@ -473,6 +473,7 @@ describe("consulta de radicados React", () => {
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
       if (ruta.endsWith("/traslados") && opciones?.method === "POST") {
+        registrosSimulados[0].traslado_pendiente = true;
         return respuestaJson({ success: true, traslado: {
           id: 1, estado: "pendiente", numero_radicado: "RAD-20261110-0003",
         } });
@@ -512,6 +513,7 @@ describe("consulta de radicados React", () => {
       const aviso = await screen.findByText("Solicitud de traslado confirmada para RAD-20261110-0003. Consulta Traslados para ver su estado.");
       expect(aviso.getAttribute("role")).toBe("status");
       expect(aviso.getAttribute("data-state")).toBe("success");
+      expect(screen.getByLabelText("Estado de RAD-001").disabled).toBe(true);
       expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
       expect(screen.getByRole("tab", { name: "Traslados" }).getAttribute("aria-selected")).toBe("false");
     } finally {
@@ -1272,13 +1274,15 @@ describe("consulta de radicados React", () => {
     { tipo: "Externa", global: false, pdf: true },
     { tipo: "Externa", global: true, pdf: false },
     { tipo: "Interna", global: false, pdf: false },
-  ])("conserva el modal y muestra la respuesta confirmada: $tipo global=$global PDF=$pdf", async ({ tipo, global, pdf }) => {
-    if (tipo === "Interna") confirmarSesion.mockResolvedValue({
+    { tipo: "Externa", global: false, pdf: true, pendiente: true },
+  ])("conserva el modal y muestra la respuesta confirmada: $tipo global=$global PDF=$pdf pendiente=$pendiente", async ({ tipo, global, pdf, pendiente }) => {
+    if (tipo === "Interna" || pendiente) confirmarSesion.mockResolvedValue({
       ...usuario, rol: "funcionario", dependencia_id: 3,
     });
     Object.assign(registrosSimulados[0], {
       tipo_comunicacion: tipo, destino_todas_dependencias: global ? 1 : 0,
       radicado_dependencia_id: global ? 301 : null,
+      traslado_pendiente: Boolean(pendiente),
     });
     const base = solicitarApi.getMockImplementation();
     const respuesta = {
@@ -1311,7 +1315,7 @@ describe("consulta de radicados React", () => {
     fireEvent.submit(formulario);
     expect(solicitarApi.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(1);
     await act(async () => {
-      Object.assign(registrosSimulados[0], { estado: "Respondido" });
+      Object.assign(registrosSimulados[0], { estado: "Respondido", traslado_pendiente: false });
       post.resolve({ ok: true, json: async () => ({ success: true, estado: "Respondido" }) });
     });
     await within(modal).findByText("Contenido confirmado por el servidor");
@@ -1778,6 +1782,101 @@ describe("consulta de radicados React", () => {
     expect(panel.queryByRole("navigation")).toBeNull();
   });
 
+  it("bloquea estados operativos pendientes sin ocultar Responder ni enviar un PUT", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    Object.assign(registrosSimulados[0], { traslado_pendiente: true, estado: "Recibido" });
+    await abrirConsulta();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const selector = within(fila).getByLabelText("Estado de RAD-001");
+    expect(selector.disabled).toBe(true);
+    expect(within(fila).getByText("Traslado pendiente de decisión")).toBeTruthy();
+    expect(within(fila).getByRole("button", { name: "Responder" }).disabled).toBe(false);
+    expect(within(fila).queryByRole("button", { name: "Registrar Enterado" })).toBeNull();
+    const user = userEvent.setup({ delay: null });
+    await user.selectOptions(selector, "En trámite");
+    for (const estado of ["En trámite", "Pendiente"]) {
+      await act(async () => fireEvent.change(selector, { target: { value: estado } }));
+    }
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "PUT")).toBe(false);
+    expect(within(fila).getByRole("alert").textContent).toContain("No puedes cambiar el estado");
+    expect(registrosSimulados[0].estado).toBe("Recibido");
+    expect(screen.getByLabelText("Estado de RAD-002").disabled).toBe(false);
+  });
+
+  it("permite Registrar Enterado pendiente, sin Responder ni doble envio", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    Object.assign(registrosSimulados[0], { traslado_pendiente: true, requiere_respuesta: 0 });
+    const cierre = diferida();
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.endsWith("/estado")
+      ? cierre.promise : base(ruta, opciones));
+    await abrirConsulta();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    expect(within(fila).getByLabelText("Estado de RAD-001").disabled).toBe(true);
+    expect(within(fila).queryByRole("button", { name: "Responder" })).toBeNull();
+    const enterado = within(fila).getByRole("button", { name: "Registrar Enterado" });
+    await act(async () => { fireEvent.click(enterado); fireEvent.click(enterado); });
+    const puts = solicitarApi.mock.calls.filter(([, o]) => o?.method === "PUT");
+    expect(puts).toHaveLength(1);
+    expect(JSON.parse(puts[0][1].body).estado).toBe("Enterado");
+    expect(within(fila).getByText("Guardando estado…")).toBeTruthy();
+    await act(async () => {
+      Object.assign(registrosSimulados[0], { estado: "Enterado", traslado_pendiente: false });
+      cierre.resolve(respuestaJson({ success: true, estado: "Enterado",
+        fecha_enterado: "2026-11-10 15:00:00", semaforo: { nivel: "completado" } }));
+    });
+    expect(screen.getByLabelText("Estado de RAD-001: Enterado")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Registrar Enterado" })).toBeNull();
+  });
+
+  it.each([
+    { rol: "administrador", global: 0, bloqueado: false },
+    { rol: "ventanilla", global: 0, bloqueado: true },
+    { rol: "funcionario", global: 1, bloqueado: false },
+  ])("conserva permisos de $rol global=$global", async ({ rol, global, bloqueado }) => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol, dependencia_id: rol === "funcionario" ? 3 : null });
+    Object.assign(registrosSimulados[0], {
+      traslado_pendiente: true, destino_todas_dependencias: global,
+      radicado_dependencia_id: global ? 50 : null, requiere_respuesta: 0,
+    });
+    await abrirConsulta();
+    expect(screen.getByLabelText("Estado de RAD-001").disabled).toBe(bloqueado);
+    expect(screen.queryByText("Traslado pendiente de decisión")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Registrar Enterado" })).toBeNull();
+  });
+
+  it("recarga tras HTTP 409, conserva el error y libera el selector tras un rechazo", async () => {
+    const alertar = simularAlerta();
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.endsWith("/estado") && opciones?.method === "PUT") {
+        registrosSimulados[0].traslado_pendiente = true;
+        throw Object.assign(new Error("Traslado pendiente de decisión. No puedes cambiar el estado."), { status: 409 });
+      }
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    const consultas = () => solicitarApi.mock.calls.filter(([r]) => r.startsWith("/api/radicados?")).length;
+    const anteriores = consultas();
+    await act(async () => fireEvent.change(screen.getByLabelText("Estado de RAD-001"),
+      { target: { value: "En trámite" } }));
+    const selector = screen.getByLabelText("Estado de RAD-001");
+    expect(selector.value).toBe("Recibido");
+    expect(selector.disabled).toBe(true);
+    expect(consultas()).toBeGreaterThan(anteriores);
+    expect(alertar).toHaveBeenCalledWith("Traslado pendiente de decisión. No puedes cambiar el estado.");
+    const fila = selector.closest("tr");
+    expect(within(fila).getByRole("alert").textContent).toContain("No puedes cambiar el estado");
+    registrosSimulados[0].traslado_pendiente = false;
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Traslados" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actualizar traslados" })));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Radicados" })));
+    expect(screen.getByLabelText("Estado de RAD-001").disabled).toBe(false);
+    expect(screen.getByLabelText("Estado de RAD-001").value).toBe("Recibido");
+    expect(screen.queryByText("Traslado pendiente de decisión")).toBeNull();
+  });
+
   it("envía un cambio de estado y muestra el estado confirmado por el servidor", async () => {
     const user = userEvent.setup({ delay: null });
     await abrirConsulta();
@@ -1785,7 +1884,6 @@ describe("consulta de radicados React", () => {
     const selectorEstado = within(fila).getByRole("combobox", {
       name: "Estado de RAD-001",
     });
-
     await user.selectOptions(selectorEstado, "En trámite");
 
     await waitFor(() => expect(selectorEstado.value).toBe("En trámite"));
