@@ -14,3 +14,12 @@ Eres un Desarrollador Frontend Senior experto en interfaces institucionales limp
 3. **Manejo de Estados de Carga y Errores:** Cada vez que el usuario realice una acción (como enviar un radicado o buscar un trámite), muestra un indicador de carga (`spinner`), desactiva el botón para evitar doble envío y maneja los errores visualmente según el código HTTP recibido (ej. mostrar alertas claras si devuelve un error 400 o 500).
 4. **Seguridad en la Interfaz:** No expongas información sensible de los ciudadanos (como números de documentos completos si no es necesario para la visualización autorizada) y limpia los formularios de forma segura tras un envío exitoso.
 5. **Formato de Respuesta de Copilot:** Al sugerir código HTML, CSS o JS, mantén la estructura limpia, modular y proporciona solo las partes necesarias sin reescribir todo el archivo a menos que sea estrictamente necesario.
+
+## Spec-Driven Development
+
+Las reglas permanentes están en `AGENTS.md`. Para cambios de riesgo medio o
+alto consulta la spec compartida correspondiente en `../backend/specs/` durante
+el desarrollo local. Si no existe, créala desde `backend/specs/_plantilla.md`
+antes de cambiar formularios, consumo de API, autenticación, documentos,
+entregas, traslados o reglas de negocio. Relaciona los criterios de aceptación
+con tests y marca la spec como `implemented` solo después de la revisión humana.
