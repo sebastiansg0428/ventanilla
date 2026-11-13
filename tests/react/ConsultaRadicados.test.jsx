@@ -282,9 +282,12 @@ describe("consulta de radicados React", () => {
     await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Ver seguimiento de entrega" })));
     await act(async () => fireEvent.click(consulta.getByRole("button", { name: "Registrar envío/entrega" })));
     const boton = consulta.getByRole("button", { name: "Confirmar envío/entrega" });
+    const formularioEntrega = document.getElementById(boton.getAttribute("form"));
     expect(consulta.getByRole("heading", { name: /Registrar envío\/entrega.*RAD-001/ })).toBeTruthy();
     expect(consulta.queryByRole("region", { name: "Resumen de la respuesta" })).toBeNull();
     expect(modal.querySelector(".modal-footer").contains(boton)).toBe(true);
+    expect(formularioEntrega.getAttribute("aria-labelledby")).toBe("entrega-formulario-titulo");
+    expect(formularioEntrega.getAttribute("aria-describedby")).toBe("entrega-formulario-ayuda");
     fireEvent.change(consulta.getByLabelText("Correo de destino"), { target: { value: "fixture@example.test" } });
     expect(consulta.getByText("La respuesta institucional no tiene PDF adjuntos.")).toBeTruthy();
     fireEvent.submit(document.getElementById(boton.getAttribute("form")));

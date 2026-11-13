@@ -3864,10 +3864,44 @@ button.dashboard-card {
   margin: 0;
   padding: 0.75rem 0.9rem;
   border-left: 3px solid #93c5fd;
+  border-radius: 0.45rem;
   background: #eff6ff;
   color: #334155;
   font-size: 0.85rem;
   line-height: 1.6;
+}
+.respuesta-dialog .entregas-aviso--legal {
+  border-left-color: #64748b;
+  background: #f8fafc;
+  color: #475569;
+}
+.respuesta-dialog .entregas-aviso--sistema,
+.respuesta-dialog .entregas-aviso--pendiente {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+  color: #78350f;
+}
+.respuesta-dialog .entregas-mensaje {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.respuesta-dialog .entregas-mensaje--carga {
+  background: #f8fafc;
+  color: #334155;
+}
+.respuesta-dialog .entregas-mensaje--exito {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #166534;
+}
+.respuesta-dialog .entregas-mensaje--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
 }
 .respuesta-dialog .entregas-acciones {
   display: flex;
@@ -3878,6 +3912,7 @@ button.dashboard-card {
 .respuesta-dialog .entregas-boton {
   width: auto;
   max-width: 100%;
+  min-height: 2.75rem;
   padding: 0.6rem 0.85rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
@@ -3968,6 +4003,10 @@ button.dashboard-card {
   border: 1px solid #bfdbfe;
   border-radius: 0.65rem;
   background: #f8fafc;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+.respuesta-dialog .entregas-formulario h4 {
+  font-size: 1rem;
 }
 .respuesta-dialog .entregas-seleccion {
   min-width: 0;
@@ -3977,6 +4016,9 @@ button.dashboard-card {
 }
 .respuesta-dialog .entregas-seleccion ul {
   padding-left: 1.25rem;
+}
+.respuesta-dialog .entregas-seleccion li {
+  overflow-wrap: anywhere;
 }
 .respuesta-dialog .entregas-documentos {
   min-width: 0;
@@ -4022,7 +4064,10 @@ button.dashboard-card {
   padding-bottom: 0.5rem;
   border-bottom: 1px solid #dbe5ef;
   font-size: 0.95rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   color: #1e3a8a;
+  scroll-margin-top: 1rem;
 }
 .respuesta-dialog .entregas-documentos {
   display: grid;
@@ -4034,6 +4079,14 @@ button.dashboard-card {
 .respuesta-dialog .entregas-documentos > button {
   justify-self: start;
 }
+.respuesta-dialog .entregas-documentos legend {
+  padding: 0 0.35rem;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+.respuesta-dialog .entregas-documento {
+  padding: 0.2rem 0;
+}
 .respuesta-dialog .entregas-pie-destino:empty {
   display: none;
 }
@@ -4043,6 +4096,7 @@ button.dashboard-card {
 }
 .respuesta-dialog .entregas-pie-destino .entregas-acciones {
   justify-content: space-between;
+  gap: 0.75rem;
   margin: 0;
 }
 .respuesta-dialog .entregas-panel input[type="file"]::file-selector-button {

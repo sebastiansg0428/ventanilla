@@ -258,7 +258,7 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
       {abierto && historial && <span className={`entregas-estado entregas-estado--${historial.resumen}`} role="status">
         Seguimiento: {RESULTADOS[historial.resumen]}</span>}
     </div>
-    <p className="entregas-aviso"><strong>Respondido no significa entregado.</strong> Existe una respuesta institucional; no acredita su entrega. Este registro es manual y no envía correos ni constituye por sí solo una notificación legal.</p>
+    <p className="entregas-aviso entregas-aviso--legal"><strong>Respondido no significa entregado.</strong> Existe una respuesta institucional; no acredita su entrega. Este registro es manual y no envía correos ni constituye por sí solo una notificación legal.</p>
     <div className="entregas-acciones">
       <button className="entregas-boton" type="button" onClick={() => setAbierto(v => !v)} disabled={cerrado}
         aria-expanded={abierto} aria-controls="entregas-contenido">
@@ -277,17 +277,17 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
     </div>
     {abierto && <>
       <div id="entregas-contenido" className="entregas-contenido">
-      {cargando && <p role="status">Cargando seguimiento de entrega…</p>}
-      {errorCarga && <p role="alert">{errorCarga}</p>}
-      {central && historial?.automatico_disponible === false && <p role="status" className="entregas-aviso">
+      {cargando && <p role="status" className="entregas-mensaje entregas-mensaje--carga">Cargando seguimiento de entrega…</p>}
+      {errorCarga && <p role="alert" className="entregas-mensaje entregas-mensaje--error">{errorCarga}</p>}
+      {central && historial?.automatico_disponible === false && <p role="status" className="entregas-aviso entregas-aviso--sistema">
         El registro automático requiere activar la migración 026. El historial y sus archivos siguen disponibles.
       </p>}
-      {central && historial && historial.automatico_disponible !== false && historial.fecha_real_disponible !== true && <p role="status" className="entregas-aviso">
+      {central && historial && historial.automatico_disponible !== false && historial.fecha_real_disponible !== true && <p role="status" className="entregas-aviso entregas-aviso--sistema">
         El registro con fecha real requiere aplicar y verificar la migración 029. El historial y sus archivos siguen disponibles.
       </p>}
-      {mensaje && <p role="status">{mensaje}</p>}
-      {error && <p ref={errorRef} tabIndex={-1} role="alert">{error}</p>}
-      {bloqueado && <p role="status">Confirmación pendiente: reintenta sin modificar datos ni PDF. Si cierras la respuesta o recargas, consulta el historial antes de iniciar otro intento.</p>}
+      {mensaje && <p role="status" className="entregas-mensaje entregas-mensaje--exito">{mensaje}</p>}
+      {error && <p ref={errorRef} tabIndex={-1} role="alert" className="entregas-mensaje entregas-mensaje--error">{error}</p>}
+      {bloqueado && <p role="status" className="entregas-aviso entregas-aviso--pendiente">Confirmación pendiente: reintenta sin modificar datos ni PDF. Si cierras la respuesta o recargas, consulta el historial antes de iniciar otro intento.</p>}
       {historial && <>
         <div hidden={registrando}>
         {!historial.registros.length && <div className="entregas-vacio">
@@ -329,8 +329,8 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
           <button className="entregas-boton" type="button" disabled={cerrado || cargando || pagina >= historial.paginas} onClick={() => setPagina(p => p + 1)}>Siguiente</button>
         </nav>}
         </div>
-        {central && (anularId ? <form className="auth-form entregas-formulario" onSubmit={e => ejecutar(e, true)}>
-          <h4>Anular registro {anularId}</h4>
+        {central && (anularId ? <form className="auth-form entregas-formulario" aria-labelledby="entrega-anulacion-titulo" onSubmit={e => ejecutar(e, true)}>
+          <h4 id="entrega-anulacion-titulo">Anular registro {anularId}</h4>
           <label htmlFor="entrega-anulacion">Motivo de anulación</label>
           <textarea ref={motivoInput} id="entrega-anulacion" required minLength={10} maxLength={2000} disabled={cerrado}
             value={motivo} onChange={e => setMotivo(e.target.value)} />
@@ -339,9 +339,9 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
             <button className="entregas-boton entregas-boton--peligro" disabled={ocupado}>{bloqueado ? "Reintentar anulación" : "Confirmar anulación"}</button>
           </div>
         </form> : (historial.resumen !== "entrega_acreditada" || bloqueado) && registrando ? <form id="entrega-formulario"
-          className="auth-form entregas-formulario entregas-formulario--grid" onSubmit={e => ejecutar(e)}>
-          <h4>Registrar envío/entrega</h4>
-          <p className="entregas-aviso entregas-campo--ancho">
+          className="auth-form entregas-formulario entregas-formulario--grid" aria-labelledby="entrega-formulario-titulo" aria-describedby="entrega-formulario-ayuda" onSubmit={e => ejecutar(e)}>
+          <h4 id="entrega-formulario-titulo">Registrar envío/entrega</h4>
+          <p id="entrega-formulario-ayuda" className="entregas-aviso entregas-aviso--legal entregas-campo--ancho">
             Registro manual: no envía correos ni determina la validez legal de una notificación.
             {" "}{resultado === "entrega_acreditada" ? "Adjunta una constancia de recepción distinta del oficio."
               : resultado === "intento_fallido" ? "Describe por qué no fue posible la entrega. No acredita recepción."

@@ -47,6 +47,21 @@ describe("seguimiento manual de entrega", () => {
     expect(screen.getByRole("button", { name: "Registrar envío/entrega" }).disabled).toBe(true);
     expect(screen.getByText(/requiere aplicar y verificar la migración 029/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Abrir evidencia: evidencia.pdf" })).toBeTruthy();
+    expect(screen.getByText(/requiere aplicar y verificar la migración 029/).className)
+      .toContain("entregas-aviso--sistema");
+  });
+  it("asocia el formulario con su título y ayuda, y conserva estados distinguibles", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    const form = formulario();
+    expect(form.getAttribute("aria-labelledby")).toBe("entrega-formulario-titulo");
+    expect(form.getAttribute("aria-describedby")).toBe("entrega-formulario-ayuda");
+    expect(screen.getByRole("heading", { name: "Registrar envío/entrega" })).toBeTruthy();
+    expect(screen.getByText(/Registro manual: no envía correos/).className)
+      .toContain("entregas-aviso--legal");
+    fireEvent.change(screen.getByLabelText("Fecha y hora de actuación (Bogotá)"),
+      { target: { value: "2999-01-01T10:00" } });
+    fireEvent.submit(form);
+    expect(screen.getByRole("alert").className).toContain("entregas-mensaje--error");
   });
   it("fecha anterior exige justificacion, rechaza futuro y congela la fecha durante replay", async () => {
     render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
