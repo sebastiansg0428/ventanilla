@@ -125,6 +125,79 @@ describe("gestión de catálogos React", () => {
     expect(screen.getByRole("region", { name: "Historial de términos legales" }).tabIndex).toBe(0);
   });
 
+  it("muestra el resumen y filtra localmente por nombre, código o categoría", async () => {
+    const user = userEvent.setup({ delay: null });
+    const dependencias = [
+      { ...dependencia },
+      { id: 4, nombre: "Control Disciplinario", activo: 0 },
+    ];
+    const tramites = [
+      { ...tipoTramite },
+      {
+        id: 11,
+        codigo: "licencia_urbanistica",
+        nombre: "Licencia urbanística",
+        categoria_general: "consulta",
+        termino_legal_id: null,
+        activo: 1,
+      },
+    ];
+    solicitarApi.mockImplementation(async (ruta) => {
+      if (ruta.startsWith("/api/dependencias")) {
+        return respuestaJson({ success: true, dependencias });
+      }
+      if (ruta.startsWith("/api/tipos-tramite")) {
+        return respuestaJson({ success: true, tipos_tramite: tramites });
+      }
+      throw new Error(`Ruta inesperada: ${ruta}`);
+    });
+
+    render(<PaginaGestionCatalogos />);
+    await screen.findByText("Control Disciplinario");
+    expect(
+      Array.from(document.querySelectorAll(".catalog-summary-card strong"),
+        (nodo) => nodo.textContent),
+    ).toEqual(["2", "1", "1"]);
+    expect(screen.getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeTruthy();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
+      "disciplinario",
+    );
+    expect(screen.getByRole("cell", { name: "Control Disciplinario" })).toBeTruthy();
+    expect(screen.queryByRole("cell", { name: "Planeación" })).toBeNull();
+    expect(screen.getByText("1 resultado para tu búsqueda.")).toBeTruthy();
+
+    await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
+    expect(screen.getByRole("searchbox", { name: "Buscar en el catálogo" }).placeholder)
+      .toBe("Buscar por nombre, código o categoría");
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
+      "consulta",
+    );
+    expect(screen.getByRole("cell", { name: "Licencia urbanística" })).toBeTruthy();
+    expect(screen.getByText("1 resultado para tu búsqueda.")).toBeTruthy();
+  });
+
+  it("comunica un catálogo vacío y conserva el estado de error de carga", async () => {
+    solicitarApi.mockImplementation(async (ruta) => {
+      if (ruta.startsWith("/api/dependencias")) {
+        return respuestaJson({ success: true, dependencias: [] });
+      }
+      if (ruta.startsWith("/api/tipos-tramite")) {
+        return respuestaJson({ success: true, tipos_tramite: [] });
+      }
+      throw new Error(`Ruta inesperada: ${ruta}`);
+    });
+    const { unmount } = render(<PaginaGestionCatalogos />);
+    expect(await screen.findByText("No hay registros para mostrar.")).toBeTruthy();
+    unmount();
+
+    solicitarApi.mockRejectedValue(new Error("No fue posible cargar los catálogos."));
+    render(<PaginaGestionCatalogos />);
+    expect(await screen.findByText("No fue posible cargar los catálogos.")).toBeTruthy();
+  });
+
   it("carga los catálogos incluyendo inactivos y crea una dependencia", async () => {
     const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);

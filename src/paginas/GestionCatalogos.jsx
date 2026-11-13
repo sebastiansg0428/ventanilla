@@ -48,6 +48,27 @@ function estaActivo(registro) {
   return Number(registro.activo) === 1;
 }
 
+function normalizarBusqueda(valor) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function coincideBusqueda(registro, catalogo, busqueda) {
+  const termino = normalizarBusqueda(busqueda);
+  if (!termino) return true;
+  const categoria = CATEGORIAS_TRAMITE.find(
+    ({ valor }) => valor === registro.categoria_general,
+  )?.etiqueta;
+  const valores = [registro.nombre];
+  if (catalogo === CATALOGO_TRAMITES) {
+    valores.push(registro.codigo, registro.categoria_general, categoria);
+  }
+  return valores.some((valor) => normalizarBusqueda(valor).includes(termino));
+}
+
 async function leerResultado(respuesta) {
   if (respuesta.status === 204) return {};
   const tipoContenido = respuesta.headers?.get?.("content-type");
@@ -67,6 +88,7 @@ function GestionCatalogos({ usuario }) {
   const formularioCatalogoRef = useRef(null);
   const [catalogoActual, setCatalogoActual] = useState(CATALOGO_DEPENDENCIAS);
   const [incluirInactivos, setIncluirInactivos] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
   const [dependencias, setDependencias] = useState([]);
   const [tiposTramite, setTiposTramite] = useState([]);
   const [formularioDependencia, setFormularioDependencia] = useState(
@@ -175,6 +197,7 @@ function GestionCatalogos({ usuario }) {
 
   function seleccionarCatalogo(catalogo) {
     setCatalogoActual(catalogo);
+    setBusqueda("");
     limpiarFormulario();
     setTramiteTerminoNuevo(null);
   }
@@ -371,6 +394,14 @@ function GestionCatalogos({ usuario }) {
 
   const registros =
     catalogoActual === CATALOGO_DEPENDENCIAS ? dependencias : tiposTramite;
+  const registrosFiltrados = registros.filter((registro) =>
+    coincideBusqueda(registro, catalogoActual, busqueda),
+  );
+  const resumenCatalogo = {
+    total: registros.length,
+    activos: registros.filter(estaActivo).length,
+    inactivos: registros.filter((registro) => !estaActivo(registro)).length,
+  };
   const editando = Boolean(registroEnEdicion);
 
   return (
@@ -378,43 +409,86 @@ function GestionCatalogos({ usuario }) {
       <EncabezadoAplicacion usuario={usuario} pantallaActual="catalogos" />
       <main className="users-management-main">
         <section className="auth-card users-management-card">
-          <div className="auth-heading">
-            <p className="auth-eyebrow">Administración del sistema</p>
+          <div className="auth-heading catalog-header">
+            <div className="catalog-header__meta">
+              <p className="auth-eyebrow">Administración del sistema</p>
+              <span className="catalog-header__badge">Solo administradores</span>
+            </div>
             <h1>Gestión de catálogos</h1>
             <p>
-              Administra dependencias, tipos de trámite y sus términos legales.
+              Mantén organizadas las dependencias, los tipos de trámite y sus
+              términos legales desde un solo lugar.
             </p>
+          </div>
+
+          <div className="catalog-summary-grid" aria-label="Resumen del catálogo">
+            <article className="catalog-summary-card catalog-summary-card--primary">
+              <span className="catalog-summary-card__label">Registros totales</span>
+              <strong>{resumenCatalogo.total}</strong>
+              <small>
+                {catalogoActual === CATALOGO_DEPENDENCIAS
+                  ? "Dependencias del sistema"
+                  : "Tipos de trámite del sistema"}
+              </small>
+            </article>
+            <article className="catalog-summary-card">
+              <span className="catalog-summary-card__label">Activos</span>
+              <strong>{resumenCatalogo.activos}</strong>
+              <small>Disponibles para la operación</small>
+            </article>
+            <article className="catalog-summary-card">
+              <span className="catalog-summary-card__label">Inactivos</span>
+              <strong>{resumenCatalogo.inactivos}</strong>
+              <small>Conservados para consulta histórica</small>
+            </article>
           </div>
 
           <div className="catalog-tabs" role="tablist" aria-label="Catálogos">
             <button
               type="button"
               role="tab"
+              aria-label="Dependencias"
               aria-selected={catalogoActual === CATALOGO_DEPENDENCIAS}
               onClick={() => seleccionarCatalogo(CATALOGO_DEPENDENCIAS)}
             >
-              Dependencias
+              <span>Dependencias</span>
+              <span className="catalog-tab-count" aria-hidden="true">
+                {dependencias.length}
+              </span>
             </button>
             <button
               type="button"
               role="tab"
+              aria-label="Tipos de trámite"
               aria-selected={catalogoActual === CATALOGO_TRAMITES}
               onClick={() => seleccionarCatalogo(CATALOGO_TRAMITES)}
             >
-              Tipos de trámite
+              <span>Tipos de trámite</span>
+              <span className="catalog-tab-count" aria-hidden="true">
+                {tiposTramite.length}
+              </span>
             </button>
           </div>
 
-          <form
-            ref={formularioCatalogoRef}
-            className="auth-form auth-form--grid catalog-form"
-            onSubmit={guardarRegistro}
-          >
-            <h2 className="auth-field--full">
-              {editando
-                ? `Editar ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`
-                : `Crear ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`}
-            </h2>
+          <section className="catalog-editor-panel" aria-labelledby="catalogo-formulario-titulo">
+            <div className="catalog-panel-heading">
+              <div>
+                <p className="catalog-panel-kicker">Editor de catálogo</p>
+                <h2 id="catalogo-formulario-titulo">
+                  {editando
+                    ? `Editar ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`
+                    : `Crear ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`}
+                </h2>
+              </div>
+              <span className="catalog-panel-icon" aria-hidden="true">
+                {editando ? "✎" : "+"}
+              </span>
+            </div>
+            <form
+              ref={formularioCatalogoRef}
+              className="auth-form auth-form--grid catalog-form"
+              onSubmit={guardarRegistro}
+            >
             {catalogoActual === CATALOGO_DEPENDENCIAS ? (
               <div className="auth-field auth-field--full">
                 <label htmlFor="catalogo-nombre">Nombre de la dependencia *</label>
@@ -656,26 +730,50 @@ function GestionCatalogos({ usuario }) {
               )}
             </div>
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
-          </form>
+            </form>
+          </section>
 
-          <section className="users-table-section" aria-labelledby="catalogo-lista-titulo">
-            <div className="users-table-toolbar">
-              <h2 id="catalogo-lista-titulo">
-                {catalogoActual === CATALOGO_DEPENDENCIAS
-                  ? "Dependencias registradas"
-                  : "Tipos de trámite registrados"}
-              </h2>
-              <label className="catalog-inactive-toggle">
-                <input
-                  type="checkbox"
-                  checked={incluirInactivos}
-                  onChange={(evento) =>
-                    setIncluirInactivos(evento.target.checked)
-                  }
-                />
-                Mostrar inactivos
-              </label>
+          <section className="users-table-section catalog-list-panel" aria-labelledby="catalogo-lista-titulo">
+            <div className="users-table-toolbar catalog-list-toolbar">
+              <div className="catalog-list-heading">
+                <p className="catalog-panel-kicker">Directorio</p>
+                <h2 id="catalogo-lista-titulo">
+                  {catalogoActual === CATALOGO_DEPENDENCIAS
+                    ? "Dependencias registradas"
+                    : "Tipos de trámite registrados"}
+                </h2>
+              </div>
+              <div className="catalog-list-controls">
+                <label className="catalog-search">
+                  <span>Buscar en el catálogo</span>
+                  <input
+                    type="search"
+                    value={busqueda}
+                    onChange={(evento) => setBusqueda(evento.target.value)}
+                    placeholder={
+                      catalogoActual === CATALOGO_DEPENDENCIAS
+                        ? "Buscar por nombre"
+                        : "Buscar por nombre, código o categoría"
+                    }
+                  />
+                </label>
+                <label className="catalog-inactive-toggle">
+                  <input
+                    type="checkbox"
+                    checked={incluirInactivos}
+                    onChange={(evento) =>
+                      setIncluirInactivos(evento.target.checked)
+                    }
+                  />
+                  Mostrar inactivos
+                </label>
+              </div>
             </div>
+            <p className="catalog-results-summary" role="status" aria-live="polite">
+              {cargando
+                ? "Cargando registros…"
+                : `${registrosFiltrados.length} ${registrosFiltrados.length === 1 ? "resultado" : "resultados"}${busqueda.trim() ? " para tu búsqueda" : ""}.`}
+            </p>
             <div className="table-card users-table-card">
               <p className="tabla-ayuda">En pantallas intermedias, desplaza la tabla para ver todas las columnas.</p>
               <div className="table-scroll users-table-scroll" role="region" aria-label="Listado del catálogo" tabIndex={0}>
@@ -707,8 +805,14 @@ function GestionCatalogos({ usuario }) {
                           No hay registros para mostrar.
                         </td>
                       </tr>
+                    ) : registrosFiltrados.length === 0 ? (
+                      <tr>
+                        <td colSpan={catalogoActual === CATALOGO_TRAMITES ? 6 : 3}>
+                          No hay registros que coincidan con la búsqueda.
+                        </td>
+                      </tr>
                     ) : (
-                      registros.map((registro) => (
+                      registrosFiltrados.map((registro) => (
                         <tr role="row" key={registro.id}>
                           <CeldaAdaptable etiqueta="Nombre">{registro.nombre}</CeldaAdaptable>
                           {catalogoActual === CATALOGO_TRAMITES && (
@@ -734,6 +838,7 @@ function GestionCatalogos({ usuario }) {
                             <div className="users-table-actions">
                               <button
                                 type="button"
+                                className="catalog-action-edit"
                                 onClick={() => editarRegistro(registro.id)}
                                 disabled={enProceso}
                               >
@@ -742,6 +847,7 @@ function GestionCatalogos({ usuario }) {
                               {catalogoActual === CATALOGO_TRAMITES && (
                                 <button
                                   type="button"
+                                  className="catalog-action-term"
                                   onClick={() => {
                                     setTramiteTerminoNuevo(registro);
                                     setFormularioTermino({
@@ -759,6 +865,7 @@ function GestionCatalogos({ usuario }) {
                               )}
                               <button
                                 type="button"
+                                className="catalog-action-toggle"
                                 onClick={() => cambiarEstado(registro)}
                                 disabled={enProceso}
                               >
@@ -776,9 +883,12 @@ function GestionCatalogos({ usuario }) {
           </section>
 
           {tramiteTerminoNuevo && catalogoActual === CATALOGO_TRAMITES && (
-            <section className="catalog-term-panel">
+            <section className="catalog-term-panel" aria-labelledby="catalogo-termino-titulo">
               <div className="users-table-toolbar">
-                <h2>{tramiteTerminoNuevo.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}: {tramiteTerminoNuevo.nombre}</h2>
+                <div>
+                  <p className="catalog-panel-kicker">Reglas de respuesta</p>
+                  <h2 id="catalogo-termino-titulo">{tramiteTerminoNuevo.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}: {tramiteTerminoNuevo.nombre}</h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => setTramiteTerminoNuevo(null)}
@@ -786,7 +896,7 @@ function GestionCatalogos({ usuario }) {
                   Cerrar
                 </button>
               </div>
-              <p>Indica el número de días y cómo contarlos, con su fundamento y fecha de vigencia.
+              <p className="catalog-term-intro">Indica el número de días y cómo contarlos, con su fundamento y fecha de vigencia.
                 {" "}El plazo se aplicará a nuevas radicaciones según esa fecha; no modifica los plazos ya registrados.
                 {" "}Si hay versiones anteriores o futuras, revisa su historial antes de guardar.</p>
               {terminosVigentes.length > 0 && (
@@ -818,10 +928,11 @@ function GestionCatalogos({ usuario }) {
                   </div>
                 </div>
               )}
-              <form
-                className="auth-form auth-form--grid catalog-form"
-                onSubmit={registrarTermino}
-              >
+              <div className="catalog-term-form-card">
+                <form
+                  className="auth-form auth-form--grid catalog-form"
+                  onSubmit={registrarTermino}
+                >
                 <div className="auth-field">
                   <label htmlFor="termino-dias">Plazo (días) *</label>
                   <input
@@ -898,7 +1009,8 @@ function GestionCatalogos({ usuario }) {
                     {enProceso ? "Registrando…" : "Guardar plazo"}
                   </button>
                 </div>
-              </form>
+                </form>
+              </div>
             </section>
           )}
           <p className="auth-switch">
