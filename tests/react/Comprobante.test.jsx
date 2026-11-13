@@ -12,45 +12,104 @@ beforeEach(() => {
 function soporteImagen() {
   return {
     getImageProperties: () => ({ width: 350, height: 355 }),
-    internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
-    saveGraphicsState() {}, restoreGraphicsState() {}, setGState() {},
-    GState: function (estado) { Object.assign(this, estado); },
+    internal: { pageSize: { getWidth: () => 100, getHeight: () => 150 } },
     addImage() {},
   };
 }
 
-it.each(["Planeación histórica", null])("incluye el origen interno guardado %s y pagina asuntos largos", async (origen) => {
-  let paginas = 1;
-  const textos = [];
-  const pdf = {
+function crearPdfMock({ paginas = 1, textos = [], rectangulos = [], imagenes = [], lineas = [] } = {}) {
+  let numeroPaginas = paginas;
+  let estiloFuente = "normal";
+  let tamanoFuente = null;
+  return {
     ...soporteImagen(),
-    setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
-    rect() {}, line() {}, setPage() {},
-    text(texto, x, y) { textos.push({ texto, y }); },
+    setFont: vi.fn((_familia, estilo) => { estiloFuente = estilo; }),
+    setFontSize: vi.fn((tamano) => { tamanoFuente = tamano; }),
+    setTextColor: vi.fn(), setFillColor: vi.fn(),
+    line(...argumentos) { lineas.push(argumentos); }, setPage: vi.fn(),
+    rect(...argumentos) { rectangulos.push(argumentos); },
+    addImage(...argumentos) { imagenes.push(argumentos); },
+    text(texto, x, y) { textos.push({ texto, x, y, estiloFuente, tamanoFuente }); },
+    getTextWidth: (texto) => String(texto).length * 1.1,
     splitTextToSize: (texto) => texto.split("\n"),
-    addPage() { paginas++; },
-    getNumberOfPages: () => paginas,
+    addPage() { numeroPaginas += 1; },
+    getNumberOfPages: () => numeroPaginas,
   };
+}
+
+it("crea una etiqueta de 100 x 150 mm con radicado y Code 128", async () => {
+  let opciones;
+  const textos = [];
+  const rectangulos = [];
+  const lineas = [];
+  const pdf = crearPdfMock({ textos, rectangulos, lineas });
+  vi.stubGlobal("jspdf", {
+    jsPDF: function (configuracion) {
+      opciones = configuracion;
+      return pdf;
+    },
+  });
+
+  await expect(crearPdfComprobante({
+    numero_radicado: "RAD-20261113-0008",
+    fecha_hora: "13/11/2026, 10:36:47 a. m.",
+    tipo_comunicacion: "Interna",
+    dependencia_remitente: "Talento Humano",
+    tipo_tramite: "Derecho de petición",
+    numero_folios: 5,
+    dependencia_destino: "Alcaldía Municipal",
+    usuario_recibe: "Ana Pérez",
+    remitente_nombre: "Juan Pérez",
+    remitente_documento: "123456",
+    asunto_documento: "Solicitud de información",
+  })).resolves.toBe(pdf);
+
+  expect(opciones).toEqual({
+    unit: "mm",
+    format: [100, 150],
+    orientation: "portrait",
+    compress: true,
+  });
+  expect(textos.some(({ texto }) => texto === "RAD-20261113-0008")).toBe(true);
+  expect(textos.some(({ texto }) => texto === "Dependencia remitente:")).toBe(true);
+  expect(textos.some(({ texto }) => texto === "Talento Humano")).toBe(true);
+  expect(textos.find(({ texto }) => texto === "Tipo de comunicación:")?.estiloFuente).toBe("bold");
+  expect(textos.find(({ texto }) => texto === "Interna")?.estiloFuente).toBe("normal");
+  expect(textos.filter(({ texto }) => texto === "RAD-20261113-0008")).toHaveLength(1);
+  expect(textos.some(({ texto }) => texto === "Número de radicado:")).toBe(false);
+  expect(textos.find(({ texto }) => texto === "ALCALDÍA MUNICIPAL")?.tamanoFuente).toBe(7.5);
+  expect(textos.find(({ texto }) => texto === "Sistema de Ventanilla Única")?.tamanoFuente).toBe(4.8);
+  expect(lineas).toContainEqual([6, 18, 94, 18]);
+
+  const barras = rectangulos.filter(([, , , alto, estilo]) => estilo === "F" && alto === 9);
+  expect(barras.length).toBeGreaterThan(20);
+  expect(Math.min(...barras.map(([x]) => x))).toBeCloseTo(19);
+  expect(Math.max(...barras.map(([x, , ancho]) => x + ancho))).toBeLessThanOrEqual(81.01);
+});
+
+it.each(["Planeación histórica", null])("incluye el origen interno guardado %s y pagina asuntos largos", async (origen) => {
+  const paginas = { valor: 1 };
+  const textos = [];
+  const pdf = crearPdfMock({ textos });
+  pdf.addPage = vi.fn(() => { paginas.valor += 1; });
+  pdf.getNumberOfPages = () => paginas.valor;
   vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
+
   expect(await crearPdfComprobante({
+    numero_radicado: "RAD-20261113-0008",
     tipo_comunicacion: "Interna", dependencia_remitente: origen,
     asunto_documento: Array(90).fill("Línea del asunto").join("\n"),
   })).toBe(pdf);
-  expect(textos.some(({ texto }) => texto === `• Dependencia Remitente: ${origen || "No registrada"}`)).toBe(true);
-  expect(paginas).toBeGreaterThan(1);
-  expect(textos.filter(({ texto }) => texto === "Línea del asunto").every(({ y }) => y <= 255)).toBe(true);
+  expect(textos.some(({ texto }) => texto === "Dependencia remitente:")).toBe(true);
+  expect(textos.some(({ texto }) => texto === (origen || "No registrada"))).toBe(true);
+  expect(paginas.valor).toBeGreaterThan(1);
+  expect(textos.filter(({ texto }) => texto === "Línea del asunto").every(({ y }) => y <= 137)).toBe(true);
+  expect(pdf.addPage).toHaveBeenCalledWith([100, 150], "portrait");
 });
 
 it.each([false, 0, true, undefined])("incluye datos externos y solo imprime la regla explícita sin respuesta (%s)", async (regla) => {
   const textos = [];
-  const pdf = {
-    ...soporteImagen(),
-    setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
-    rect() {}, line() {}, setPage() {},
-    text(texto) { textos.push(texto); },
-    splitTextToSize: (texto) => [texto],
-    getNumberOfPages: () => 1,
-  };
+  const pdf = crearPdfMock({ textos });
   vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
   await crearPdfComprobante({
     requiere_respuesta: regla,
@@ -58,60 +117,37 @@ it.each([false, 0, true, undefined])("incluye datos externos y solo imprime la r
     remitente_entidad: "Empresa", remitente_nit: "123", remitente_email: "a@example.com",
     dependencia_remitente: "No corresponde",
   });
-  expect(textos).toEqual(expect.arrayContaining([
-    "• Tipo de Persona: Jurídica", "• Entidad / Razón Social: Empresa",
-    "• NIT: 123", "• Correo: a@example.com",
+  expect(textos.map(({ texto }) => texto)).toEqual(expect.arrayContaining([
+    "Tipo de persona:", "Jurídica", "Entidad / razón social:", "Empresa",
+    "NIT:", "123", "Correo:", "a@example.com",
   ]));
-  expect(textos.some((texto) => texto.includes("Dependencia Remitente"))).toBe(false);
-  expect(textos.some((texto) => texto.includes("No requiere respuesta"))).toBe(regla === false || regla === 0);
+  expect(textos.some(({ texto }) => texto.includes("Dependencia remitente"))).toBe(false);
+  expect(textos.some(({ texto }) => texto.includes("No requiere respuesta"))).toBe(regla === false || regla === 0);
 });
 
-  it("dibuja una marca centrada al 10 % antes del texto en cada página y restaura opacidad", async () => {
-    const eventos = [];
-    let pagina = 1;
-    let opacidad = 1;
-    const pdf = {
-      ...soporteImagen(),
-      setFont() {}, setFontSize() {}, setTextColor() {}, setFillColor() {},
-      rect() {}, line() {}, setPage() {},
-      saveGraphicsState() { eventos.push(["guardar", pagina]); },
-      setGState(estado) { opacidad = estado.opacity; },
-      restoreGraphicsState() { opacidad = 1; eventos.push(["restaurar", pagina]); },
-      addImage(...args) { eventos.push(["imagen", pagina, opacidad, ...args]); },
-      text() { eventos.push(["texto", pagina, opacidad]); },
-      splitTextToSize: texto => texto.split("\n"),
-      addPage() { pagina++; },
-      getNumberOfPages: () => pagina,
-    };
-    vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
-    await crearPdfComprobante({ asunto_documento: Array(90).fill("Detalle legible").join("\n") });
-    const imagenes = eventos.filter(e => e[0] === "imagen");
-    expect(imagenes).toHaveLength(pagina);
-    expect(pagina).toBeGreaterThan(1);
-    for (let numero = 1; numero <= pagina; numero++) {
-      const imagen = imagenes[numero - 1];
-      expect(imagen.slice(1, 3)).toEqual([numero, 0.1]);
-      expect(imagen[4]).toBe("PNG");
-      expect(imagen[5]).toBe(55);
-      expect(imagen[6]).toBeCloseTo((297 - 100 * 355 / 350) / 2);
-      expect(imagen[7]).toBe(100);
-      expect(imagen[8]).toBeCloseTo(100 * 355 / 350);
-      const eventosPagina = eventos.filter(e => e[1] === numero);
-      expect(eventosPagina.findIndex(e => e[0] === "imagen")).toBeLessThan(eventosPagina.findIndex(e => e[0] === "texto"));
-      expect(eventosPagina.filter(e => e[0] === "restaurar")).toHaveLength(1);
-    }
-    expect(eventos.filter(e => e[0] === "texto").every(e => e[2] === 1)).toBe(true);
-    expect(fetch).toHaveBeenCalledWith(`${import.meta.env.BASE_URL}img/escudo-miranda.png`);
-  });
+it("dibuja el escudo pequeño en cada página sin marca de agua", async () => {
+  const paginas = { valor: 1 };
+  const imagenes = [];
+  const textos = [];
+  const pdf = crearPdfMock({ paginas: 1, textos, imagenes });
+  pdf.addPage = vi.fn(() => { paginas.valor += 1; });
+  pdf.getNumberOfPages = () => paginas.valor;
+  vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
 
-  it("rechaza la carga fallida del escudo y permite reintentar sin PDF incompleto", async () => {
-    const pdf = { ...soporteImagen(), addImage: vi.fn(), text: vi.fn() };
-    vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
-    fetch.mockResolvedValueOnce({ ok: false, status: 404 });
-    await expect(crearPdfComprobante({})).rejects.toThrow(/escudo institucional.*404/);
-    expect(pdf.addImage).not.toHaveBeenCalled();
-    expect(pdf.text).not.toHaveBeenCalled();
-    fetch.mockRejectedValueOnce(new Error("Sin conexión"));
-    await expect(crearPdfComprobante({})).rejects.toThrow("Sin conexión");
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
+  await crearPdfComprobante({ asunto_documento: Array(90).fill("Detalle legible").join("\n") });
+  expect(imagenes).toHaveLength(paginas.valor);
+  expect(imagenes[0].slice(1, 5)).toEqual(["PNG", 6, 5, 9]);
+  expect(fetch).toHaveBeenCalledWith(`${import.meta.env.BASE_URL}img/escudo-miranda.png`);
+});
+
+it("rechaza la carga fallida del escudo y permite reintentar sin PDF incompleto", async () => {
+  const pdf = { ...soporteImagen(), addImage: vi.fn(), text: vi.fn() };
+  vi.stubGlobal("jspdf", { jsPDF: function () { return pdf; } });
+  fetch.mockResolvedValueOnce({ ok: false, status: 404 });
+  await expect(crearPdfComprobante({})).rejects.toThrow(/escudo institucional.*404/);
+  expect(pdf.addImage).not.toHaveBeenCalled();
+  expect(pdf.text).not.toHaveBeenCalled();
+  fetch.mockRejectedValueOnce(new Error("Sin conexión"));
+  await expect(crearPdfComprobante({})).rejects.toThrow("Sin conexión");
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
