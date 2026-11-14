@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaGestionCatalogos } from "../../src/paginas/GestionCatalogos.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
 
@@ -100,11 +100,30 @@ function prepararApi() {
 }
 
 describe("gestión de catálogos React", () => {
+  let scrollIntoViewMock;
+  const scrollIntoViewOriginal = HTMLElement.prototype.scrollIntoView;
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    scrollIntoViewMock = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
     confirmarSesion.mockResolvedValue(administrador);
     prepararApi();
+  });
+
+  afterEach(() => {
+    if (scrollIntoViewOriginal) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        configurable: true,
+        value: scrollIntoViewOriginal,
+      });
+    } else {
+      delete HTMLElement.prototype.scrollIntoView;
+    }
   });
 
   it("etiqueta las tarjetas de dependencias, trámites e historial sin duplicar acciones", async () => {
@@ -202,6 +221,9 @@ describe("gestión de catálogos React", () => {
     const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
+    expect(screen.getByRole("heading", { level: 2, name: "Nueva dependencia" })).toBeTruthy();
+    expect(screen.getByText("Nuevo registro")).toBeTruthy();
+    expect(screen.getByText("Administra las dependencias disponibles para recibir y tramitar documentos.")).toBeTruthy();
 
     expect(solicitarApi).toHaveBeenCalledWith(
       "/api/dependencias?incluir_inactivos=1",
@@ -234,8 +256,9 @@ describe("gestión de catálogos React", () => {
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
 
-    expect(screen.getByText("Identificación del trámite")).toBeTruthy();
-    expect(screen.getByText("Clasificación")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Nuevo tipo de trámite" })).toBeTruthy();
+    expect(screen.getByText("Datos básicos")).toBeTruthy();
+    expect(screen.getByText("Clasificación y respuesta")).toBeTruthy();
     expect(screen.getByText("Plazo legal inicial")).toBeTruthy();
     expect(
       screen.getByText("Si la dejas vacía, el plazo aplicará desde hoy."),
@@ -321,6 +344,19 @@ describe("gestión de catálogos React", () => {
     await user.click(
       within(row).getByRole("button", { name: "Editar" }),
     );
+    const campoCodigo = screen.getByLabelText("Código técnico *");
+    expect(campoCodigo.value).toBe("peticion_general");
+    expect(screen.getByRole("heading", { level: 2, name: "Editar tipo de trámite" })).toBeTruthy();
+    expect(screen.getByText("Edición de catálogo")).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(campoCodigo));
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    expect(scrollIntoViewMock.mock.instances[0]).toBe(
+      document.querySelector(".catalog-editor-panel"),
+    );
 
     await user.clear(screen.getByLabelText("Nombre *"));
     await pegarTexto(user, screen.getByLabelText("Nombre *"), "Petición actualizada");
@@ -391,14 +427,26 @@ describe("gestión de catálogos React", () => {
 
   it("muestra el formulario al editar y acepta PUT confirmado con HTTP 204", async () => {
     const user = userEvent.setup({ delay: null });
+    const foco = vi.spyOn(HTMLInputElement.prototype, "focus");
     render(<PaginaGestionCatalogos />);
     const row = (await screen.findByText("Planeación")).closest("tr");
 
     await user.click(within(row).getByRole("button", { name: "Editar" }));
 
     const campoNombre = await screen.findByDisplayValue("Planeación");
+    expect(screen.getByRole("heading", { level: 2, name: "Editar dependencia" })).toBeTruthy();
+    expect(screen.getByText("Edición de catálogo")).toBeTruthy();
     expect(campoNombre).toBeTruthy();
     expect(document.activeElement).toBe(campoNombre);
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    expect(scrollIntoViewMock.mock.instances[0]).toBe(
+      document.querySelector(".catalog-editor-panel"),
+    );
+    expect(foco).toHaveBeenCalledWith({ preventScroll: true });
     await user.clear(campoNombre);
     await pegarTexto(user, campoNombre, "Planeación actualizada");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -416,6 +464,26 @@ describe("gestión de catálogos React", () => {
     expect(
       screen.getByText("Cambios guardados correctamente."),
     ).toBeTruthy();
+  });
+
+  it("no desplaza ni enfoca el editor cuando falla la carga del registro", async () => {
+    const user = userEvent.setup({ delay: null });
+    const cargaOriginal = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta === "/api/dependencias/3" && !opciones.method) {
+        throw new Error("No fue posible cargar la dependencia.");
+      }
+      return cargaOriginal(ruta, opciones);
+    });
+    const foco = vi.spyOn(HTMLInputElement.prototype, "focus");
+    render(<PaginaGestionCatalogos />);
+    const fila = (await screen.findByText("Planeación")).closest("tr");
+
+    await user.click(within(fila).getByRole("button", { name: "Editar" }));
+
+    expect(await screen.findByText("No fue posible cargar la dependencia.")).toBeTruthy();
+    expect(scrollIntoViewMock).not.toHaveBeenCalled();
+    expect(foco).not.toHaveBeenCalled();
   });
 
   it("registra una versión de término usando tipo_tramite_id", async () => {

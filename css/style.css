@@ -2713,29 +2713,54 @@ button.dashboard-card {
   margin-bottom: 2rem;
   padding: 1.25rem;
   border: 1px solid #dbe5ef;
+  border-top: 3px solid #94a3b8;
   border-radius: 1rem;
   background: #fbfdff;
   box-shadow: 0 8px 24px rgb(15 42 76 / 5%);
+  scroll-margin-top: 1rem;
+}
+.catalog-editor-panel--editing {
+  border-top-color: #2563eb;
+  background: linear-gradient(180deg, #f8fbff 0%, #fbfdff 42%);
 }
 .catalog-panel-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.catalog-panel-heading__content {
+  min-width: 0;
 }
 .catalog-panel-kicker {
-  margin-bottom: 0.25rem;
+  display: inline-flex;
+  margin-bottom: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: #eff6ff;
   color: #2563eb;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.catalog-panel-heading h2,
-.catalog-term-panel h2 {
+.catalog-editor-panel--editing .catalog-panel-kicker {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.catalog-panel-heading h2 {
   color: #172b46;
-  font-size: 1.15rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.65rem);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.catalog-panel-description {
+  max-width: 42rem;
+  margin-top: 0.45rem;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 .catalog-panel-icon {
   display: grid;
@@ -2748,6 +2773,12 @@ button.dashboard-card {
   color: #1d4ed8;
   font-size: 1.2rem;
   font-weight: 700;
+  box-shadow: 0 0 0 4px rgb(219 234 254 / 55%);
+}
+.catalog-editor-panel--editing .catalog-panel-icon {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgb(191 219 254 / 70%);
 }
 .catalog-editor-panel .catalog-form {
   padding-bottom: 0;
@@ -2856,24 +2887,39 @@ button.dashboard-card {
   border-bottom: 1px solid #e2e8f0;
 }
 .catalog-form-section-heading {
+  position: relative;
   display: grid;
-  gap: 0.25rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid #e2e8f0;
+  gap: 0.35rem;
+  padding: 1rem 0 0.2rem 0.9rem;
+  border-top: 1px solid #dbe5ef;
+}
+.catalog-form-section-heading::before {
+  position: absolute;
+  top: 1.2rem;
+  left: 0;
+  width: 0.2rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: #2563eb;
+  content: "";
 }
 .catalog-form-section-heading--first {
-  padding-top: 0;
+  padding-top: 0.15rem;
   border-top: 0;
+}
+.catalog-form-section-heading--first::before {
+  top: 0.35rem;
 }
 .catalog-form-section-heading h3 {
   color: #172b46;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
   font-weight: 700;
 }
 .catalog-form-section-heading p {
   color: #64748b;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 .catalog-form textarea {
   min-height: 6rem;
@@ -3002,6 +3048,12 @@ button.dashboard-card {
   }
   .catalog-panel-heading {
     margin-bottom: 1rem;
+  }
+  .catalog-panel-heading h2 {
+    font-size: 1.25rem;
+  }
+  .catalog-panel-description {
+    font-size: 0.82rem;
   }
 }
 

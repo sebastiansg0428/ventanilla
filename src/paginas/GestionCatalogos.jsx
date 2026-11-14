@@ -86,6 +86,7 @@ export function PaginaGestionCatalogos() {
 
 function GestionCatalogos({ usuario }) {
   const formularioCatalogoRef = useRef(null);
+  const editorCatalogoRef = useRef(null);
   const [catalogoActual, setCatalogoActual] = useState(CATALOGO_DEPENDENCIAS);
   const [incluirInactivos, setIncluirInactivos] = useState(true);
   const [busqueda, setBusqueda] = useState("");
@@ -156,14 +157,21 @@ function GestionCatalogos({ usuario }) {
   }, [incluirInactivos]);
 
   useEffect(() => {
-    if (!registroEnEdicion || !formularioCatalogoRef.current) return;
-    formularioCatalogoRef.current.scrollIntoView?.({
+    if (!registroEnEdicion || !editorCatalogoRef.current || !formularioCatalogoRef.current) return;
+    editorCatalogoRef.current.scrollIntoView?.({
       behavior: "smooth",
       block: "start",
+      inline: "nearest",
     });
-    formularioCatalogoRef.current
-      .querySelector("input:not([type='hidden']), textarea")
-      ?.focus();
+    const primerCampo = formularioCatalogoRef.current.querySelector(
+      "input:not([type='hidden']), textarea, select",
+    );
+    if (!primerCampo) return;
+    try {
+      primerCampo.focus({ preventScroll: true });
+    } catch {
+      primerCampo.focus();
+    }
   }, [registroEnEdicion]);
 
   async function cargarTerminos(tipoTramiteId) {
@@ -403,6 +411,13 @@ function GestionCatalogos({ usuario }) {
     inactivos: registros.filter((registro) => !estaActivo(registro)).length,
   };
   const editando = Boolean(registroEnEdicion);
+  const esDependenciaActual = catalogoActual === CATALOGO_DEPENDENCIAS;
+  const nombreCatalogoActual = esDependenciaActual ? "dependencia" : "tipo de trámite";
+  const accionCreacion = esDependenciaActual ? "Nueva" : "Nuevo";
+  const tituloEditor = `${editando ? "Editar" : accionCreacion} ${nombreCatalogoActual}`;
+  const descripcionEditor = esDependenciaActual
+    ? "Administra las dependencias disponibles para recibir y tramitar documentos."
+    : "Define cómo se clasifican y gestionan las solicitudes.";
 
   return (
     <div className="app-page">
@@ -470,17 +485,23 @@ function GestionCatalogos({ usuario }) {
             </button>
           </div>
 
-          <section className="catalog-editor-panel" aria-labelledby="catalogo-formulario-titulo">
+          <section
+            ref={editorCatalogoRef}
+            className={`catalog-editor-panel${editando ? " catalog-editor-panel--editing" : ""}`}
+            aria-labelledby="catalogo-formulario-titulo"
+          >
             <div className="catalog-panel-heading">
-              <div>
-                <p className="catalog-panel-kicker">Editor de catálogo</p>
-                <h2 id="catalogo-formulario-titulo">
-                  {editando
-                    ? `Editar ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`
-                    : `Crear ${catalogoActual === CATALOGO_DEPENDENCIAS ? "dependencia" : "tipo de trámite"}`}
-                </h2>
+              <div className="catalog-panel-heading__content">
+                <p className="catalog-panel-kicker">
+                  {editando ? "Edición de catálogo" : "Nuevo registro"}
+                </p>
+                <h2 id="catalogo-formulario-titulo">{tituloEditor}</h2>
+                <p className="catalog-panel-description">{descripcionEditor}</p>
               </div>
-              <span className="catalog-panel-icon" aria-hidden="true">
+              <span
+                className="catalog-panel-icon"
+                aria-hidden="true"
+              >
                 {editando ? "✎" : "+"}
               </span>
             </div>
@@ -506,8 +527,8 @@ function GestionCatalogos({ usuario }) {
             ) : (
               <>
                 <div className="catalog-form-section-heading catalog-form-section-heading--first auth-field--full">
-                  <h3>Identificación del trámite</h3>
-                  <p>Define el nombre que verá el personal y el código interno del sistema.</p>
+                  <h3>Datos básicos</h3>
+                  <p>Define el nombre visible y el código interno del trámite.</p>
                 </div>
                 <div className="auth-field">
                   <label htmlFor="tramite-codigo">Código técnico *</label>
@@ -561,8 +582,8 @@ function GestionCatalogos({ usuario }) {
                   </small>
                 </div>
                 <div className="catalog-form-section-heading auth-field--full">
-                  <h3>Clasificación</h3>
-                  <p>La categoría ayuda a organizar el trámite; no determina por sí sola el plazo.</p>
+                  <h3>Clasificación y respuesta</h3>
+                  <p>Organiza el trámite y define si requiere respuesta institucional.</p>
                 </div>
                 <div className="auth-field auth-field--full">
                   <label htmlFor="tramite-categoria">Categoría general *</label>
