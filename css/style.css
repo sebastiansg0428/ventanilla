@@ -3579,6 +3579,48 @@ button.dashboard-card {
   margin: 0.35rem 0 0;
   line-height: 1.45;
 }
+#modal-detalle .timeline-evento--entrega-final,
+#modal-detalle .timeline-evento--entrega-anulada {
+  padding: 0.75rem;
+  border-left-width: 4px;
+  border-radius: 0.4rem;
+}
+#modal-detalle .timeline-evento--entrega-final {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+#modal-detalle .timeline-evento--entrega-anulada {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+#modal-detalle .timeline-evento--entrega-final h4 {
+  color: #166534;
+}
+#modal-detalle .timeline-evento--entrega-anulada h4 {
+  color: #92400e;
+}
+#modal-detalle .timeline-responsable-entrega,
+#modal-detalle .timeline-detalle-entrega {
+  color: #334155;
+}
+#modal-detalle .timeline-detalle-entrega {
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+#modal-detalle .timeline-evento--entrega-final .timeline-cambio,
+#modal-detalle .timeline-evento--entrega-anulada .timeline-cambio {
+  display: inline-block;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+}
+#modal-detalle .timeline-evento--entrega-anulada .timeline-cambio {
+  background: #fef3c7;
+  color: #92400e;
+}
 #modal-detalle .modal-content,
 .respuesta-dialog .modal-content {
   gap: 1.25rem;
@@ -4184,6 +4226,16 @@ button.dashboard-card {
   background: #f8fafc;
   color: #475569;
 }
+.respuesta-dialog .entregas-aviso--resultado-entrega_acreditada {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+.respuesta-dialog .entregas-aviso--resultado-intento_fallido {
+  border-left-color: #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
 .respuesta-dialog .entregas-aviso--sistema,
 .respuesta-dialog .entregas-aviso--pendiente {
   border-left-color: #f59e0b;
@@ -4317,6 +4369,98 @@ button.dashboard-card {
 .respuesta-dialog .entregas-formulario h4 {
   font-size: 1rem;
 }
+.respuesta-dialog .entregas-preparacion {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+.respuesta-dialog .entregas-preparacion--pendiente {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+.respuesta-dialog .entregas-preparacion > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+}
+.respuesta-dialog .entregas-preparacion > div span {
+  color: #475569;
+  font-size: 0.8rem;
+}
+.respuesta-dialog .entregas-preparacion ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+.respuesta-dialog .entregas-preparacion li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.respuesta-dialog .entregas-preparacion li > span {
+  display: inline-grid;
+  width: 1.2rem;
+  height: 1.2rem;
+  place-items: center;
+  flex: 0 0 1.2rem;
+  border-radius: 50%;
+  font-weight: 800;
+}
+.respuesta-dialog .entregas-preparacion__ok > span {
+  background: #dcfce7;
+  color: #166534;
+}
+.respuesta-dialog .entregas-preparacion__falta > span {
+  background: #fef3c7;
+  color: #92400e;
+}
+.respuesta-dialog .entregas-campo-ayuda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.respuesta-dialog .entregas-campo-ayuda .entregas-boton {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.78rem;
+}
+.respuesta-dialog .entregas-campo--destacado {
+  padding: 0.75rem;
+  border: 1px solid #93c5fd;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+}
+.respuesta-dialog .entregas-confirmacion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid #2563eb;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.respuesta-dialog .entregas-confirmacion input {
+  width: 1.2rem;
+  min-height: 1.2rem;
+  flex: 0 0 1.2rem;
+  margin-top: 0.1rem;
+}
 .respuesta-dialog .entregas-seleccion {
   min-width: 0;
   color: #475569;
@@ -4439,6 +4583,9 @@ button.dashboard-card {
   }
   .respuesta-dialog .entregas-acciones > button {
     flex: 1 1 12rem;
+  }
+  .respuesta-dialog .entregas-preparacion ul {
+    grid-template-columns: minmax(0, 1fr);
   }
   .respuesta-dialog .modal-header,
   .respuesta-dialog .modal-content,

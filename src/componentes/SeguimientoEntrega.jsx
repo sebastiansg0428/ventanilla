@@ -33,10 +33,10 @@ async function confirmar(ruta, opciones) {
   const respuesta = await solicitarApi(ruta, opciones);
   const datos = await respuesta.json();
   if (datos.success !== true || !registroValido(datos.registro)) throw new Error("Confirmación incompleta. Consulta el historial o reintenta sin cambiar los datos.");
-  return datos.registro;
+  return datos;
 }
 
-export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcceso, alVistaRegistro, contenedorAcciones }) {
+export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcceso, alVistaRegistro, alEntregaConfirmada, contenedorAcciones }) {
   const ruta = `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/entregas`;
   const [abierto, setAbierto] = useState(false);
   const [registrando, setRegistrando] = useState(false);
@@ -50,7 +50,8 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
   const [canal, setCanal] = useState("correo_electronico");
   const [resultado, setResultado] = useState("enviado");
   const [destinatario, setDestinatario] = useState(radicado.remitente_nombre || "");
-  const [destino, setDestino] = useState(radicado.remitente_email || "");
+  const [destinos, setDestinos] = useState({ correo_electronico: radicado.remitente_email || "", presencial: "", mensajeria: "" });
+  const [confirmacionEntrega, setConfirmacionEntrega] = useState(false);
   const [documentos, setDocumentos] = useState(null);
   const [seleccionados, setSeleccionados] = useState([]);
   const [errorDocumentos, setErrorDocumentos] = useState("");
@@ -88,6 +89,19 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
   const central = ["ventanilla", "administrador"].includes(usuario.rol);
   const fechaElegida = convertirFechaBogota(fechaActuacion);
   const fechaAnterior = fechaElegida && fechaRespuesta !== null && fechaElegida.getTime() < fechaRespuesta * 1000;
+  const destino = destinos[canal] || "";
+  const faltaFecha = !fechaElegida || fechaElegida.getTime() > Date.now() ||
+    (fechaAnterior && justificacionFecha.trim().length < 10);
+  const faltaObservaciones = resultado === "intento_fallido" && observaciones.trim().length < 10;
+  const faltaEvidencia = resultado === "entrega_acreditada" && !archivos.length;
+  const preparacion = [
+    ["Datos del destinatario y destino", !destinatario.trim() || !destino.trim()],
+    ["Fecha real válida", faltaFecha],
+    ["Documentos de respuesta cargados", !documentos || Boolean(errorDocumentos)],
+    ...(resultado === "entrega_acreditada" ? [["Constancia de recepción adjunta", faltaEvidencia], ["Confirmación del operador", !confirmacionEntrega]] : []),
+    ...(resultado === "intento_fallido" ? [["Observaciones del intento", faltaObservaciones]] : []),
+  ];
+  const pendientes = preparacion.filter(([, falta]) => falta).map(([nombre]) => nombre);
   useEffect(() => { alVistaRegistro?.(registrando); }, [registrando, alVistaRegistro]);
   useEffect(() => { procesoRef.current(ocupado || bloqueado); }, [ocupado, bloqueado]);
   useEffect(() => {
@@ -183,14 +197,16 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
     if (!intento.current && !anulacion && (!documentos || errorDocumentos || historial?.fecha_real_disponible !== true)) {
       setError("No se puede confirmar hasta cargar los documentos y activar la migración 029."); return;
     }
-    if (!intento.current && !anulacion && (!fechaElegida || fechaElegida.getTime() > Date.now() ||
-        (fechaAnterior && justificacionFecha.trim().length < 10))) {
+    if (!intento.current && !anulacion && faltaFecha) {
       setError("Indica una fecha real válida, no futura. Si es anterior a la respuesta, justifica con al menos 10 caracteres."); return;
     }
     if (!intento.current && !anulacion && (
       archivos.length > 5 || archivos.some(a => a.size > 10 * 1024 * 1024 || !/\.pdf$/i.test(a.name)) ||
       (resultado === "entrega_acreditada" && !archivos.length))) {
       setError("Acreditar requiere evidencia adicional de recepción. Adjunta hasta 5 PDF de 10 MB cada uno."); return;
+    }
+    if (!intento.current && !anulacion && resultado === "entrega_acreditada" && !confirmacionEntrega) {
+      setError("Confirma que la entrega ocurrió y que la constancia adjunta acredita la recepción."); return;
     }
     if (!intento.current) {
       if (anulacion) intento.current = { ruta: `${ruta}/${anularId}/anulacion`,
@@ -208,11 +224,18 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
     }
     enviando.current = true; setOcupado(true); setError(""); setMensaje("");
     try {
-      await confirmar(intento.current.ruta, intento.current.opciones);
-      setMensaje(anulacion ? "Anulación confirmada. La evidencia se conserva." : "Registro de envío/entrega confirmado.");
+      const confirmacion = await confirmar(intento.current.ruta, intento.current.opciones);
+      alEntregaConfirmada?.(confirmacion.estado);
+      setMensaje(anulacion
+        ? confirmacion.estado === "Entregado"
+          ? "Anulación confirmada. Permanece otra entrega final acreditada vigente."
+          : "Anulación confirmada. La evidencia se conserva."
+        : confirmacion.estado === "Entregado"
+          ? "Entrega final acreditada. El radicado quedó en estado Entregado."
+          : "Registro de envío/entrega confirmado.");
       intento.current = null; setBloqueado(false); setAnularId(null); setMotivo("");
       setRegistrando(false);
-      setFechaActuacion(""); setJustificacionFecha(""); setObservaciones(""); setErrorArchivos("");
+      setFechaActuacion(""); setJustificacionFecha(""); setObservaciones(""); setErrorArchivos(""); setConfirmacionEntrega(false);
       setArchivos([]); if (archivosInput.current) archivosInput.current.value = "";
       setRevision(n => n + 1);
     } catch (fallo) {
@@ -258,7 +281,9 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
       {abierto && historial && <span className={`entregas-estado entregas-estado--${historial.resumen}`} role="status">
         Seguimiento: {RESULTADOS[historial.resumen]}</span>}
     </div>
-    <p className="entregas-aviso entregas-aviso--legal"><strong>Respondido no significa entregado.</strong> Existe una respuesta institucional; no acredita su entrega. Este registro es manual y no envía correos ni constituye por sí solo una notificación legal.</p>
+    <p className="entregas-aviso entregas-aviso--legal">{radicado.estado === "Entregado"
+      ? <><strong>Entrega final acreditada.</strong> Ventanilla registró una constancia vigente de entrega al destinatario.</>
+      : <><strong>Respondido no significa entregado.</strong> Existe una respuesta institucional; no acredita su entrega.</>} Este registro es manual y no envía correos ni constituye por sí solo una notificación legal.</p>
     <div className="entregas-acciones">
       <button className="entregas-boton" type="button" onClick={() => setAbierto(v => !v)} disabled={cerrado}
         aria-expanded={abierto} aria-controls="entregas-contenido">
@@ -341,29 +366,45 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
         </form> : (historial.resumen !== "entrega_acreditada" || bloqueado) && registrando ? <form id="entrega-formulario"
           className="auth-form entregas-formulario entregas-formulario--grid" aria-labelledby="entrega-formulario-titulo" aria-describedby="entrega-formulario-ayuda" onSubmit={e => ejecutar(e)}>
           <h4 id="entrega-formulario-titulo">Registrar envío/entrega</h4>
-          <p id="entrega-formulario-ayuda" className="entregas-aviso entregas-aviso--legal entregas-campo--ancho">
+          <p id="entrega-formulario-ayuda" className={`entregas-aviso entregas-aviso--legal entregas-campo--ancho entregas-aviso--resultado entregas-aviso--resultado-${resultado}`}>
             Registro manual: no envía correos ni determina la validez legal de una notificación.
             {" "}{resultado === "entrega_acreditada" ? "Adjunta una constancia de recepción distinta del oficio."
               : resultado === "intento_fallido" ? "Describe por qué no fue posible la entrega. No acredita recepción."
               : "Deja constancia del envío realizado. Enviado no significa recibido."}
           </p>
+          <section className={`entregas-preparacion entregas-campo--ancho${pendientes.length ? " entregas-preparacion--pendiente" : " entregas-preparacion--lista"}`}
+            aria-labelledby="entrega-preparacion-titulo" aria-live="polite">
+            <div>
+              <strong id="entrega-preparacion-titulo">{pendientes.length ? "Revisión antes de confirmar" : "Formulario listo para confirmar"}</strong>
+              <span>{pendientes.length ? `Faltan ${pendientes.length} elementos.` : "El backend realizará la validación final al registrar la actuación."}</span>
+            </div>
+            <ul>
+              {preparacion.map(([nombre, falta]) => <li key={nombre} className={falta ? "entregas-preparacion__falta" : "entregas-preparacion__ok"}>
+                <span aria-hidden="true">{falta ? "!" : "✓"}</span>{nombre}{falta ? " pendiente" : " completo"}
+              </li>)}
+            </ul>
+          </section>
           <h5 className="entregas-campo--ancho">1. Datos de la actuación</h5>
           <div className="auth-field"><label htmlFor="entrega-canal">Canal</label>
-            <select ref={canalInput} id="entrega-canal" value={canal} disabled={cerrado} onChange={e => { setCanal(e.target.value); setDestino(""); }}>
+            <select ref={canalInput} id="entrega-canal" value={canal} disabled={cerrado} onChange={e => { setDestinos(prev => ({ ...prev, [canal]: destino })); setCanal(e.target.value); setError(""); }}>
               {Object.entries(CANALES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
           <div className="auth-field"><label htmlFor="entrega-resultado">Resultado</label>
-            <select id="entrega-resultado" value={resultado} disabled={cerrado} onChange={e => setResultado(e.target.value)}>
+            <select id="entrega-resultado" value={resultado} disabled={cerrado} onChange={e => { setResultado(e.target.value); setConfirmacionEntrega(false); setError(""); }}>
               {Object.entries(RESULTADOS).filter(([k]) => k !== "pendiente_de_envio").map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
           <div className="auth-field"><label htmlFor="entrega-destinatario">Destinatario</label>
             <input id="entrega-destinatario" required maxLength={150} value={destinatario} disabled={cerrado} onChange={e => setDestinatario(e.target.value)} /></div>
           <div className="auth-field"><label htmlFor="entrega-destino">{canal === "correo_electronico" ? "Correo de destino" : "Lugar o dirección de entrega"}</label>
-            <input id="entrega-destino" type={canal === "correo_electronico" ? "email" : "text"} required maxLength={500} value={destino} disabled={cerrado} onChange={e => setDestino(e.target.value)} /></div>
+            <input id="entrega-destino" type={canal === "correo_electronico" ? "email" : "text"} required maxLength={500} value={destino} disabled={cerrado} onChange={e => setDestinos(prev => ({ ...prev, [canal]: e.target.value }))} /></div>
           <h5 className="entregas-campo--ancho">2. Fecha real de la actuación</h5>
           <div className="auth-field entregas-campo--ancho">
             <label htmlFor="entrega-fecha">Fecha y hora de actuación (Bogotá)</label>
             <input id="entrega-fecha" type="datetime-local" step="1" required value={fechaActuacion}
               max={ahoraBogota()} disabled={cerrado} onChange={e => setFechaActuacion(e.target.value)} />
-            <small>Indica cuándo ocurrió el envío, entrega o intento. No se permiten fechas futuras.</small>
+            <div className="entregas-campo-ayuda">
+              <small>Indica cuándo ocurrió el envío, entrega o intento. No se permiten fechas futuras.</small>
+              <button type="button" className="entregas-boton entregas-boton--secundario" disabled={cerrado}
+                onClick={() => setFechaActuacion(ahoraBogota())}>Usar ahora</button>
+            </div>
           </div>
           {fechaAnterior && <div className="auth-field entregas-campo--ancho">
             <label htmlFor="entrega-justificacion-fecha">Justificación de actuación anterior a la respuesta</label>
@@ -392,10 +433,10 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
             {avisoDocumentos && <p role="status">{avisoDocumentos}</p>}
           </fieldset>
           <h5 className="entregas-campo--ancho">4. Constancia de recepción y observaciones</h5>
-          <div className="auth-field entregas-campo--ancho"><label htmlFor="entrega-observaciones">Observaciones {resultado === "intento_fallido" ? "(obligatorias)" : "(opcionales)"}</label>
+          <div className={`auth-field entregas-campo--ancho${resultado === "intento_fallido" ? " entregas-campo--destacado" : ""}`}><label htmlFor="entrega-observaciones">Observaciones {resultado === "intento_fallido" ? "(obligatorias)" : "(opcionales)"}</label>
             <textarea id="entrega-observaciones" required={resultado === "intento_fallido"} minLength={resultado === "intento_fallido" ? 10 : undefined} maxLength={2000}
               value={observaciones} disabled={cerrado} onChange={e => setObservaciones(e.target.value)} /></div>
-          <div className="auth-field entregas-campo--ancho"><label htmlFor="entrega-pdf">Evidencias PDF {resultado === "entrega_acreditada" ? "(obligatorias)" : "(opcionales)"}</label>
+          <div className={`auth-field entregas-campo--ancho${resultado === "entrega_acreditada" ? " entregas-campo--destacado" : ""}`}><label htmlFor="entrega-pdf">Evidencias PDF {resultado === "entrega_acreditada" ? "(obligatorias)" : "(opcionales)"}</label>
             <input ref={archivosInput} id="entrega-pdf" type="file" accept=".pdf,application/pdf" multiple disabled={cerrado}
               required={resultado === "entrega_acreditada" && !archivos.length} onChange={seleccionarArchivos} />
             <small>Hasta 5 PDF adicionales de 10 MB cada uno, sin contraseña. Para acreditar, adjunta constancia de recepción diferente al oficio de respuesta.</small></div>
@@ -406,6 +447,11 @@ export function SeguimientoEntrega({ radicado, usuario, alProceso, alPerderAcces
             <button className="entregas-boton entregas-boton--secundario" type="button" disabled={cerrado}
               onClick={() => { setArchivos([]); setErrorArchivos(""); if (archivosInput.current) archivosInput.current.value = ""; }}>Quitar PDF seleccionados</button>
           </div>}
+          {resultado === "entrega_acreditada" && <label className="entregas-confirmacion entregas-campo--ancho">
+            <input type="checkbox" checked={confirmacionEntrega} disabled={cerrado}
+              onChange={e => setConfirmacionEntrega(e.target.checked)} />
+            <span>Confirmo que la entrega ocurrió al destinatario indicado y que la constancia adjunta corresponde a la recepción.</span>
+          </label>}
           {contenedorAcciones ? createPortal(accionesRegistro, contenedorAcciones) : accionesRegistro}
         </form> : historial.resumen === "entrega_acreditada" ? <p className="entregas-aviso">Existe entrega acreditada vigente. Para corregirla, primero anula el registro con motivo.</p> : null)}
       </>}

@@ -227,6 +227,7 @@ describe("seguimiento manual de entrega", () => {
     fireEvent.change(screen.getByLabelText("Resultado"), { target: { value: "entrega_acreditada" } });
     const pdf = new File(["fixture"], "conservado.pdf", { type: "application/pdf" });
     fireEvent.change(screen.getByLabelText("Evidencias PDF (obligatorias)"), { target: { files: [pdf] } });
+    fireEvent.click(screen.getByLabelText(/Confirmo que la entrega ocurrió/));
     fireEvent.click(screen.getByRole("button", { name: "Volver al historial" }));
     fireEvent.click(screen.getByRole("button", { name: "Registrar envío/entrega" }));
     solicitarApi.mockImplementation((ruta, o) => Promise.resolve(o?.method === "POST"
@@ -262,6 +263,34 @@ describe("seguimiento manual de entrega", () => {
     expect(screen.getByLabelText("Observaciones (obligatorias)").required).toBe(true);
     fireEvent.change(screen.getByLabelText("Canal"), { target: { value: "presencial" } });
     expect(screen.getByLabelText("Lugar o dirección de entrega").value).toBe("");
+  });
+  it("conserva el destino editado por cada canal y muestra el resumen de preparación", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    const destino = screen.getByLabelText("Correo de destino");
+    fireEvent.change(destino, { target: { value: "nuevo@example.test" } });
+    fireEvent.change(screen.getByLabelText("Canal"), { target: { value: "presencial" } });
+    const presencial = screen.getByLabelText("Lugar o dirección de entrega");
+    fireEvent.change(presencial, { target: { value: "Ventanilla principal" } });
+    fireEvent.change(screen.getByLabelText("Canal"), { target: { value: "correo_electronico" } });
+    expect(screen.getByLabelText("Correo de destino").value).toBe("nuevo@example.test");
+    fireEvent.change(screen.getByLabelText("Canal"), { target: { value: "presencial" } });
+    expect(screen.getByLabelText("Lugar o dirección de entrega").value).toBe("Ventanilla principal");
+    expect(screen.getByText("Formulario listo para confirmar")).toBeTruthy();
+    expect(screen.getByText(/Datos del destinatario y destino completo/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Resultado"), { target: { value: "entrega_acreditada" } });
+    expect(screen.getByText("Revisión antes de confirmar")).toBeTruthy();
+    expect(screen.getByText(/Constancia de recepción adjunta pendiente/)).toBeTruthy();
+  });
+  it("requiere confirmación explícita para acreditar la entrega", async () => {
+    render(<SeguimientoEntrega {...props()} />); await abrir(); await completar();
+    const archivo = new File(["constancia"], "constancia.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Resultado"), { target: { value: "entrega_acreditada" } });
+    fireEvent.change(screen.getByLabelText("Evidencias PDF (obligatorias)"), { target: { files: [archivo] } });
+    fireEvent.submit(formulario());
+    expect(screen.getByRole("alert").textContent).toContain("Confirma que la entrega ocurrió");
+    expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
+    fireEvent.click(screen.getByLabelText(/Confirmo que la entrega ocurrió/));
+    expect(screen.getByText(/Confirmación del operador completo/)).toBeTruthy();
   });
   it.each([
     [new File(["x"], "imagen.png")],
@@ -337,6 +366,19 @@ describe("seguimiento manual de entrega", () => {
     const post = solicitarApi.mock.calls.find(([, o]) => o?.method === "POST");
     expect(post[0]).toContain("/1/anulacion");
     expect(JSON.parse(post[1].body)).toEqual({ motivo: "Corrección ficticia documentada." });
+  });
+  it("comunica la transición a Entregado y notifica al padre", async () => {
+    const alEntregaConfirmada = vi.fn();
+    render(<SeguimientoEntrega {...props()} alEntregaConfirmada={alEntregaConfirmada} />); await abrir(); await completar();
+    const confirmado = { ...registro, resultado: "entrega_acreditada" };
+    solicitarApi.mockResolvedValueOnce(json({ success: true, estado: "Entregado", registro: confirmado }));
+    const archivo = new File(["constancia"], "constancia.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Resultado"), { target: { value: "entrega_acreditada" } });
+    fireEvent.change(screen.getByLabelText("Evidencias PDF (obligatorias)"), { target: { files: [archivo] } });
+    fireEvent.click(screen.getByLabelText(/Confirmo que la entrega ocurrió/));
+    fireEvent.submit(formulario());
+    await screen.findByText("Entrega final acreditada. El radicado quedó en estado Entregado.");
+    expect(alEntregaConfirmada).toHaveBeenCalledWith("Entregado");
   });
   it("paginas de 25 y callback parental cambiante no recargan innecesariamente", async () => {
     const p = props("funcionario");

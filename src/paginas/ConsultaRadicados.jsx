@@ -30,7 +30,7 @@ const NOMBRES_PLANTILLA = {
 const requiereRespuesta = (radicado) =>
   radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
 const esFinal = (radicado) =>
-  ["Respondido", "Enterado"].includes(radicado.estado);
+  ["Respondido", "Entregado", "Enterado"].includes(radicado.estado);
 const claveEstado = (radicado) =>
   `${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`;
 const normalizarTexto = (valor) =>
@@ -66,8 +66,10 @@ const ETIQUETAS_EVENTO = {
   traslado_aprobado: "Traslado aprobado por Ventanilla",
   traslado_rechazado: "Traslado rechazado",
   traslado_cancelado: "Traslado cancelado por finalización",
-  entrega_registrada: "Envío/entrega registrado",
-  entrega_anulada: "Registro de entrega anulado",
+  entrega_registrada: "Actuación de envío registrada",
+  entrega_acreditada: "Entrega final acreditada",
+  entrega_anulada: "Entrega final anulada",
+  entrega_estado_restaurado: "Entrega final anulada",
   respuesta_interna_abierta: "Primera apertura de respuesta interna",
 };
 const DESCRIPCIONES_EVENTO = {
@@ -89,7 +91,11 @@ const DESCRIPCIONES_EVENTO = {
   traslado_rechazado: "La dependencia de origen conserva la responsabilidad.",
   traslado_cancelado: "El expediente finalizó antes de resolver la solicitud.",
   entrega_registrada: "Se registró una actuación manual de envío o entrega.",
-  entrega_anulada: "Se anuló una actuación; su evidencia se conserva.",
+  entrega_acreditada:
+    "Ventanilla Única confirmó la entrega final de la respuesta al ciudadano.",
+  entrega_anulada: "Se anuló la entrega final; su evidencia se conserva.",
+  entrega_estado_restaurado:
+    "El estado del radicado volvió a Respondido porque la entrega final fue anulada.",
   respuesta_interna_abierta:
     "Un funcionario de la dependencia de origen abrió la respuesta interna en el sistema.",
 };
@@ -131,6 +137,17 @@ const CONTEXTO_DEPENDENCIA = {
   traslado_cancelado: "Oficina de origen del traslado",
   respuesta_interna_abierta: "Dependencia de origen que abrió la respuesta",
 };
+const ETIQUETAS_ROL = {
+  ventanilla: "Ventanilla Única",
+  administrador: "Administrador",
+  funcionario: "Funcionario de dependencia",
+};
+const esEventoEntrega = (evento) => [
+  "entrega_registrada",
+  "entrega_acreditada",
+  "entrega_anulada",
+  "entrega_estado_restaurado",
+].includes(evento.event_type);
 function identidadActor(evento) {
   if (Number.isSafeInteger(evento.actor_id) && evento.actor_id > 0) {
     return `id:${evento.actor_id}:${evento.actor_name || ""}`;
@@ -185,6 +202,30 @@ function agruparEventos(eventos) {
     }
     return grupos;
   }, []);
+}
+function esParejaEntrega(evento, siguiente, inicial, final) {
+  return evento.event_type === inicial && siguiente?.event_type === final &&
+    identidadActor(evento) && identidadActor(evento) === identidadActor(siguiente) &&
+    minutoEvento(evento) && minutoEvento(evento) === minutoEvento(siguiente);
+}
+function unificarEventosEntrega(eventos) {
+  const visibles = [];
+  for (let indice = 0; indice < eventos.length; indice += 1) {
+    const evento = eventos[indice];
+    const siguiente = eventos[indice + 1];
+    if (esParejaEntrega(evento, siguiente, "entrega_registrada", "entrega_acreditada") ||
+        esParejaEntrega(evento, siguiente, "entrega_anulada", "entrega_estado_restaurado")) {
+      visibles.push({
+        ...siguiente,
+        motivo_actuacion_entrega: evento.motivo,
+        entrega_unificada: true,
+      });
+      indice += 1;
+    } else {
+      visibles.push(evento);
+    }
+  }
+  return visibles;
 }
 
 export function PaginaConsultaRadicados() {
@@ -1486,7 +1527,7 @@ function VistaConsultaRadicados({ usuario }) {
                               Responder
                             </button>
                           )}
-                        {radicado.estado === "Respondido" && (
+                        {["Respondido", "Entregado"].includes(radicado.estado) && (
                           <button
                             type="button"
                             className="generar-comprobante"
@@ -1913,9 +1954,9 @@ function VistaConsultaRadicados({ usuario }) {
                               )}
                             </div>
                             <ul className="timeline-subeventos">
-                              {grupo.map((evento) => (
+                              {unificarEventosEntrega(grupo).map((evento) => (
                                 <li key={evento.id}>
-                                  <article className="timeline-evento">
+                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}`}>
                                     <h4>
                                       {ETIQUETAS_EVENTO[evento.event_type] ||
                                         (evento.campo_modificado === "estado"
@@ -1925,16 +1966,22 @@ function VistaConsultaRadicados({ usuario }) {
                                     <time className="timeline-fecha">
                                       {presentarFechaEvento(evento)}
                                     </time>
-                                    <p className="timeline-dato">
-                                      <strong>
-                                        {CONTEXTO_DEPENDENCIA[
-                                          evento.event_type
-                                        ] || "Dependencia asociada al evento"}
-                                        :{" "}
-                                      </strong>
-                                      {evento.dependencia_nombre ||
-                                        "No registrada en este evento"}
-                                    </p>
+                                    {esEventoEntrega(evento) ? (
+                                      <p className="timeline-dato timeline-responsable-entrega">
+                                        <strong>Responsable de la actuación: </strong>
+                                        {nombreActor(evento)}
+                                        {evento.actor_role && (
+                                          <> · {ETIQUETAS_ROL[evento.actor_role] || evento.actor_role}</>
+                                        )}
+                                      </p>
+                                    ) : (
+                                      <p className="timeline-dato">
+                                        <strong>
+                                          {CONTEXTO_DEPENDENCIA[evento.event_type] || "Dependencia asociada al evento"}:
+                                        </strong>{" "}
+                                        {evento.dependencia_nombre || "No registrada en este evento"}
+                                      </p>
+                                    )}
                                     {evento.event_type ===
                                       "regla_respuesta_aplicada" && (
                                       <p className="timeline-automatico">
@@ -1944,22 +1991,34 @@ function VistaConsultaRadicados({ usuario }) {
                                       </p>
                                     )}
                                     <p className="timeline-descripcion">
-                                      {evento.motivo ||
+                                      {evento.event_type === "entrega_acreditada" && evento.entrega_unificada
+                                        ? DESCRIPCIONES_EVENTO.entrega_acreditada
+                                        : evento.event_type === "entrega_estado_restaurado" && evento.entrega_unificada
+                                          ? DESCRIPCIONES_EVENTO.entrega_anulada
+                                          : evento.motivo ||
                                         DESCRIPCIONES_EVENTO[
                                           evento.event_type
                                         ] ||
                                         "Registro conservado del historial del expediente."}
                                     </p>
+                                    {evento.motivo_actuacion_entrega && (
+                                      <p className="timeline-detalle-entrega">
+                                        <strong>Actuación registrada: </strong>
+                                        {evento.motivo_actuacion_entrega}
+                                      </p>
+                                    )}
                                     {(evento.event_type === "estado_cambiado" ||
                                       evento.event_type ===
                                         "respuesta_enviada" ||
+                                      evento.event_type === "entrega_acreditada" ||
+                                      evento.event_type === "entrega_estado_restaurado" ||
                                       evento.campo_modificado === "estado") &&
-                                      evento.valor_anterior &&
-                                      evento.valor_nuevo && (
+                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado") &&
+                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado") && (
                                         <p className="timeline-cambio">
-                                          <strong>Estado: </strong>
-                                          {evento.valor_anterior} →{" "}
-                                          {evento.valor_nuevo}
+                                          <strong>Estado del radicado: </strong>
+                                          {evento.valor_anterior || (evento.event_type === "entrega_acreditada" ? "Respondido" : "Entregado")} →{" "}
+                                          {evento.valor_nuevo || (evento.event_type === "entrega_acreditada" ? "Entregado" : "Respondido")}
                                         </p>
                                       )}
                                     {evento.event_type ===
@@ -2071,9 +2130,23 @@ function VistaConsultaRadicados({ usuario }) {
                   {String(respuestaConsultada.radicado.tipo_comunicacion)
                     .trim()
                     .toLowerCase() === "externa" &&
-                    " Esto no acredita su envío ni su entrega al destinatario."}
+                    (respuestaConsultada.radicado.estado === "Entregado"
+                      ? " La entrega final está acreditada por Ventanilla."
+                      : " Esto no acredita su envío ni su entrega al destinatario.")}
                 </p>
               )}
+              {!respuestaConsultada.guardada &&
+                !respuestaConsultada.cargando &&
+                !respuestaConsultada.error &&
+                String(respuestaConsultada.radicado.tipo_comunicacion)
+                  .trim()
+                  .toLowerCase() === "externa" && (
+                  <p role="status">
+                    {respuestaConsultada.radicado.estado === "Entregado"
+                      ? "Entrega final acreditada por Ventanilla."
+                      : "Respuesta registrada; pendiente de entrega por Ventanilla."}
+                  </p>
+                )}
               {respuestaConsultada.cargando ? (
                 <p role="status">Cargando respuesta y documentos…</p>
               ) : respuestaConsultada.error ? (
@@ -2182,6 +2255,19 @@ function VistaConsultaRadicados({ usuario }) {
                         radicado={respuestaConsultada.radicado}
                         usuario={usuario}
                         alVistaRegistro={setVistaRegistroEntrega}
+                        alEntregaConfirmada={(estado) => {
+                          if (!estado) return;
+                          setRadicados((actual) => actual.map((fila) =>
+                            fila.numero_radicado === respuestaConsultada.radicado.numero_radicado
+                              ? { ...fila, estado }
+                              : fila,
+                          ));
+                          setRespuestaConsultada((actual) => actual ? {
+                            ...actual,
+                            radicado: { ...actual.radicado, estado },
+                          } : actual);
+                          setRevisionConsulta((valor) => valor + 1);
+                        }}
                         contenedorAcciones={pieEntrega.current}
                         alProceso={(valor) => {
                           respuestaEnProceso.current = valor;

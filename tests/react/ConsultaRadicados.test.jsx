@@ -1008,6 +1008,54 @@ describe("consulta de radicados React", () => {
     expect(within(modal).getByRole("region", { name: "Asunto" }).textContent).toContain("Línea 1\nLínea 2");
   });
 
+  it("unifica visualmente la entrega acreditada y muestra la transición final", async () => {
+    const eventos = [
+      { id: 11, actor_id: 2, actor_name: "Maria Mira Manrrique", actor_role: "ventanilla",
+        event_type: "entrega_registrada", ocurrido_en_utc: "2026-11-17 16:31:56.000000",
+        motivo: "Registro de envio/entrega #14 (presencial)." },
+      { id: 12, actor_id: 2, actor_name: "Maria Mira Manrrique", actor_role: "ventanilla",
+        event_type: "entrega_acreditada", ocurrido_en_utc: "2026-11-17 16:31:56.000000",
+        valor_anterior: "Respondido", valor_nuevo: "Entregado",
+        motivo: "Entrega final acreditada mediante el registro #14." },
+    ];
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.includes("/historial?"))
+        return Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }));
+      if (ruta.endsWith("/documentos")) return Promise.resolve(respuestaJson({ documentos: [] }));
+      return base(ruta, opciones);
+    });
+
+    const lista = await abrirHistorial();
+    const grupo = lista.querySelector(".timeline-grupo");
+    expect(within(grupo).getAllByRole("article")).toHaveLength(1);
+    expect(within(grupo).getByRole("heading", { name: "Entrega final acreditada" })).toBeTruthy();
+    expect(grupo.textContent).toContain("Responsable de la actuación: Maria Mira Manrrique · Ventanilla Única");
+    expect(grupo.textContent).toContain("Ventanilla Única confirmó la entrega final de la respuesta al ciudadano.");
+    expect(grupo.textContent).toContain("Actuación registrada: Registro de envio/entrega #14 (presencial).");
+    expect(grupo.textContent).toContain("Estado del radicado: Respondido → Entregado");
+    expect(grupo.textContent).not.toContain("Evento histórico");
+    expect(grupo.textContent).not.toContain("No registrada en este evento");
+  });
+
+  it("no unifica una actuación de entrega sin acreditación ni eventos con actores distintos", async () => {
+    const eventos = [
+      { id: 21, actor_id: 2, actor_name: "Ventanilla", event_type: "entrega_registrada",
+        ocurrido_en_utc: "2026-11-17 16:31:56.000000", motivo: "Envío #15." },
+      { id: 22, actor_id: 3, actor_name: "Otro usuario", event_type: "entrega_acreditada",
+        ocurrido_en_utc: "2026-11-17 16:31:56.000000", valor_anterior: "Respondido", valor_nuevo: "Entregado" },
+    ];
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.includes("/historial?")
+      ? Promise.resolve(respuestaJson({ historial: [...eventos].reverse(), has_more: false }))
+      : base(ruta, opciones));
+
+    const lista = await abrirHistorial();
+    expect(within(lista).getAllByRole("article")).toHaveLength(2);
+    expect(lista.textContent).toContain("Actuación de envío registrada");
+    expect(lista.textContent).toContain("Entrega final acreditada");
+  });
+
   it("no une usuarios distintos con el mismo nombre ni mezcla fechas UTC con históricas", async () => {
     const eventos = [
       { id: 1, actor_id: 7, actor_name: "Usuario ficticio", event_type: "radicado_creado",
