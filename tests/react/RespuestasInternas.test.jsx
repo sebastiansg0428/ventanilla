@@ -12,9 +12,13 @@ const recepcion = { id: 1, respuesta_id: 10, dependencia_origen_id: 7, historica
   disponible_en_utc: "2026-11-05 15:00:00.000000",
   primera_apertura_utc: null, actor_nombre: null };
 const confirmada = { ...recepcion, primera_apertura_utc: "2026-11-05 15:10:00.000000", actor_nombre: "Actor ficticio", radicado_estado: "Entregado" };
+const radicadoEnviado = { numero_radicado: "RAD-INTERNO-0015", estado: "Respondido",
+  dependencia_destino: "Oficina de Planeación", tipo_recepcion: "Digital",
+  fecha_hora_recepcion: "2026-11-18 12:00:00", fecha_respuesta: "2026-11-18 15:40:00" };
 const json = datos => ({ json: async () => ({ success: true, ...datos }) });
 const lista = r => json({ registros: [r], pagina: 1, paginas: 1, total: 1,
   resumen: { total: 1, pendientes: r.primera_apertura_utc ? 0 : 1, leidas: r.primera_apertura_utc ? 1 : 0 } });
+const listaEnviados = json({ radicados: [radicadoEnviado], pagina: 1, paginas: 1, total: 1 });
 beforeAll(prepararEstilosDom);
 
 function diferida() {
@@ -36,10 +40,60 @@ beforeEach(() => {
   vi.resetAllMocks();
   URL.createObjectURL = vi.fn(() => "blob:ficticio");
   URL.revokeObjectURL = vi.fn();
-  solicitarApi.mockImplementation(ruta => Promise.resolve(ruta.includes("?") ? lista(recepcion)
-    : ruta.endsWith("/apertura") ? json({ recepcion: confirmada }) : json({ recepcion, documentos: [] })));
+  solicitarApi.mockImplementation(ruta => Promise.resolve(ruta.startsWith("/api/radicados?") ? listaEnviados
+    : ruta.includes("?") ? lista(recepcion)
+      : ruta.endsWith("/apertura") ? json({ recepcion: confirmada })
+        : json({ recepcion, documentos: [] })));
 });
 describe("respuestas internas digitales", () => {
+  it("muestra subpestañas interactivas y permite abrir la respuesta de un radicado enviado", async () => {
+    const scrollIntoView = vi.fn();
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const anteriorScroll = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<RespuestasInternas usuario={usuario} directa />);
+      await screen.findByRole("tab", { name: "Radicados enviados" });
+      const recibidas = screen.getByRole("tab", { name: "Respuestas recibidas" });
+      expect(recibidas.getAttribute("aria-selected")).toBe("true");
+      expect(recibidas.classList.contains("internas-subpestana")).toBe(true);
+      fireEvent.click(screen.getByRole("tab", { name: "Radicados enviados" }));
+      await screen.findByRole("button", { name: "Ver respuesta de Oficina de Planeación" });
+      fireEvent.click(screen.getByRole("button", { name: "Ver respuesta de Oficina de Planeación" }));
+      await screen.findByRole("article", { name: "Respuesta interna abierta" });
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center", inline: "nearest" });
+      expect(focus.mock.calls.some(([opciones]) => opciones?.preventScroll === true)).toBe(true);
+      expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-INTERNO-0015/recepcion-interna", undefined);
+      expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas/1", undefined);
+      expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(true);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = anteriorScroll;
+      focus.mockRestore();
+    }
+  });
+
+  it("identifica el filtro de respuestas internas y conserva su nombre estable", async () => {
+    render(<RespuestasInternas usuario={usuario} directa />);
+    const filtro = await screen.findByLabelText("Filtrar respuestas internas");
+    expect(filtro.id).toBe("filtro-respuestas-internas");
+    expect(filtro.getAttribute("name")).toBe("filtro_respuestas_internas");
+    expect(filtro.value).toBe("todas");
+  });
+
+  it("muestra carga mientras obtiene la recepción enviada", async () => {
+    const pendiente = diferida();
+    solicitarApi.mockImplementation(ruta => ruta.startsWith("/api/radicados?")
+      ? listaEnviados : ruta.endsWith("/recepcion-interna") ? pendiente.promise : json({ recepcion, documentos: [] }));
+    render(<RespuestasInternas usuario={usuario} directa />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Radicados enviados" }));
+    const boton = await screen.findByRole("button", { name: "Ver respuesta de Oficina de Planeación" });
+    fireEvent.click(boton);
+    expect(screen.getByRole("button", { name: "Cargando respuesta…" })).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([ruta]) => ruta.endsWith("/recepcion-interna"))).toBe(true);
+    await act(async () => pendiente.resolve(json({ recepcion })));
+    await screen.findByRole("article", { name: "Respuesta interna abierta" });
+  });
+
   it("ofrece contenido directo y comparte resumen sin registrar apertura mientras está inactiva", async () => {
     const alResumen = vi.fn();
     render(<RespuestasInternas usuario={usuario} directa activa={false} alResumen={alResumen} />);

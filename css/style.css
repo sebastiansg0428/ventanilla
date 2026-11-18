@@ -4012,6 +4012,66 @@ button.dashboard-card {
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+.internas-bandeja .internas-subpestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  border-bottom: 1px solid #dbe5ef;
+}
+.internas-bandeja .internas-subpestana {
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: transparent;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+.internas-bandeja .internas-subpestana:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  color: #1d4ed8;
+}
+.internas-bandeja .internas-subpestana:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.internas-bandeja .internas-subpestana--activa {
+  border-color: #bfdbfe;
+  border-bottom-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.internas-bandeja .internas-enviados-listado {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0;
+}
+.internas-bandeja .internas-enviado-tarjeta {
+  padding: 1rem;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #2563eb;
+  border-radius: 0.75rem;
+  background: #f8fbff;
+}
+.internas-bandeja .internas-enviado-estado {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.internas-bandeja .internas-enviado-estado--pendiente { background: #fef3c7; color: #92400e; }
+.internas-bandeja .internas-enviado-estado--respondido { background: #dbeafe; color: #1e40af; }
+.internas-bandeja .internas-enviado-estado--entregado { background: #dcfce7; color: #166534; }
+.internas-bandeja .internas-enviado-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
 .internas-bandeja .internas-filtro {
   display: grid;
   gap: 0.4rem;
@@ -4170,6 +4230,10 @@ button.dashboard-card {
   }
   .internas-bandeja .internas-filtro {
     max-width: none;
+  }
+  .internas-bandeja .internas-subpestana,
+  .internas-bandeja .internas-enviado-acciones .entregas-boton {
+    width: 100%;
   }
 }
 .respuesta-dialog .entregas-panel {

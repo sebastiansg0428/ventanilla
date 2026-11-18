@@ -1145,7 +1145,8 @@ function VistaConsultaRadicados({ usuario }) {
           </section>}
           <PanelConsulta habilitado id="respuestas" actual={pestanaConsulta}>
             <RespuestasInternas key={usuario.id} usuario={usuario} directa
-              activa={pestanaConsulta === "respuestas"} alResumen={setEstadoInternas} revisionExterna={revisionInternas} />
+              activa={pestanaConsulta === "respuestas"} alResumen={setEstadoInternas} revisionExterna={revisionInternas}
+              alVerTrazabilidad={abrirDetalle} />
           </PanelConsulta>
         </>}
         {esDependencia && <PanelConsulta habilitado id="traslados" actual={pestanaConsulta}>
