@@ -491,6 +491,22 @@ describe("consulta de radicados React", () => {
     expect(screen.getByRole("region", { name: "Listado de radicados" })).toBeTruthy();
   });
 
+  it("muestra el aviso de traslados pendientes dentro de Revisión de Ventanilla", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "ventanilla" });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.startsWith("/api/traslados?")) {
+        return respuestaJson({ success: true, traslados: [], total: 0, paginas: 0, pendientes: 2 });
+      }
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    const aviso = await screen.findByText("2 solicitudes de traslado");
+    expect(aviso.closest('[role="status"]').getAttribute("aria-live")).toBe("polite");
+    expect(screen.getByRole("heading", { name: "Revisión de Ventanilla" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gestionar traslados" })).toBeTruthy();
+  });
+
   it("carga destinos completos y confirma la solicitud remitiendo a la pestaña Traslados", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     registrosSimulados.forEach((radicado) => { radicado.dependencia_destino_id = 3; });
@@ -1100,12 +1116,19 @@ describe("consulta de radicados React", () => {
   });
 
   it("describe la oficina de traslados y apertura interna por evento y distingue el destino global", async () => {
-    Object.assign(registrosSimulados[0], { destino_todas_dependencias: 1, dependencia_destino: "Planeación" });
+    Object.assign(registrosSimulados[0], {
+      destino_todas_dependencias: 1,
+      dependencia_destino: "Planeación",
+      tipo_recepcion: "Fisico",
+    });
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation((ruta, opciones) => ruta.includes("/historial?")
       ? Promise.resolve(respuestaJson({ historial: [
         { id: 2, event_type: "respuesta_interna_abierta", actor_id: 7, actor_name: "Usuario ficticio",
-          dependencia_nombre: "Origen ficticio", ocurrido_en_utc: "2026-11-03 15:44:20.000000" },
+          actor_role: "funcionario", dependencia_nombre: "Origen ficticio",
+          ocurrido_en_utc: "2026-11-03 15:44:20.000000",
+          valor_anterior: "Respondido", valor_nuevo: "Entregado",
+          motivo: "La dependencia de origen abrió la respuesta interna y confirmó su entrega (Fisico)." },
         { id: 1, event_type: "traslado_aprobado", actor_id: 7, actor_name: "Usuario ficticio",
           dependencia_nombre: "Oficina anterior", ocurrido_en_utc: "2026-11-03 15:44:10.000000",
           valor_anterior: "Oficina anterior", valor_nuevo: "Oficina nueva" },
@@ -1113,6 +1136,16 @@ describe("consulta de radicados React", () => {
     const lista = await abrirHistorial();
     expect(lista.textContent).toContain("Oficina de origen del traslado: Oficina anterior");
     expect(lista.textContent).toContain("Dependencia de origen que abrió la respuesta: Origen ficticio");
+    const apertura = within(lista).getByRole("heading", { name: "Respuesta interna entregada" }).closest("article");
+    expect(apertura.className).toContain("timeline-evento--entrega-interna");
+    expect(apertura.textContent).toContain("La dependencia de origen abrió la respuesta interna y confirmó su entrega.");
+    expect(apertura.textContent).toContain("Canal de recepción del radicado: Físico");
+    expect(apertura.textContent).toContain("Apertura de la respuesta: registrada en la aplicación web");
+    expect(apertura.textContent).not.toContain("Canal y detalle de la apertura:");
+    expect(apertura.textContent).not.toContain("La dependencia de origen abrió la respuesta interna y confirmó su entrega (Fisico).");
+    expect(apertura.textContent).toContain("Estado del radicado: Respondido → Entregado");
+    expect(apertura.textContent).toContain("Usuario ficticio");
+    expect(apertura.textContent).toContain("Funcionario de dependencia");
     const resumen = screen.getByRole("region", { name: "Resumen del radicado" });
     expect(resumen.textContent).toContain("Destino compartido");
     expect(resumen.textContent).toContain("Cada dependencia tiene su propio estado y respuesta");

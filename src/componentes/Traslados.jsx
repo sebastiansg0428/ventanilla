@@ -14,6 +14,13 @@ const fecha = (valor) => valor
   ? new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short" })
     .format(new Date(`${valor.replace(" ", "T")}Z`))
   : "Sin decisión";
+function validarBandeja(resultado) {
+  if (!Array.isArray(resultado.traslados) || !Number.isSafeInteger(resultado.total) ||
+      !Number.isSafeInteger(resultado.paginas) || !Number.isSafeInteger(resultado.pendientes)) {
+    throw new Error("La bandeja no devolvió una respuesta válida.");
+  }
+  return resultado;
+}
 async function guardar(ruta, datos) {
   const respuesta = await solicitarApi(ruta, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos),
@@ -265,11 +272,35 @@ export function BandejaTraslados({ usuario, revision, alGuardar, directa = false
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [pendientesResumen, setPendientesResumen] = useState(null);
+  const [errorResumen, setErrorResumen] = useState("");
+  const [cargandoResumen, setCargandoResumen] = useState(!directa && usuario.rol !== "funcionario");
   const [decidiendo, setDecidiendo] = useState(false);
   const [incierta, setIncierta] = useState(null);
   const [confirmacion, setConfirmacion] = useState("");
   const catalogo = useDestinosTraslado(abierta && usuario.rol !== "funcionario",
     `${usuario.id}:${usuario.rol}:${usuario.dependencia_id}`);
+  useEffect(() => {
+    if (directa || abierta || usuario.rol === "funcionario") return;
+    let vigente = true;
+    setCargandoResumen(true);
+    setErrorResumen("");
+    (async () => {
+      try {
+        const respuesta = await solicitarApi(`/api/traslados?${new URLSearchParams({ pagina: "1", estado: "pendiente" })}`);
+        const resultado = validarBandeja(await respuesta.json());
+        if (vigente) setPendientesResumen(resultado.pendientes);
+      } catch (fallo) {
+        if (vigente) {
+          setPendientesResumen(null);
+          setErrorResumen(fallo.message);
+        }
+      } finally {
+        if (vigente) setCargandoResumen(false);
+      }
+    })();
+    return () => { vigente = false; };
+  }, [directa, abierta, recarga, revision, usuario.rol]);
   useEffect(() => {
     if (!abierta) return;
     let vigente = true;
@@ -280,13 +311,10 @@ export function BandejaTraslados({ usuario, revision, alGuardar, directa = false
     (async () => {
       try {
         const respuesta = await solicitarApi(`/api/traslados?${new URLSearchParams({ pagina: String(pagina), estado })}`);
-        const resultado = await respuesta.json();
-        if (!Array.isArray(resultado.traslados) || !Number.isSafeInteger(resultado.total) ||
-            !Number.isSafeInteger(resultado.paginas) || !Number.isSafeInteger(resultado.pendientes)) {
-          throw new Error("La bandeja no devolvió una respuesta válida.");
-        }
+        const resultado = validarBandeja(await respuesta.json());
         if (vigente) {
           setDatos(resultado);
+          setPendientesResumen(resultado.pendientes);
           if (pagina > Math.max(1, resultado.paginas)) setPagina(Math.max(1, resultado.paginas));
         }
       } catch (fallo) {
@@ -313,6 +341,22 @@ export function BandejaTraslados({ usuario, revision, alGuardar, directa = false
           {abierta ? "Ocultar traslados" : usuario.rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados"}
         </button>}
       </div>
+      {!directa && usuario.rol !== "funcionario" && !abierta && cargandoResumen && (
+        <p className="traslados-resumen-cargando" role="status" aria-live="polite">
+          Comprobando solicitudes de traslado…
+        </p>
+      )}
+      {!directa && usuario.rol !== "funcionario" && !abierta && errorResumen && (
+        <p className="traslados-resumen-error" role="alert">
+          No se pudo comprobar si hay traslados pendientes. Puedes abrir la bandeja para reintentar. {errorResumen}
+        </p>
+      )}
+      {!directa && usuario.rol !== "funcionario" && !abierta && pendientesResumen > 0 && (
+        <p className="traslados-aviso-pendientes" role="status" aria-live="polite">
+          <strong>{pendientesResumen} {pendientesResumen === 1 ? "solicitud" : "solicitudes"} de traslado</strong>
+          {pendientesResumen === 1 ? " pendiente" : " pendientes"} de revisión.
+        </p>
+      )}
       {abierta && <div id="bandeja-traslados">
         {confirmacion && <MensajeEstado tono="success">{confirmacion}</MensajeEstado>}
         <p className="traslados-nota">Se conserva el radicado y el plazo. El comprobante no da acceso al contenido posterior del expediente.</p>

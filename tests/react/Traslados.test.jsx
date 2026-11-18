@@ -289,7 +289,7 @@ describe("bandeja de traslados", () => {
     const peticion = solicitarApi.mock.calls.find(([, opciones]) => opciones);
     expect(peticion[0]).toBe("/api/traslados/1/decision");
     expect(JSON.parse(peticion[1].body)).toEqual({ decision: "aprobada", destino_id: 5, motivo: "Se cambia destino por competencia." });
-    await waitFor(() => expect(peticionesOperacion().filter(([, opciones]) => !opciones)).toHaveLength(2));
+    await waitFor(() => expect(peticionesOperacion().filter(([, opciones]) => !opciones)).toHaveLength(3));
   });
 
   it("no presenta devolución a un destino sugerido inactivo que no está seleccionado", async () => {
@@ -384,7 +384,11 @@ describe("bandeja de traslados", () => {
     render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={vi.fn()} />);
     const titulo = rol === "funcionario" ? "Solicitudes de mi dependencia de origen" : "Revisión de Ventanilla";
     expect(screen.getAllByRole("heading", { name: titulo })).toHaveLength(1);
-    expect(solicitarApi).not.toHaveBeenCalled();
+    if (rol === "funcionario") {
+      expect(solicitarApi).not.toHaveBeenCalled();
+    } else {
+      await screen.findByText("1 solicitud de traslado");
+    }
     fireEvent.click(screen.getByRole("button", { name: rol === "funcionario" ? "Mis solicitudes de traslado" : "Gestionar traslados" }));
     const tarjeta = await screen.findByRole("article", { name: "Traslado RAD-001" });
     expect(screen.getAllByRole("heading", { name: titulo })).toHaveLength(1);
@@ -407,6 +411,38 @@ describe("bandeja de traslados", () => {
       expect(screen.getByRole("button", { name: "Resolver traslado" })).toBeTruthy();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Resolver traslado" }));
     }
+  });
+
+  it.each(["ventanilla", "administrador"])("notifica a %s los traslados pendientes antes de abrir la bandeja", async (rol) => {
+    simularApi(async () => bandeja());
+    render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={vi.fn()} />);
+    const aviso = await screen.findByText("1 solicitud de traslado");
+    expect(aviso.closest('[role="status"]').getAttribute("aria-live")).toBe("polite");
+    expect(screen.getByRole("button", { name: "Gestionar traslados" })).toBeTruthy();
+    expect(peticionesOperacion()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await screen.findByRole("article", { name: "Traslado RAD-001" });
+    expect(peticionesOperacion()).toHaveLength(2);
+  });
+
+  it("no muestra aviso cuando no existen solicitudes pendientes", async () => {
+    simularApi(async () => bandeja([]));
+    render(<BandejaTraslados usuario={{ rol: "ventanilla" }} revision={0} alGuardar={vi.fn()} />);
+    await waitFor(() => expect(peticionesOperacion()).toHaveLength(1));
+    expect(screen.queryByText(/solicitud(?:es)? de traslado.*pendiente/)).toBeNull();
+  });
+
+  it("mantiene disponible la bandeja si falla el resumen previo", async () => {
+    let consultas = 0;
+    simularApi(async (ruta) => {
+      if (ruta.startsWith("/api/traslados?") && ++consultas === 1) throw new Error("Resumen no disponible");
+      return bandeja([]);
+    });
+    render(<BandejaTraslados usuario={{ rol: "administrador" }} revision={0} alGuardar={vi.fn()} />);
+    expect((await screen.findByRole("alert")).textContent).toContain("Resumen no disponible");
+    fireEvent.click(screen.getByRole("button", { name: "Gestionar traslados" }));
+    await screen.findByText("Sin traslados pendientes");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it.each([

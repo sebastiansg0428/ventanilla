@@ -1984,6 +1984,32 @@ button.dashboard-card {
   color: #475569;
   font-size: 0.85rem;
 }
+.traslados-panel .traslados-aviso-pendientes,
+.traslados-panel .traslados-resumen-cargando,
+.traslados-panel .traslados-resumen-error {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  line-height: 1.45;
+}
+.traslados-panel .traslados-aviso-pendientes {
+  border-left: 4px solid #f59e0b;
+  background: #fffbeb;
+  color: #78350f;
+}
+.traslados-panel .traslados-aviso-pendientes strong {
+  color: #92400e;
+}
+.traslados-panel .traslados-resumen-cargando {
+  border-left: 3px solid #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+}
+.traslados-panel .traslados-resumen-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
 .traslados-panel .traslados-controles {
   display: flex;
   align-items: flex-end;
@@ -3580,7 +3606,8 @@ button.dashboard-card {
   line-height: 1.45;
 }
 #modal-detalle .timeline-evento--entrega-final,
-#modal-detalle .timeline-evento--entrega-anulada {
+#modal-detalle .timeline-evento--entrega-anulada,
+#modal-detalle .timeline-evento--entrega-interna {
   padding: 0.75rem;
   border-left-width: 4px;
   border-radius: 0.4rem;
@@ -3589,11 +3616,18 @@ button.dashboard-card {
   border-left-color: #16a34a;
   background: #f0fdf4;
 }
+#modal-detalle .timeline-evento--entrega-interna {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
 #modal-detalle .timeline-evento--entrega-anulada {
   border-left-color: #d97706;
   background: #fffbeb;
 }
 #modal-detalle .timeline-evento--entrega-final h4 {
+  color: #166534;
+}
+#modal-detalle .timeline-evento--entrega-interna h4 {
   color: #166534;
 }
 #modal-detalle .timeline-evento--entrega-anulada h4 {
@@ -3609,7 +3643,8 @@ button.dashboard-card {
   background: rgba(255, 255, 255, 0.72);
 }
 #modal-detalle .timeline-evento--entrega-final .timeline-cambio,
-#modal-detalle .timeline-evento--entrega-anulada .timeline-cambio {
+#modal-detalle .timeline-evento--entrega-anulada .timeline-cambio,
+#modal-detalle .timeline-evento--entrega-interna .timeline-cambio {
   display: inline-block;
   padding: 0.35rem 0.55rem;
   border-radius: 999px;

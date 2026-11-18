@@ -70,7 +70,7 @@ const ETIQUETAS_EVENTO = {
   entrega_acreditada: "Entrega final acreditada",
   entrega_anulada: "Entrega final anulada",
   entrega_estado_restaurado: "Entrega final anulada",
-  respuesta_interna_abierta: "Primera apertura de respuesta interna",
+  respuesta_interna_abierta: "Respuesta interna entregada",
 };
 const DESCRIPCIONES_EVENTO = {
   radicado_creado: "Se registró el ingreso del documento al sistema.",
@@ -97,7 +97,7 @@ const DESCRIPCIONES_EVENTO = {
   entrega_estado_restaurado:
     "El estado del radicado volvió a Respondido porque la entrega final fue anulada.",
   respuesta_interna_abierta:
-    "Un funcionario de la dependencia de origen abrió la respuesta interna en el sistema.",
+    "La dependencia de origen abrió la respuesta interna y confirmó su entrega.",
 };
 function presentarFechaEvento(evento) {
   if (evento.ocurrido_en_utc) {
@@ -176,6 +176,12 @@ function presentarMinutoEvento(evento) {
 }
 const claseEstadoDetalle = (estado) =>
   normalizarTexto(estado || "Recibido").replace(/[^a-z0-9]+/g, "-");
+const presentarTipoRecepcion = (tipo) => {
+  const valor = normalizarTexto(tipo);
+  if (valor === "fisico") return "Físico";
+  if (valor === "digital") return "Digital";
+  return "No registrado";
+};
 function minutoEvento(evento) {
   // El minuto UTC coincide con el de Bogotá porque su desfase es de horas completas.
   const valor = evento.ocurrido_en_utc || evento.creado_en;
@@ -1991,7 +1997,7 @@ function VistaConsultaRadicados({ usuario }) {
                             <ul className="timeline-subeventos">
                               {unificarEventosEntrega(grupo).map((evento) => (
                                 <li key={evento.id}>
-                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}`}>
+                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}${evento.event_type === "respuesta_interna_abierta" ? " timeline-evento--entrega-interna" : ""}`}>
                                     <h4>
                                       {ETIQUETAS_EVENTO[evento.event_type] ||
                                         (evento.campo_modificado === "estado"
@@ -2017,6 +2023,12 @@ function VistaConsultaRadicados({ usuario }) {
                                         {evento.dependencia_nombre || "No registrada en este evento"}
                                       </p>
                                     )}
+                                    {evento.event_type === "respuesta_interna_abierta" && evento.actor_role && (
+                                      <p className="timeline-dato timeline-responsable-entrega">
+                                        <strong>Responsable de la apertura: </strong>
+                                        {nombreActor(evento)} · {ETIQUETAS_ROL[evento.actor_role] || evento.actor_role}
+                                      </p>
+                                    )}
                                     {evento.event_type ===
                                       "regla_respuesta_aplicada" && (
                                       <p className="timeline-automatico">
@@ -2026,7 +2038,9 @@ function VistaConsultaRadicados({ usuario }) {
                                       </p>
                                     )}
                                     <p className="timeline-descripcion">
-                                      {evento.event_type === "entrega_acreditada" && evento.entrega_unificada
+                                      {evento.event_type === "respuesta_interna_abierta"
+                                        ? DESCRIPCIONES_EVENTO.respuesta_interna_abierta
+                                        : evento.event_type === "entrega_acreditada" && evento.entrega_unificada
                                         ? DESCRIPCIONES_EVENTO.entrega_acreditada
                                         : evento.event_type === "entrega_estado_restaurado" && evento.entrega_unificada
                                           ? DESCRIPCIONES_EVENTO.entrega_anulada
@@ -2036,6 +2050,18 @@ function VistaConsultaRadicados({ usuario }) {
                                         ] ||
                                         "Registro conservado del historial del expediente."}
                                     </p>
+                                    {evento.event_type === "respuesta_interna_abierta" && (
+                                      <>
+                                        <p className="timeline-dato">
+                                          <strong>Canal de recepción del radicado: </strong>
+                                          {presentarTipoRecepcion(radicadoSeleccionado.tipo_recepcion)}
+                                        </p>
+                                        <p className="timeline-dato">
+                                          <strong>Apertura de la respuesta: </strong>
+                                          registrada en la aplicación web
+                                        </p>
+                                      </>
+                                    )}
                                     {evento.motivo_actuacion_entrega && (
                                       <p className="timeline-detalle-entrega">
                                         <strong>Actuación registrada: </strong>
@@ -2047,13 +2073,14 @@ function VistaConsultaRadicados({ usuario }) {
                                         "respuesta_enviada" ||
                                       evento.event_type === "entrega_acreditada" ||
                                       evento.event_type === "entrega_estado_restaurado" ||
+                                      evento.event_type === "respuesta_interna_abierta" ||
                                       evento.campo_modificado === "estado") &&
-                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado") &&
-                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado") && (
+                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta") &&
+                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta") && (
                                         <p className="timeline-cambio">
                                           <strong>Estado del radicado: </strong>
-                                          {evento.valor_anterior || (evento.event_type === "entrega_acreditada" ? "Respondido" : "Entregado")} →{" "}
-                                          {evento.valor_nuevo || (evento.event_type === "entrega_acreditada" ? "Entregado" : "Respondido")}
+                                          {evento.valor_anterior || (evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Respondido" : "Entregado")} →{" "}
+                                          {evento.valor_nuevo || (evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Entregado" : "Respondido")}
                                         </p>
                                       )}
                                     {evento.event_type ===
