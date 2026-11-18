@@ -422,7 +422,7 @@ function GestionCatalogos({ usuario }) {
   return (
     <div className="app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="catalogos" />
-      <main className="users-management-main">
+      <main id="contenido-principal" className="users-management-main">
         <section className="auth-card users-management-card">
           <div className="auth-heading catalog-header">
             <div className="catalog-header__meta">

@@ -459,7 +459,7 @@ function GestionUsuarios({ usuario }) {
   return (
     <div className="app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="usuarios" />
-      <main className="users-management-main users-layout">
+      <main id="contenido-principal" className="users-management-main users-layout">
         <header className="auth-heading users-page-heading">
           <p className="auth-eyebrow">Administración de acceso</p>
           <h1 id="register-title">Gestión de usuarios</h1>

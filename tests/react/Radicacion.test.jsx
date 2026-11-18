@@ -40,6 +40,7 @@ async function abrirRadicacion() {
   render(<PaginaRadicacion />);
   await screen.findByText("Solicitud general", { selector: "option" });
   await screen.findByText("Secretaría de Gobierno", { selector: "option" });
+  expect(screen.getByRole("main").id).toBe("contenido-principal");
   expect(screen.getByLabelText(/funcionario \/ quién registra/i).value).toBe(usuario.nombre);
 }
 

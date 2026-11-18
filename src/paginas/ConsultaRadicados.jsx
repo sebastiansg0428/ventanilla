@@ -1110,9 +1110,9 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   return (
-    <div className={`page-consult app-page${esDependencia ? " consulta-dependencia" : ""}`}>
+    <div className={`page-consult app-page ${esDependencia ? "consulta-dependencia" : "consulta-ventanilla"}`}>
       <EncabezadoAplicacion usuario={usuario} pantallaActual="consultar" />
-      <main className="consult-main">
+      <main id="contenido-principal" className="consult-main">
         {esDependencia && <>
           <header className="consulta-intro">
             <p className="consulta-antetitulo">Gestión documental · {usuario.dependencia_nombre || "Mi dependencia"}</p>
@@ -1155,6 +1155,11 @@ function VistaConsultaRadicados({ usuario }) {
             directa={esDependencia} activa={pestanaConsulta === "traslados"}
           />
         </PanelConsulta>}
+        {!esDependencia && <header className="consulta-intro consulta-intro--operativa">
+          <p className="consulta-antetitulo">Gestión documental · Ventanilla Única</p>
+          <h1>Consultar radicados</h1>
+          <p>Recibe documentos, organiza la bandeja y da seguimiento a cada actuación.</p>
+        </header>}
         <PanelConsulta habilitado={esDependencia} id="radicados" actual={pestanaConsulta}>
         <div className="consult-heading">
           {esDependencia ? <h2>Listado de documentos recibidos</h2> : <h1>Listado de documentos recibidos</h1>}
@@ -1270,7 +1275,7 @@ function VistaConsultaRadicados({ usuario }) {
             </div>
             <p>Combina una búsqueda con el tipo de comunicación para encontrar un radicado.</p>
           </div>
-          {esDependencia && <label htmlFor="busqueda-radicados">Buscar radicados</label>}
+          <label htmlFor="busqueda-radicados">Buscar radicados</label>
           <input
             id="busqueda-radicados"
             name="busqueda_radicados"

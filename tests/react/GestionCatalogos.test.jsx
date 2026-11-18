@@ -130,6 +130,7 @@ describe("gestión de catálogos React", () => {
     render(<PaginaGestionCatalogos />);
     const etiquetas = (fila) => Array.from(fila.querySelectorAll(".tarjeta-etiqueta"), (nodo) => nodo.textContent);
     const dependenciaFila = (await screen.findByRole("cell", { name: "Planeación" })).closest("tr");
+    expect(screen.getByRole("main").id).toBe("contenido-principal");
     expect(etiquetas(dependenciaFila)).toEqual(["Nombre", "Estado", "Acciones"]);
     expect(within(dependenciaFila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: "Tipos de trámite" }));

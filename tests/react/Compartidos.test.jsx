@@ -23,6 +23,8 @@ it.each([
   expect(escudo.closest("header")).toBe(screen.getByRole("banner"));
   expect(screen.getByRole("heading", { name: "Alcaldía Municipal" })).toBeTruthy();
   expect(screen.getByText("María del Carmen Apellidos de prueba")).toBeTruthy();
+  const salto = screen.getByRole("link", { name: "Saltar al contenido principal" });
+  expect(salto.getAttribute("href")).toBe("#contenido-principal");
   expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
   expect(screen.queryByRole("link", { name: "Radicar documento" }) !== null).toBe(rol !== "funcionario");
   expect(screen.queryByRole("link", { name: "Gestión de usuarios" }) !== null).toBe(rol === "administrador");

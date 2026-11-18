@@ -402,6 +402,7 @@ describe("consulta de radicados React", () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3, dependencia_nombre: "Talento Humano" });
     await abrirConsulta();
     expect(screen.getByRole("heading", { name: "Consultar radicados", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("main").id).toBe("contenido-principal");
     expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
@@ -480,9 +481,14 @@ describe("consulta de radicados React", () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol });
     await abrirConsulta();
     expect(screen.queryByRole("tablist", { name: "Secciones de consulta" })).toBeNull();
+    expect(screen.getByText("Gestión documental · Ventanilla Única")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Consultar radicados", level: 1 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Listado de documentos recibidos", level: 1 })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Gestionar traslados" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Registrar nuevo radicado/ })).toBeTruthy();
+    expect(screen.getByLabelText("Buscar radicados")).toBeTruthy();
+    expect(screen.getByLabelText("Tipo de comunicación")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Listado de radicados" })).toBeTruthy();
   });
 
   it("carga destinos completos y confirma la solicitud remitiendo a la pestaña Traslados", async () => {

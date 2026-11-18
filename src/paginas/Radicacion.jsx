@@ -282,7 +282,7 @@ function FormularioRadicacion({ usuario }) {
   return (
     <div className="page-register app-page">
       <EncabezadoAplicacion usuario={usuario} pantallaActual="radicar" />
-      <main className="radicar-main">
+      <main id="contenido-principal" className="radicar-main">
         <section className="radicar-card">
           <div className="radicar-titulo">
             <div>

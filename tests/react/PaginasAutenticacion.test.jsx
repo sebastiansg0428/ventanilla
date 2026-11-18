@@ -198,6 +198,7 @@ describe("gestión de usuarios React", () => {
   it("separa el encabezado, la tarjeta del formulario y el listado sin duplicar campos", async () => {
     render(<PaginaRegistroUsuarios />);
     await screen.findByText("Ana Perez");
+    expect(screen.getByRole("main").id).toBe("contenido-principal");
     const formulario = screen.getByRole("region", { name: "Registrar usuario" });
     const listado = screen.getByRole("region", { name: "Usuarios registrados en el sistema" });
     expect(formulario.parentElement).toBe(listado.parentElement);

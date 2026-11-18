@@ -96,23 +96,28 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
 
   return (
     <>
+      <a className="skip-link" href="#contenido-principal">
+        Saltar al contenido principal
+      </a>
       <header className="app-header">
-        <div className="app-header__identidad">
-          <img
-            className="app-header__escudo"
-            src={`${import.meta.env.BASE_URL}img/escudo-miranda.png`}
-            alt="Escudo del municipio de Miranda"
-            width="350"
-            height="355"
-          />
-          <div className="app-header__texto">
-            <h1>Alcaldía Municipal</h1>
-            <p>Sistema de Gestión Documental y Ventanilla Única</p>
+        <div className="app-shell-container app-header__inner">
+          <div className="app-header__identidad">
+            <img
+              className="app-header__escudo"
+              src={`${import.meta.env.BASE_URL}img/escudo-miranda.png`}
+              alt="Escudo del municipio de Miranda"
+              width="350"
+              height="355"
+            />
+            <div className="app-header__texto">
+              <h1>Alcaldía Municipal</h1>
+              <p>Sistema de Gestión Documental y Ventanilla Única</p>
+            </div>
           </div>
+          <span className="app-session" aria-label={`Sesión activa de ${usuario.nombre}`}>
+            Sesión: <strong>{usuario.nombre}</strong>
+          </span>
         </div>
-        <span>
-          Sesión: <strong>{usuario.nombre}</strong>
-        </span>
       </header>
       <nav
         className="app-nav"
@@ -125,54 +130,56 @@ export function EncabezadoAplicacion({ usuario, pantallaActual = "radicar" }) {
           }
         }}
       >
-        <button
-          ref={botonMenu}
-          type="button"
-          className="app-nav-toggle"
-          aria-expanded={menuAbierto}
-          aria-controls="navegacion-enlaces"
-          onClick={() => setMenuAbierto((abierto) => !abierto)}
-        >
-          {menuAbierto ? "Cerrar menú" : "Abrir menú"}
-        </button>
-        <div
-          id="navegacion-enlaces"
-          className="app-nav-links"
-          data-abierto={menuAbierto}
-        >
-        {usuario.rol !== "funcionario" && (
-          <a
-            aria-current={pantallaActual === "radicar" ? "page" : undefined}
-            href="index.html"
+        <div className="app-shell-container app-nav__inner">
+          <button
+            ref={botonMenu}
+            type="button"
+            className="app-nav-toggle"
+            aria-expanded={menuAbierto}
+            aria-controls="navegacion-enlaces"
+            onClick={() => setMenuAbierto((abierto) => !abierto)}
           >
-            Radicar documento
+            {menuAbierto ? "Cerrar menú" : "Abrir menú"}
+          </button>
+          <div
+            id="navegacion-enlaces"
+            className="app-nav-links"
+            data-abierto={menuAbierto}
+          >
+          {usuario.rol !== "funcionario" && (
+            <a
+              aria-current={pantallaActual === "radicar" ? "page" : undefined}
+              href="index.html"
+            >
+              Radicar documento
+            </a>
+          )}
+          <a
+            aria-current={pantallaActual === "consultar" ? "page" : undefined}
+            href="consultar.html"
+          >
+            Consultar radicados
           </a>
-        )}
-        <a
-          aria-current={pantallaActual === "consultar" ? "page" : undefined}
-          href="consultar.html"
-        >
-          Consultar radicados
-        </a>
-        {usuario.rol === "administrador" && (
-          <>
-            <a
-              aria-current={pantallaActual === "usuarios" ? "page" : undefined}
-              href="registro_usuario.html"
-            >
-              Gestión de usuarios
-            </a>
-            <a
-              aria-current={pantallaActual === "catalogos" ? "page" : undefined}
-              href="catalogos.html"
-            >
-              Gestión de catálogos
-            </a>
-          </>
-        )}
-        <button type="button" onClick={cerrarSesion}>
-          Cerrar sesión
-        </button>
+          {usuario.rol === "administrador" && (
+            <>
+              <a
+                aria-current={pantallaActual === "usuarios" ? "page" : undefined}
+                href="registro_usuario.html"
+              >
+                Gestión de usuarios
+              </a>
+              <a
+                aria-current={pantallaActual === "catalogos" ? "page" : undefined}
+                href="catalogos.html"
+              >
+                Gestión de catálogos
+              </a>
+            </>
+          )}
+          <button type="button" onClick={cerrarSesion}>
+            Cerrar sesión
+          </button>
+          </div>
         </div>
       </nav>
     </>
@@ -183,7 +190,9 @@ export function CeldaAdaptable({ etiqueta, children }) {
   return (
     <td role="cell">
       <span className="tarjeta-etiqueta" aria-hidden="true">{etiqueta}</span>
-      <div className="tarjeta-valor">{children}</div>
+      <div className="tarjeta-valor">
+        {children}
+      </div>
     </td>
   );
 }
