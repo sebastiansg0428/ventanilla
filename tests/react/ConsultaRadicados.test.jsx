@@ -2075,6 +2075,106 @@ describe("consulta de radicados React", () => {
     expect(within(fila).queryByRole("button", { name: "Ver respuesta" })).toBeNull();
   });
 
+  it.each(["funcionario", "ventanilla"])("limita los estados de un informativo para %s", async rol => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], {
+      requiere_respuesta: 0,
+      estado: "Recibido",
+      semaforo: { nivel: "sin_respuesta", texto: "No requiere respuesta" },
+    });
+    confirmarSesion.mockResolvedValue({ ...usuario, rol, dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? paginaRadicados(filas, ruta) : base(ruta, opciones));
+    await abrirConsulta();
+    const selector = screen.getByLabelText("Estado de RAD-001");
+    expect(Array.from(selector.options).map(opcion => opcion.value)).toEqual(["Recibido", "Enterado"]);
+    expect(selector.disabled).toBe(rol === "ventanilla");
+  });
+
+  it.each(["En trámite", "Pendiente"])("conserva el estado histórico %s de un informativo sin permitir seleccionarlo", async estadoHistorico => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], { requiere_respuesta: 0, estado: estadoHistorico });
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones) => ruta.startsWith("/api/radicados?")
+      ? paginaRadicados(filas, ruta) : base(ruta, opciones));
+    await abrirConsulta();
+    const selector = screen.getByLabelText("Estado de RAD-001");
+    expect(Array.from(selector.options).map(opcion => opcion.value)).toEqual(["Enterado", estadoHistorico]);
+    expect(within(selector).getByRole("option", { name: estadoHistorico }).disabled).toBe(true);
+  });
+
+  it("marca Enterado al abrir correctamente el primer PDF y actualiza la trazabilidad", async () => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], {
+      requiere_respuesta: 0,
+      estado: "Recibido",
+      semaforo: { nivel: "sin_respuesta", texto: "No requiere respuesta" },
+    });
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    let historial = [];
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(filas, ruta);
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "informativo.pdf", ruta_archivo: "informativo.pdf" },
+      ] });
+      if (ruta === "/uploads/informativo.pdf") return { blob: async () => new Blob(["PDF"]) };
+      if (ruta.endsWith("/estado") && opciones.method === "PUT") {
+        expect(JSON.parse(opciones.body)).toEqual({ estado: "Enterado", radicado_dependencia_id: null });
+        Object.assign(filas[0], { estado: "Enterado", semaforo: { nivel: "completado", texto: "Enterado" } });
+        historial = [{ id: 10, event_type: "estado_cambiado", actor_name: "Planeación", actor_role: "funcionario",
+          dependencia_nombre: "Planeación", valor_anterior: "Recibido", valor_nuevo: "Enterado",
+          ocurrido_en_utc: "2026-11-18 15:00:00.000000" }];
+        return respuestaJson({ success: true, estado: "Enterado", fecha_enterado: "2026-11-18 10:00:00",
+          semaforo: { nivel: "completado", texto: "Enterado" } });
+      }
+      if (ruta.includes("/historial?")) return respuestaJson({ success: true, historial, has_more: false });
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:informativo");
+    await abrirConsulta();
+    prepararDialogos();
+    const fila = screen.getByText("RAD-001", { selector: "button" });
+    fireEvent.click(fila);
+    const modal = document.querySelector("#modal-detalle");
+    await within(modal).findByText("Ver informativo.pdf");
+    fireEvent.click(within(modal).getByText("Ver informativo.pdf"));
+    const evento = await within(modal).findByRole("heading", { name: "Trámite informativo enterado" });
+    expect(evento.closest("article").className).toContain("timeline-evento--informativo-finalizado");
+    expect(within(modal).getByText("La dependencia destinataria abrió el documento y confirmó que quedó enterada.")).toBeTruthy();
+    expect(modal.textContent).toContain("Estado del radicado: Recibido → Enterado");
+    await waitFor(() => expect(screen.getByText("RAD-001", { selector: "button" }).closest("tr").textContent).toContain("Enterado"));
+    expect(solicitarApi.mock.calls.filter(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toHaveLength(1);
+    fireEvent.click(within(modal).getByText("Ver informativo.pdf"));
+    await Promise.resolve();
+    expect(solicitarApi.mock.calls.filter(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toHaveLength(1);
+  });
+
+  it("no marca Enterado si falla la carga del PDF informativo", async () => {
+    const filas = crearRadicados();
+    Object.assign(filas[0], { requiere_respuesta: 0, estado: "Recibido" });
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(filas, ruta);
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "informativo.pdf", ruta_archivo: "informativo.pdf" },
+      ] });
+      if (ruta === "/uploads/informativo.pdf") throw new Error("PDF no disponible");
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByText("RAD-001", { selector: "button" }));
+    const modal = document.querySelector("#modal-detalle");
+    await within(modal).findByText("Ver informativo.pdf");
+    fireEvent.click(within(modal).getByText("Ver informativo.pdf"));
+    await within(modal).findByText(/No se pudo abrir el documento/);
+    expect(solicitarApi.mock.calls.some(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toBe(false);
+  });
+
   it("mantiene Respondido final y no ofrece cierre Enterado para una solicitud", async () => {
     const filas = crearRadicados();
     filas[1].estado = "Respondido";

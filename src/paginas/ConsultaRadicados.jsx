@@ -31,6 +31,22 @@ const requiereRespuesta = (radicado) =>
   radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
 const esFinal = (radicado) =>
   ["Respondido", "Entregado", "Enterado"].includes(radicado.estado);
+const estadosParaRadicado = (radicado, rol) => {
+  const restringirInformativo =
+    ["funcionario", "ventanilla"].includes(rol) && !requiereRespuesta(radicado);
+  const estadosBase = restringirInformativo ? ["Recibido"] : ESTADOS_POSIBLES;
+  const estadoActual = radicado.estado || "Recibido";
+  return [
+    ...estadosBase.filter(
+      (estado) =>
+        estado !== "Recibido" || normalizarTexto(estadoActual) === "recibido",
+    ),
+    ...(!requiereRespuesta(radicado) ? ["Enterado"] : []),
+    ...(![...estadosBase, "Enterado"].includes(estadoActual)
+      ? [estadoActual]
+      : []),
+  ];
+};
 const claveEstado = (radicado) =>
   `${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`;
 const normalizarTexto = (valor) =>
@@ -39,6 +55,10 @@ const normalizarTexto = (valor) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+const esCierreInformativo = (evento, radicado) =>
+  evento.event_type === "estado_cambiado" &&
+  normalizarTexto(evento.valor_nuevo) === "enterado" &&
+  !requiereRespuesta(radicado);
 const convertirFechaLocal = (valor) => {
   const fecha = new Date(String(valor || "").replace(" ", "T"));
   return Number.isNaN(fecha.getTime()) ? null : fecha;
@@ -284,6 +304,7 @@ function VistaConsultaRadicados({ usuario }) {
   const [guardandoEstados, setGuardandoEstados] = useState({});
   const [erroresEstado, setErroresEstado] = useState({});
   const estadosEnProceso = useRef(new Set());
+  const cierresInformativosEnProceso = useRef(new Set());
   const [dependenciaAlertas, setDependenciaAlertas] = useState("");
   const [resumenAlertas, setResumenAlertas] = useState({
     porVencer: [],
@@ -921,6 +942,7 @@ function VistaConsultaRadicados({ usuario }) {
           estado: `Vista previa: ${documento.nombre_archivo}`,
         };
       });
+      await confirmarEnteradoInformativo(radicadoSeleccionado || {});
     } catch (error) {
       if (solicitud !== solicitudDocumento.current) return;
       if (retirarVistasSinAcceso(error)) return;
@@ -934,6 +956,67 @@ function VistaConsultaRadicados({ usuario }) {
   function estadoBloqueadoPorTraslado(radicado) {
     return usuario.rol === "funcionario" &&
       !radicado.destino_todas_dependencias && radicado.traslado_pendiente;
+  }
+
+  function actualizarRadicadoEnVista(radicado, cambios) {
+    const coincide = (fila) =>
+      radicado.radicado_dependencia_id
+        ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
+        : fila.numero_radicado === radicado.numero_radicado;
+    setRadicados((actual) =>
+      actual.map((fila) => (coincide(fila) ? { ...fila, ...cambios } : fila)),
+    );
+    setRadicadoSeleccionado((actual) =>
+      actual && coincide(actual) ? { ...actual, ...cambios } : actual,
+    );
+  }
+
+  async function confirmarEnteradoInformativo(radicado) {
+    if (usuario.rol !== "funcionario" || requiereRespuesta(radicado) || esFinal(radicado)) return;
+    const clave = claveEstado(radicado);
+    if (cierresInformativosEnProceso.current.has(clave)) return;
+    cierresInformativosEnProceso.current.add(clave);
+    try {
+      const respuesta = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/estado`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            estado: "Enterado",
+            radicado_dependencia_id: radicado.radicado_dependencia_id || null,
+          }),
+        },
+      );
+      const resultado = await respuesta.json();
+      if (resultado.estado !== "Enterado") {
+        throw new Error("El servidor no confirmó el estado Enterado.");
+      }
+      const cambios = {
+        estado: resultado.estado,
+        semaforo: resultado.semaforo,
+        fecha_enterado: resultado.fecha_enterado,
+      };
+      actualizarRadicadoEnVista(radicado, cambios);
+      setArchivoAdjunto((actual) => ({
+        ...actual,
+        estado: `${actual.estado} El radicado quedó Enterado.`,
+      }));
+      setRevisionConsulta((valor) => valor + 1);
+      const solicitud = ++solicitudHistorial.current;
+      setHistorial((actual) => ({ ...actual, eventos: [], cargando: true, error: "" }));
+      cargarHistorial({ ...radicado, ...cambios }, solicitud, null, false);
+    } catch (error) {
+      cierresInformativosEnProceso.current.delete(clave);
+      if (error.status === 409) {
+        setRevisionConsulta((valor) => valor + 1);
+        return;
+      }
+      setArchivoAdjunto((actual) => ({
+        ...actual,
+        estado: `${actual.estado} No se pudo confirmar Enterado. ${error.message}`,
+      }));
+    }
   }
 
   async function cambiarEstado(radicado, nuevoEstado) {
@@ -950,17 +1033,7 @@ function VistaConsultaRadicados({ usuario }) {
     setGuardandoEstados((actual) => ({ ...actual, [clave]: true }));
     setErroresEstado((actual) => ({ ...actual, [clave]: "" }));
     const estadoAnterior = radicado.estado || "Recibido";
-    setRadicados((actual) =>
-      actual.map((fila) =>
-        (
-          radicado.radicado_dependencia_id
-            ? fila.radicado_dependencia_id === radicado.radicado_dependencia_id
-            : fila.numero_radicado === radicado.numero_radicado
-        )
-          ? { ...fila, estado: nuevoEstado }
-          : fila,
-      ),
-    );
+    actualizarRadicadoEnVista(radicado, { estado: nuevoEstado });
     try {
       const respuesta = await solicitarApi(
         `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/estado`,
@@ -976,38 +1049,15 @@ function VistaConsultaRadicados({ usuario }) {
       const resultado = await respuesta.json();
       if (resultado.success === false || !resultado.estado)
         throw new Error(resultado.message || "No se pudo guardar el estado.");
-      setRadicados((actual) =>
-        actual.map((fila) =>
-          (
-            radicado.radicado_dependencia_id
-              ? fila.radicado_dependencia_id ===
-                radicado.radicado_dependencia_id
-              : fila.numero_radicado === radicado.numero_radicado
-          )
-            ? {
-                ...fila,
-                estado: resultado.estado,
-                semaforo: resultado.semaforo,
-                fecha_enterado: resultado.fecha_enterado,
-              }
-            : fila,
-        ),
-      );
+      actualizarRadicadoEnVista(radicado, {
+        estado: resultado.estado,
+        semaforo: resultado.semaforo,
+        fecha_enterado: resultado.fecha_enterado,
+      });
       setRevisionConsulta((valor) => valor + 1);
     } catch (error) {
       if (retirarVistasSinAcceso(error)) return;
-      setRadicados((actual) =>
-        actual.map((fila) =>
-          (
-            radicado.radicado_dependencia_id
-              ? fila.radicado_dependencia_id ===
-                radicado.radicado_dependencia_id
-              : fila.numero_radicado === radicado.numero_radicado
-          )
-            ? { ...fila, estado: estadoAnterior }
-            : fila,
-        ),
-      );
+      actualizarRadicadoEnVista(radicado, { estado: estadoAnterior });
       window.alert(error.message);
       setErroresEstado((actual) => ({ ...actual, [clave]: error.message }));
       if (error.status === 409) setRevisionConsulta((valor) => valor + 1);
@@ -1470,26 +1520,15 @@ function VistaConsultaRadicados({ usuario }) {
                               cambiarEstado(radicado, evento.target.value)
                             }
                           >
-                            {[
-                              ...ESTADOS_POSIBLES.filter(
-                                (estado) =>
-                                  estado !== "Recibido" ||
-                                  normalizarTexto(radicado.estado || "Recibido") === "recibido",
-                              ),
-                              ...(!requiereRespuesta(radicado)
-                                ? ["Enterado"]
-                                : []),
-                              ...(![...ESTADOS_POSIBLES, "Enterado"].includes(
-                                radicado.estado || "Recibido",
-                              )
-                                ? [radicado.estado]
-                                : []),
-                            ].map((estadoPosible) => (
+                            {estadosParaRadicado(radicado, usuario.rol).map((estadoPosible) => (
                               <option
                                 key={estadoPosible}
                                 disabled={
                                   !ESTADOS_POSIBLES.includes(estadoPosible) &&
-                                  estadoPosible !== "Enterado"
+                                  estadoPosible !== "Enterado" ||
+                                  (["funcionario", "ventanilla"].includes(usuario.rol) &&
+                                    !requiereRespuesta(radicado) &&
+                                    !["Recibido", "Enterado"].includes(estadoPosible))
                                 }
                               >
                                 {estadoPosible}
@@ -1997,9 +2036,11 @@ function VistaConsultaRadicados({ usuario }) {
                             <ul className="timeline-subeventos">
                               {unificarEventosEntrega(grupo).map((evento) => (
                                 <li key={evento.id}>
-                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}${evento.event_type === "respuesta_interna_abierta" ? " timeline-evento--entrega-interna" : ""}`}>
+                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}${evento.event_type === "respuesta_interna_abierta" ? " timeline-evento--entrega-interna" : ""}${esCierreInformativo(evento, radicadoSeleccionado) ? " timeline-evento--informativo-finalizado" : ""}`}>
                                     <h4>
-                                      {ETIQUETAS_EVENTO[evento.event_type] ||
+                                      {esCierreInformativo(evento, radicadoSeleccionado)
+                                        ? "Trámite informativo enterado"
+                                        : ETIQUETAS_EVENTO[evento.event_type] ||
                                         (evento.campo_modificado === "estado"
                                           ? "Cambio de estado histórico"
                                           : "Evento histórico")}
@@ -2038,7 +2079,9 @@ function VistaConsultaRadicados({ usuario }) {
                                       </p>
                                     )}
                                     <p className="timeline-descripcion">
-                                      {evento.event_type === "respuesta_interna_abierta"
+                                      {esCierreInformativo(evento, radicadoSeleccionado)
+                                        ? "La dependencia destinataria abrió el documento y confirmó que quedó enterada."
+                                        : evento.event_type === "respuesta_interna_abierta"
                                         ? DESCRIPCIONES_EVENTO.respuesta_interna_abierta
                                         : evento.event_type === "entrega_acreditada" && evento.entrega_unificada
                                         ? DESCRIPCIONES_EVENTO.entrega_acreditada
@@ -2075,12 +2118,12 @@ function VistaConsultaRadicados({ usuario }) {
                                       evento.event_type === "entrega_estado_restaurado" ||
                                       evento.event_type === "respuesta_interna_abierta" ||
                                       evento.campo_modificado === "estado") &&
-                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta") &&
-                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta") && (
+                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta" || esCierreInformativo(evento, radicadoSeleccionado)) &&
+                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta" || esCierreInformativo(evento, radicadoSeleccionado)) && (
                                         <p className="timeline-cambio">
                                           <strong>Estado del radicado: </strong>
-                                          {evento.valor_anterior || (evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Respondido" : "Entregado")} →{" "}
-                                          {evento.valor_nuevo || (evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Entregado" : "Respondido")}
+                                          {evento.valor_anterior || (esCierreInformativo(evento, radicadoSeleccionado) ? "Recibido" : evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Respondido" : "Entregado")} →{" "}
+                                          {evento.valor_nuevo || (esCierreInformativo(evento, radicadoSeleccionado) ? "Enterado" : evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Entregado" : "Respondido")}
                                         </p>
                                       )}
                                     {evento.event_type ===

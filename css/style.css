@@ -3607,7 +3607,8 @@ button.dashboard-card {
 }
 #modal-detalle .timeline-evento--entrega-final,
 #modal-detalle .timeline-evento--entrega-anulada,
-#modal-detalle .timeline-evento--entrega-interna {
+#modal-detalle .timeline-evento--entrega-interna,
+#modal-detalle .timeline-evento--informativo-finalizado {
   padding: 0.75rem;
   border-left-width: 4px;
   border-radius: 0.4rem;
@@ -3620,6 +3621,10 @@ button.dashboard-card {
   border-left-color: #16a34a;
   background: #f0fdf4;
 }
+#modal-detalle .timeline-evento--informativo-finalizado {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
 #modal-detalle .timeline-evento--entrega-anulada {
   border-left-color: #d97706;
   background: #fffbeb;
@@ -3628,6 +3633,9 @@ button.dashboard-card {
   color: #166534;
 }
 #modal-detalle .timeline-evento--entrega-interna h4 {
+  color: #166534;
+}
+#modal-detalle .timeline-evento--informativo-finalizado h4 {
   color: #166534;
 }
 #modal-detalle .timeline-evento--entrega-anulada h4 {
@@ -3644,7 +3652,8 @@ button.dashboard-card {
 }
 #modal-detalle .timeline-evento--entrega-final .timeline-cambio,
 #modal-detalle .timeline-evento--entrega-anulada .timeline-cambio,
-#modal-detalle .timeline-evento--entrega-interna .timeline-cambio {
+#modal-detalle .timeline-evento--entrega-interna .timeline-cambio,
+#modal-detalle .timeline-evento--informativo-finalizado .timeline-cambio {
   display: inline-block;
   padding: 0.35rem 0.55rem;
   border-radius: 999px;
