@@ -1184,9 +1184,17 @@ function VistaConsultaRadicados({ usuario }) {
           />
         )}
 
-        <section className="dashboard-cards" aria-label="Resumen y filtros">
+        <section className="consulta-bloque consulta-bloque--indicadores" aria-labelledby="indicadores-titulo">
+          <div className="consulta-seccion-heading">
+            <div>
+              <p className="consulta-seccion-kicker">Resumen de la bandeja</p>
+              <h3 id="indicadores-titulo">Indicadores principales</h3>
+            </div>
+            <p>Consulta rápidamente el volumen y los casos que requieren atención.</p>
+          </div>
+          <div className="dashboard-cards" aria-label="Resumen y filtros">
           <button
-            className={`dashboard-card ${!hayFiltrosActivos ? "filtro-activo" : ""}`}
+            className={`dashboard-card dashboard-card--total ${!hayFiltrosActivos ? "filtro-activo" : ""}`}
             type="button"
             aria-pressed={!hayFiltrosActivos}
             onClick={limpiarFiltros}
@@ -1196,7 +1204,7 @@ function VistaConsultaRadicados({ usuario }) {
             <small>Mostrar todos los registros</small>
           </button>
           <button
-            className={`dashboard-card ${soloCriticos ? "filtro-activo" : ""}`}
+            className={`dashboard-card dashboard-card--criticos ${soloCriticos ? "filtro-activo" : ""}`}
             type="button"
             aria-pressed={soloCriticos}
             onClick={() => setSoloCriticos((valor) => !valor)}
@@ -1206,7 +1214,7 @@ function VistaConsultaRadicados({ usuario }) {
             <small>Filtrar alerta y vencido</small>
           </button>
           <button
-            className={`dashboard-card ${soloHoy ? "filtro-activo" : ""}`}
+            className={`dashboard-card dashboard-card--hoy ${soloHoy ? "filtro-activo" : ""}`}
             type="button"
             aria-pressed={soloHoy}
             onClick={() => setSoloHoy((valor) => !valor)}
@@ -1230,6 +1238,7 @@ function VistaConsultaRadicados({ usuario }) {
               <option value="sin-tipo">No especificado</option>
             </select>
           </label>}
+          </div>
         </section>
         <div className="filtros-activos-resumen" aria-live="polite">
           {filtrosActivos.length ? (
@@ -1253,7 +1262,14 @@ function VistaConsultaRadicados({ usuario }) {
           )}
         </div>
 
-        <section className="consult-filters">
+        <section className="consult-filters" aria-labelledby="filtros-radicados-titulo">
+          <div className="consulta-seccion-heading">
+            <div>
+              <p className="consulta-seccion-kicker">Consulta de la bandeja</p>
+              <h3 id="filtros-radicados-titulo">Buscar y filtrar</h3>
+            </div>
+            <p>Combina una búsqueda con el tipo de comunicación para encontrar un radicado.</p>
+          </div>
           {esDependencia && <label htmlFor="busqueda-radicados">Buscar radicados</label>}
           <input
             id="busqueda-radicados"
@@ -1301,7 +1317,14 @@ function VistaConsultaRadicados({ usuario }) {
           </div>
         </section>
 
-        <section className="table-card">
+        <section className="table-card" aria-labelledby="tabla-radicados-titulo">
+          <div className="consulta-seccion-heading consulta-seccion-heading--tabla">
+            <div>
+              <p className="consulta-seccion-kicker">Resultados</p>
+              <h3 id="tabla-radicados-titulo">Radicados de la bandeja</h3>
+            </div>
+            <p>Revisa el estado, el semáforo y las acciones disponibles para cada registro.</p>
+          </div>
           <p className="tabla-ayuda">
             En pantallas intermedias, desplaza la tabla para ver todas las
             columnas.
@@ -1580,8 +1603,14 @@ function VistaConsultaRadicados({ usuario }) {
           className="alerts-card"
           aria-labelledby="alertas-titulo"
         >
-          <h2 id="alertas-titulo">Alertas por dependencia</h2>
-          <p className="alertas-nota">Seguimiento de plazos de respuesta de la dependencia seleccionada.</p>
+          <div className="alertas-cabecera">
+            <div>
+              <p className="consulta-seccion-kicker">Seguimiento de plazos</p>
+              <h2 id="alertas-titulo">Alertas por dependencia</h2>
+              <p className="alertas-nota">Seguimiento de plazos de respuesta de la dependencia seleccionada.</p>
+            </div>
+            <span className="alertas-distintivo">Atención prioritaria</span>
+          </div>
           <div className="alerts-controls">
             <div className="alertas-filtro">
             <label htmlFor="alertas-dependencia">Dependencia</label>

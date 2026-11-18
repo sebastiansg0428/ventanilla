@@ -417,6 +417,17 @@ describe("consulta de radicados React", () => {
     expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
   });
 
+  it("presenta una jerarquía clara para indicadores, filtros, resultados y alertas", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3, dependencia_nombre: "Talento Humano" });
+    await abrirConsulta();
+    expect(screen.getByRole("heading", { name: "Indicadores principales", level: 3 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Buscar y filtrar", level: 3 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Radicados de la bandeja", level: 3 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Alertas por dependencia", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Listado de radicados" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Alertas por dependencia" })).toBeTruthy();
+  });
+
   it("mantiene aviso de respuestas sin abrir sin cambiar la pestaña ni registrar apertura", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     const base = solicitarApi.getMockImplementation();

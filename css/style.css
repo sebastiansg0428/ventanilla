@@ -5227,3 +5227,245 @@ button.dashboard-card {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Jerarquía visual de la bandeja de dependencias. El alcance queda aislado
+   para no alterar las pantallas administrativas ni los formularios públicos. */
+.consulta-dependencia .consulta-bloque {
+  margin: 1.25rem 0;
+}
+.consulta-dependencia .consulta-seccion-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  margin-bottom: 0.8rem;
+}
+.consulta-dependencia .consulta-seccion-heading > div {
+  min-width: 0;
+}
+.consulta-dependencia .consulta-seccion-heading h3 {
+  margin: 0;
+  color: #172554;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+.consulta-dependencia .consulta-seccion-heading > p:not(.consulta-seccion-kicker) {
+  max-width: 34rem;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: right;
+}
+.consulta-dependencia .consulta-seccion-kicker {
+  margin: 0 0 0.25rem;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.consulta-dependencia .consulta-pestanas {
+  gap: 0.35rem;
+  padding: 0.35rem;
+  background: #f8fafc;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 5%);
+}
+.consulta-dependencia .consulta-pestanas button {
+  min-height: 2.85rem;
+  border-color: transparent;
+  color: #334155;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.consulta-dependencia .consulta-pestanas button:hover {
+  border-color: #bfdbfe;
+  background: #dbeafe;
+  color: #1e40af;
+}
+.consulta-dependencia .consulta-pestanas button[aria-selected="true"] {
+  box-shadow: 0 3px 8px rgb(30 64 175 / 22%);
+}
+.consulta-dependencia .dashboard-cards {
+  gap: 0.85rem;
+  margin-bottom: 0;
+}
+.consulta-dependencia .dashboard-card {
+  position: relative;
+  min-height: 8.25rem;
+  padding: 1.05rem 1.1rem;
+  border-color: #dbe5ef;
+  border-left-width: 5px;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 6%);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.consulta-dependencia button.dashboard-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 10px 24px rgb(30 64 175 / 12%);
+  transform: translateY(-1px);
+}
+.consulta-dependencia .dashboard-card > span {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.consulta-dependencia .dashboard-card strong {
+  color: #0f172a;
+  font-size: clamp(1.65rem, 3vw, 2rem);
+  line-height: 1;
+}
+.consulta-dependencia .dashboard-card small {
+  line-height: 1.35;
+}
+.consulta-dependencia .dashboard-card--criticos {
+  border-left-color: #f59e0b;
+}
+.consulta-dependencia .dashboard-card--hoy {
+  border-left-color: #0ea5e9;
+}
+.consulta-dependencia .dashboard-card.filtro-activo {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 15%), 0 10px 24px rgb(30 64 175 / 12%);
+}
+.consulta-dependencia .consult-filters {
+  position: relative;
+  gap: 0.65rem 0.85rem;
+  padding: 1.1rem;
+  border-color: #dbe5ef;
+  background: #f8fafc;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 4%);
+}
+.consulta-dependencia .consult-filters > .consulta-seccion-heading {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  margin-bottom: 0.15rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.consulta-dependencia .consult-filters > label:not(.consulta-tipo) {
+  align-self: end;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.consulta-dependencia .consult-filters > input,
+.consulta-dependencia .consulta-tipo select {
+  min-height: 2.75rem;
+  border-color: #b6c7da;
+}
+.consulta-dependencia .consult-filters > div {
+  align-items: center;
+  padding-top: 0.2rem;
+}
+.consulta-dependencia .consult-filters > div > p {
+  margin: 0;
+}
+.consulta-dependencia .consult-filters button {
+  min-height: 2.75rem;
+  border: 1px solid #1d4ed8;
+  background: #1d4ed8;
+  font-weight: 700;
+}
+.consulta-dependencia .consult-filters button:disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #64748b;
+}
+.consulta-dependencia .table-card {
+  border-color: #dbe5ef;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 6%);
+}
+.consulta-dependencia .table-card > .consulta-seccion-heading {
+  align-items: flex-start;
+  margin: 0;
+  padding: 1rem 1.1rem 0.9rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.consulta-dependencia .table-card .tabla-ayuda {
+  border-bottom: 1px solid #dbeafe;
+}
+.consulta-dependencia #tabla-radicados th {
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  background: #f8fafc;
+  color: #334155;
+  letter-spacing: 0.06em;
+}
+.consulta-dependencia #tabla-radicados tbody tr:hover {
+  background: #f8fbff;
+}
+.consulta-dependencia #tabla-radicados td {
+  border-bottom-color: #e5edf5;
+}
+.consulta-dependencia .alerts-card {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-color: #cbd5e1;
+  border-top: 4px solid #2563eb;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 6%);
+}
+.consulta-dependencia .alertas-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  margin-bottom: 1rem;
+}
+.consulta-dependencia .alertas-cabecera > div {
+  min-width: 0;
+}
+.consulta-dependencia #seccion-alertas h2 {
+  font-size: 1.25rem;
+}
+.consulta-dependencia #seccion-alertas .alertas-nota {
+  margin-bottom: 0;
+}
+.consulta-dependencia .alertas-distintivo {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.consulta-dependencia #seccion-alertas > .alerts-controls {
+  padding: 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+}
+.consulta-dependencia #seccion-alertas .alertas-grupo {
+  box-shadow: 0 4px 12px rgb(15 23 42 / 4%);
+}
+.consulta-dependencia #seccion-alertas .alertas-tarjeta {
+  border-color: #dbe5ef;
+  box-shadow: 0 3px 8px rgb(15 23 42 / 4%);
+}
+.consulta-dependencia #seccion-alertas .alertas-tarjeta h4 {
+  font-size: 1rem;
+}
+@media (max-width: 640px) {
+  .consulta-dependencia .consulta-seccion-heading,
+  .consulta-dependencia .alertas-cabecera {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .consulta-dependencia .consulta-seccion-heading > p:not(.consulta-seccion-kicker) {
+    max-width: none;
+    text-align: left;
+  }
+  .consulta-dependencia .consult-filters > .consulta-seccion-heading {
+    grid-column: auto;
+  }
+  .consulta-dependencia .alertas-distintivo {
+    white-space: normal;
+  }
+  .consulta-dependencia #seccion-alertas > .alerts-controls {
+    align-items: stretch;
+  }
+}
