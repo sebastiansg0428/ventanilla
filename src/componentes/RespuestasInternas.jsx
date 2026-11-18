@@ -23,8 +23,13 @@ function nombreOrigen(recepcion) {
   return typeof recepcion.dependencia_remitente === "string" && recepcion.dependencia_remitente.trim()
     ? recepcion.dependencia_remitente.trim() : "Dependencia de origen no registrada";
 }
+function canalRecepcion(valor) {
+  return String(valor || "").trim().toLowerCase() === "fisica" ? "física" : "digital";
+}
 function EstadoRecepcion({ recepcion }) {
   const abierta = Boolean(recepcion.primera_apertura_utc);
+  const entregada = recepcion.radicado_estado === "Entregado";
+  const canal = canalRecepcion(recepcion.tipo_recepcion);
   const disponibilidadConFecha = !recepcion.historica && Boolean(recepcion.disponible_en_utc);
   return <div className="recepcion-interna">
     <div className="recepcion-interna-destinatario">
@@ -32,7 +37,7 @@ function EstadoRecepcion({ recepcion }) {
       <p>{nombreOrigen(recepcion)}</p>
       <small>Es la dependencia que inició el radicado, no la oficina que respondió.</small>
     </div>
-    <ol className="recepcion-interna-hitos" aria-label="Hitos de recepción digital interna">
+    <ol className="recepcion-interna-hitos" aria-label={`Hitos de recepción ${canal} interna`}>
       <li className={`recepcion-interna-hito ${disponibilidadConFecha ? "recepcion-interna-hito--registrado" : "recepcion-interna-hito--sin-fecha"}`}>
         <span className="recepcion-interna-indicador" aria-hidden="true">1</span>
         <div>
@@ -49,11 +54,14 @@ function EstadoRecepcion({ recepcion }) {
           {abierta ? <dl>
             <dt>Primera apertura en el sistema (Bogotá)</dt><dd>{fecha(recepcion.primera_apertura_utc)}</dd>
             <dt>Registrada por</dt><dd>{recepcion.actor_nombre.trim() || "Nombre del funcionario no registrado"}</dd>
+            {entregada && <><dt>Estado del radicado</dt><dd>Respondido → Entregado</dd></>}
           </dl> : <p>Sin primera apertura registrada por la dependencia de origen.</p>}
         </div>
       </li>
     </ol>
-    <p className="recepcion-interna-nota">La apertura no acredita comprensión ni notificación legal.</p>
+    <p className="recepcion-interna-nota">{entregada
+      ? "Respuesta interna entregada: la dependencia de origen abrió correctamente la respuesta y el radicado finalizó."
+      : "La apertura no acredita comprensión ni notificación legal."}</p>
   </div>;
 }
 function useApertura(recepcion, usuario, alConfirmar) {
@@ -83,6 +91,7 @@ function useApertura(recepcion, usuario, alConfirmar) {
 }
 export function TrazabilidadInterna({ radicado, usuario }) {
   const auto = usuario.rol === "funcionario" && usuario.dependencia_id === radicado.dependencia_remitente_id;
+  const canal = canalRecepcion(radicado.tipo_recepcion);
   const [abierto, setAbierto] = useState(auto);
   const [recepcion, setRecepcion] = useState(null);
   const [error, setError] = useState("");
@@ -100,12 +109,12 @@ export function TrazabilidadInterna({ radicado, usuario }) {
   }, [abierto, radicado.numero_radicado, revision]);
   const falloApertura = useApertura(abierto && auto ? recepcion : null, usuario, setRecepcion);
   return <section className="detalle-seccion respuesta-grupo entregas-panel">
-    <h3>Recepción digital interna</h3>
-    <p>Disponible dentro del sistema, sin evidencia física de envío.</p>
+    <h3>Recepción {canal} interna</h3>
+    <p>{canal === "física" ? "Entrega registrada por Ventanilla para la dependencia de origen." : "Disponible dentro del sistema, sin evidencia física de envío."}</p>
     <button className="entregas-boton" type="button" aria-expanded={abierto} onClick={() => setAbierto(v => !v)}>
-      {abierto ? "Ocultar recepción digital" : "Ver recepción digital"}
+      {abierto ? `Ocultar recepción ${canal}` : `Ver recepción ${canal}`}
     </button>
-    {abierto && <><button className="entregas-boton" type="button" onClick={() => setRevision(n => n + 1)}>Actualizar recepción digital</button>
+    {abierto && <><button className="entregas-boton" type="button" onClick={() => setRevision(n => n + 1)}>Actualizar recepción {canal}</button>
       {error && <p role="alert">{error}</p>}
       {!recepcion && !error && <p role="status">Cargando recepción digital…</p>}
       {recepcion && <EstadoRecepcion recepcion={recepcion} />}{falloApertura}</>}
@@ -254,13 +263,14 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
         </div> : <ul className="internas-listado" aria-label="Respuestas disponibles">{lista.registros.map(r => <li className="internas-tarjeta" key={r.id}>
           <div className="internas-tarjeta-cabecera">
             <h3>{r.numero_radicado}</h3>
-            <span className={`recepcion-interna-estado ${r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
-              {r.primera_apertura_utc ? "Primera apertura registrada" : "Pendiente de primera apertura por la dependencia de origen"}
+            <span className={`recepcion-interna-estado ${r.radicado_estado === "Entregado" ? "recepcion-interna-estado--entregada" : r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
+              {r.radicado_estado === "Entregado" ? "Entregado" : r.primera_apertura_utc ? "Primera apertura registrada" : "Respondido · pendiente de apertura"}
             </span>
           </div>
           <dl className="internas-datos">
             <div><dt>Respuesta dirigida a</dt><dd>{nombreOrigen(r)}</dd></div>
             <div><dt>Dependencia que respondió</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div>
+            <div><dt>Tipo de recepción</dt><dd>{r.tipo_recepcion?.trim() || "No registrado"}</dd></div>
           </dl>
           <dl className="internas-fechas">
             <div><dt>Disponibilidad (Bogotá)</dt><dd>{r.historica ? "Respuesta histórica; disponibilidad anterior desconocida" : r.disponible_en_utc ? fecha(r.disponible_en_utc) : "Fecha de disponibilidad no registrada"}</dd></div>
@@ -297,8 +307,8 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
               <span>PDF · {new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(d.tamano_bytes / 1024)} KiB · Abre en otra pestaña</span>
             </li>)}</ul> : <p>Esta respuesta no tiene adjuntos.</p>}
           </section>
-          <section className="internas-seccion" aria-label="Recepción de la respuesta">
-            <h4>Recepción digital</h4>
+          <section className="internas-seccion" aria-label="Entrega interna de la respuesta">
+            <h4>{detalle.recepcion.radicado_estado === "Entregado" ? "Entrega interna confirmada" : "Entrega interna"}</h4>
             <EstadoRecepcion recepcion={detalle.recepcion} />{errorApertura}
           </section>
         </article>}

@@ -64,6 +64,10 @@ los permisos ni los endpoints del backend.
 2. En otra terminal, inicia el servidor desde `../backend` con `npm start`.
 3. Ejecuta `npm run dev` aquí y abre la dirección que muestre Vite, normalmente `http://localhost:5173`.
 
+La URL del backend se puede configurar con `VITE_API_URL`. Si no se define,
+el frontend usa `http://localhost:3000` para conservar el desarrollo local.
+Consulta `.env.example` para la configuración mínima.
+
 Para generar la versión de publicación ejecuta `npm run build`; para verla localmente usa `npm run preview`.
 
 ## Organización del código

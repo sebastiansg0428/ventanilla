@@ -3925,6 +3925,11 @@ button.dashboard-card {
   background: #dcfce7;
   color: #166534;
 }
+.recepcion-interna-estado--entregada {
+  background: #bbf7d0;
+  color: #14532d;
+  border: 1px solid #4ade80;
+}
 .recepcion-interna-estado--pendiente {
   background: #fef3c7;
   color: #92400e;

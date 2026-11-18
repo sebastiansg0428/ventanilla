@@ -1,4 +1,4 @@
-const URL_BASE_API = 'http://localhost:3000';
+const URL_BASE_API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const CLAVE_SESION = 'ventanilla.sesion';
 
 export function obtenerSesion() {

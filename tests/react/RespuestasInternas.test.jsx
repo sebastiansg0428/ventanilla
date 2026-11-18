@@ -8,9 +8,10 @@ const usuario = { id: 1, rol: "funcionario", dependencia_id: 7 };
 const recepcion = { id: 1, respuesta_id: 10, dependencia_origen_id: 7, historica: 0,
   numero_radicado: "INTERNO-FICTICIO", contenido: "Respuesta institucional de prueba.",
   dependencia_remitente: "Oficina de origen ficticia", dependencia_destino: "Oficina ficticia",
+  tipo_recepcion: "Digital", radicado_estado: "Respondido",
   disponible_en_utc: "2026-11-05 15:00:00.000000",
   primera_apertura_utc: null, actor_nombre: null };
-const confirmada = { ...recepcion, primera_apertura_utc: "2026-11-05 15:10:00.000000", actor_nombre: "Actor ficticio" };
+const confirmada = { ...recepcion, primera_apertura_utc: "2026-11-05 15:10:00.000000", actor_nombre: "Actor ficticio", radicado_estado: "Entregado" };
 const json = datos => ({ json: async () => ({ success: true, ...datos }) });
 const lista = r => json({ registros: [r], pagina: 1, paginas: 1, total: 1,
   resumen: { total: 1, pendientes: r.primera_apertura_utc ? 0 : 1, leidas: r.primera_apertura_utc ? 1 : 0 } });
@@ -261,7 +262,7 @@ describe("respuestas internas digitales", () => {
     await abrirBandeja();
     expect(screen.getByText(recepcion.dependencia_remitente)).toBeTruthy();
     expect(screen.getByText(recepcion.dependencia_destino)).toBeTruthy();
-    expect(screen.getByText("Pendiente de primera apertura por la dependencia de origen")).toBeTruthy();
+    expect(screen.getByText("Respondido · pendiente de apertura")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Hitos de recepción digital interna" })).toBeNull();
     expect(solicitarApi.mock.calls.some(([, o]) => o?.method === "POST")).toBe(false);
     await abrirDetalle();
@@ -449,7 +450,7 @@ describe("respuestas internas digitales", () => {
     const resumen = screen.getByRole("status", { name: "Resumen de respuestas de tu dependencia" });
     expect(within(resumen).getByText("30")).toBeTruthy();
     expect(within(resumen).getByText("26")).toBeTruthy();
-    expect(screen.getByText("Primera apertura registrada")).toBeTruthy();
+    expect(screen.getByText("Entregado")).toBeTruthy();
     expect(screen.queryByText("Sin apertura registrada")).toBeNull();
     expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas?pagina=2&estado=todas", undefined);
     expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas?pagina=1&estado=leidas", undefined);
