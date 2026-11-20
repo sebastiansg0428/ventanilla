@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PaginaGestionCatalogos } from "../../src/paginas/GestionCatalogos.jsx";
 import { confirmarSesion, solicitarApi } from "../../src/servicios/api.js";
 
@@ -33,6 +33,36 @@ const tipoTramite = {
   tipo_dias: "habiles",
   activo: 1,
 };
+
+const metodosDialogo = ["showModal", "close"].map((nombre) => [
+  nombre,
+  Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, nombre),
+]);
+
+beforeAll(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value() {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value() {
+      this.removeAttribute("open");
+    },
+  });
+});
+
+afterAll(() => {
+  for (const [nombre, descriptor] of metodosDialogo) {
+    if (descriptor) {
+      Object.defineProperty(HTMLDialogElement.prototype, nombre, descriptor);
+    } else {
+      delete HTMLDialogElement.prototype[nombre];
+    }
+  }
+});
 
 function respuestaJson(resultado) {
   return { json: async () => resultado };
@@ -139,6 +169,19 @@ describe("gestión de catálogos React", () => {
     expect(within(tramiteFila).getAllByRole("button", { name: "Editar" })).toHaveLength(1);
     fireEvent.click(within(tramiteFila).getByRole("button", { name: "Actualizar plazo" }));
     const historial = await screen.findByRole("table", { name: "Términos legales" });
+    const panelTermino = screen.getByRole("region", { name: "Historial de términos legales" })
+      .closest(".catalog-term-panel");
+    const tituloTermino = within(panelTermino).getByRole("heading", {
+      name: "Actualizar plazo: Petición general",
+    });
+    expect(panelTermino).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(tituloTermino));
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    expect(scrollIntoViewMock.mock.instances[0]).toBe(panelTermino);
     const filaTermino = within(historial).getAllByRole("row")[1];
     expect(etiquetas(filaTermino)).toEqual(["Días", "Tipo", "Fundamento legal", "Vigente desde", "Vigente hasta"]);
     expect(within(historial).getAllByRole("columnheader")).toHaveLength(5);
@@ -178,7 +221,13 @@ describe("gestión de catálogos React", () => {
       Array.from(document.querySelectorAll(".catalog-summary-card strong"),
         (nodo) => nodo.textContent),
     ).toEqual(["2", "1", "1"]);
-    expect(screen.getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeTruthy();
+    const buscador = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
+    expect(buscador).toBeTruthy();
+    expect(buscador.getAttribute("id")).toBe("catalogo-busqueda");
+    expect(buscador.getAttribute("name")).toBe("busqueda_catalogo");
+    const filtroInactivos = screen.getByRole("checkbox", { name: "Mostrar inactivos" });
+    expect(filtroInactivos.getAttribute("id")).toBe("catalogo-incluir-inactivos");
+    expect(filtroInactivos.getAttribute("name")).toBe("incluir_inactivos");
 
     await user.type(
       screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
@@ -336,7 +385,7 @@ describe("gestión de catálogos React", () => {
     ).toBe("especial");
   });
 
-  it("edita los datos del tipo sin intentar modificar el término legal", async () => {
+  it("edita los datos del tipo en un panel lateral sin modificar el término legal", async () => {
     const user = userEvent.setup({ delay: null });
     render(<PaginaGestionCatalogos />);
     await screen.findByText("Planeación");
@@ -346,18 +395,14 @@ describe("gestión de catálogos React", () => {
       within(row).getByRole("button", { name: "Editar" }),
     );
     const campoCodigo = screen.getByLabelText("Código técnico *");
+    const drawer = screen.getByRole("dialog", { name: "Editar tipo de trámite" });
+    expect(drawer.classList.contains("catalog-edit-drawer")).toBe(true);
+    expect(within(drawer).queryByRole("button", { name: "Cerrar edición" })).toBeNull();
     expect(campoCodigo.value).toBe("peticion_general");
-    expect(screen.getByRole("heading", { level: 2, name: "Editar tipo de trámite" })).toBeTruthy();
     expect(screen.getByText("Edición de catálogo")).toBeTruthy();
-    await waitFor(() => expect(document.activeElement).toBe(campoCodigo));
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "start",
-      inline: "nearest",
-    });
-    expect(scrollIntoViewMock.mock.instances[0]).toBe(
-      document.querySelector(".catalog-editor-panel"),
-    );
+    await waitFor(() => expect(document.activeElement).toBe(
+      within(drawer).getByRole("heading", { name: "Editar tipo de trámite" }),
+    ));
 
     await user.clear(screen.getByLabelText("Nombre *"));
     await pegarTexto(user, screen.getByLabelText("Nombre *"), "Petición actualizada");
@@ -379,6 +424,7 @@ describe("gestión de catálogos React", () => {
         orden: 4,
       });
     });
+    expect(screen.queryByRole("dialog", { name: "Editar tipo de trámite" })).toBeNull();
   });
 
   it("crea un tipo sin respuesta sin pedir plazo ni enviar término ficticio", async () => {
@@ -426,28 +472,23 @@ describe("gestión de catálogos React", () => {
     });
   });
 
-  it("muestra el formulario al editar y acepta PUT confirmado con HTTP 204", async () => {
+  it("abre la edición de dependencia en un panel lateral y acepta PUT confirmado con HTTP 204", async () => {
     const user = userEvent.setup({ delay: null });
-    const foco = vi.spyOn(HTMLInputElement.prototype, "focus");
     render(<PaginaGestionCatalogos />);
     const row = (await screen.findByText("Planeación")).closest("tr");
+    const botonEditar = within(row).getByRole("button", { name: "Editar" });
 
-    await user.click(within(row).getByRole("button", { name: "Editar" }));
+    await user.click(botonEditar);
 
     const campoNombre = await screen.findByDisplayValue("Planeación");
-    expect(screen.getByRole("heading", { level: 2, name: "Editar dependencia" })).toBeTruthy();
+    const drawer = screen.getByRole("dialog", { name: "Editar dependencia" });
+    expect(drawer.classList.contains("catalog-edit-drawer")).toBe(true);
+    expect(within(drawer).queryByRole("button", { name: "Cerrar edición" })).toBeNull();
     expect(screen.getByText("Edición de catálogo")).toBeTruthy();
     expect(campoNombre).toBeTruthy();
-    expect(document.activeElement).toBe(campoNombre);
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "start",
-      inline: "nearest",
-    });
-    expect(scrollIntoViewMock.mock.instances[0]).toBe(
-      document.querySelector(".catalog-editor-panel"),
-    );
-    expect(foco).toHaveBeenCalledWith({ preventScroll: true });
+    await waitFor(() => expect(document.activeElement).toBe(
+      within(drawer).getByRole("heading", { name: "Editar dependencia" }),
+    ));
     await user.clear(campoNombre);
     await pegarTexto(user, campoNombre, "Planeación actualizada");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -462,12 +503,13 @@ describe("gestión de catálogos React", () => {
       );
       expect(screen.getByRole("button", { name: "Crear" })).toBeTruthy();
     });
+    expect(screen.queryByRole("dialog", { name: "Editar dependencia" })).toBeNull();
     expect(
       screen.getByText("Cambios guardados correctamente."),
     ).toBeTruthy();
   });
 
-  it("no desplaza ni enfoca el editor cuando falla la carga del registro", async () => {
+  it("mantiene abierto el panel y muestra el error cuando falla la carga del registro", async () => {
     const user = userEvent.setup({ delay: null });
     const cargaOriginal = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
@@ -476,15 +518,22 @@ describe("gestión de catálogos React", () => {
       }
       return cargaOriginal(ruta, opciones);
     });
-    const foco = vi.spyOn(HTMLInputElement.prototype, "focus");
     render(<PaginaGestionCatalogos />);
     const fila = (await screen.findByText("Planeación")).closest("tr");
+    const botonEditar = within(fila).getByRole("button", { name: "Editar" });
 
-    await user.click(within(fila).getByRole("button", { name: "Editar" }));
+    await user.click(botonEditar);
 
-    expect(await screen.findByText("No fue posible cargar la dependencia.")).toBeTruthy();
+    const drawer = screen.getByRole("dialog", { name: "Editar dependencia" });
+    expect(await within(drawer).findByText("No fue posible cargar la dependencia.")).toBeTruthy();
+    expect(drawer.open).toBe(true);
     expect(scrollIntoViewMock).not.toHaveBeenCalled();
-    expect(foco).not.toHaveBeenCalled();
+
+    const cancelEvent = new Event("cancel", { cancelable: true });
+    fireEvent(drawer, cancelEvent);
+    expect(cancelEvent.defaultPrevented).toBe(true);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Editar dependencia" })).toBeNull());
+    expect(document.activeElement).toBe(botonEditar);
   });
 
   it("registra una versión de término usando tipo_tramite_id", async () => {
@@ -496,6 +545,10 @@ describe("gestión de catálogos React", () => {
     await user.click(
       within(row).getByRole("button", { name: "Actualizar plazo" }),
     );
+    const panelTermino = await screen.findByRole("region", { name: "Historial de términos legales" });
+    expect(within(panelTermino.closest(".catalog-term-panel")).getByRole("heading", {
+      name: "Actualizar plazo: Petición general",
+    })).toBeTruthy();
     await user.type(screen.getByLabelText("Plazo (días) *"), "20");
     await user.selectOptions(document.getElementById("termino-tipo-dias"), "calendario");
     await pegarTexto(user,
@@ -542,7 +595,17 @@ describe("gestión de catálogos React", () => {
     await screen.findByText("Planeación");
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
     await user.click(screen.getByRole("button", { name: "Configurar plazo" }));
-    expect(screen.getByRole("heading", { name: "Configurar plazo: Petición general" })).toBeTruthy();
+    const tituloTermino = await screen.findByRole("heading", {
+      name: "Configurar plazo: Petición general",
+    });
+    const panelTermino = tituloTermino.closest(".catalog-term-panel");
+    expect(panelTermino).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(tituloTermino));
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
     const dias = screen.getByLabelText("Plazo (días) *");
     const fundamento = screen.getByLabelText("Fundamento legal *");
     expect(dias.required).toBe(true);

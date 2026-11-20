@@ -127,7 +127,6 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
   const [estado, setEstado] = useState("todas");
   const [revision, setRevision] = useState(0);
   const [lista, setLista] = useState(null);
-  const [subvista, setSubvista] = useState("recibidas");
   const [enviados, setEnviados] = useState(null);
   const [cargandoEnviados, setCargandoEnviados] = useState(false);
   const [errorEnviados, setErrorEnviados] = useState("");
@@ -140,31 +139,26 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [errorDetalle, setErrorDetalle] = useState("");
   const [seleccion, setSeleccion] = useState(null);
+  const [seleccionEnviada, setSeleccionEnviada] = useState(null);
   const solicitud = useRef(0);
   const urls = useRef(new Set());
   const cabecera = useRef(null);
+  const vistaEnviada = useRef(null);
   const botonAbrir = useRef(null);
-  const botonActualizar = useRef(null);
   const aperturaInicialResuelta = useRef(false);
   function liberar() { urls.current.forEach(u => URL.revokeObjectURL(u)); urls.current.clear(); }
   useEffect(() => () => { solicitud.current++; liberar(); }, []);
-  function cerrarDetalle(restaurarFoco = true) {
-    solicitud.current++; setDetalle(null); setSeleccion(null); setErrorDetalle(""); setCargandoDetalle(false); liberar();
+  function cerrarDetalle(restaurarFoco = true, conservarSeleccionEnviada = false) {
+    solicitud.current++; setDetalle(null); setSeleccion(null);
+    if (!conservarSeleccionEnviada) setSeleccionEnviada(null);
+    setErrorDetalle(""); setCargandoDetalle(false); liberar();
     if (!restaurarFoco) return;
     if (botonAbrir.current?.isConnected) botonAbrir.current.focus();
-    else botonActualizar.current?.focus();
   }
   useEffect(() => { if (!activa) cerrarDetalle(false); }, [activa]);
   useEffect(() => {
     alResumen?.({ resumen: lista?.resumen || null, error, cargando });
   }, [lista, error, cargando, alResumen]);
-  function cambiarFiltro(valor) {
-    cerrarDetalle(false); setLista(null); setEstado(valor); setPagina(1);
-  }
-  function cambiarPagina(valor) {
-    cerrarDetalle(false); setLista(null); setPagina(valor);
-    botonActualizar.current?.focus();
-  }
   useEffect(() => {
     const elemento = cabecera.current;
     if (!detalle || !elemento) return;
@@ -174,6 +168,10 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
     try { elemento.focus({ preventScroll: true }); }
     catch { elemento.focus(); }
   }, [detalle?.recepcion.id]);
+  useEffect(() => {
+    if (!seleccionEnviada || !vistaEnviada.current) return;
+    vistaEnviada.current.scrollIntoView?.({ behavior: "smooth", block: "center", inline: "nearest" });
+  }, [seleccionEnviada?.numero]);
   useEffect(() => {
     let vigente = true;
     setCargando(true); setError("");
@@ -197,7 +195,7 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
     return () => { vigente = false; };
   }, [pagina, estado, revision, revisionExterna, directa]);
   useEffect(() => {
-    if (subvista !== "enviados" || !activa) return undefined;
+    if (!activa) return undefined;
     let vigente = true;
     setCargandoEnviados(true); setErrorEnviados("");
     datosApi(`/api/radicados?pagina=${paginaEnviados}&limite=25&vista=generados&tipo_comunicacion=interna`)
@@ -215,15 +213,9 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
       .catch(e => { if (vigente) setErrorEnviados(e.message); })
       .finally(() => { if (vigente) setCargandoEnviados(false); });
     return () => { vigente = false; };
-  }, [subvista, activa, paginaEnviados, revisionEnviados]);
-  useEffect(() => {
-    if (!cargando && lista && seleccion && !lista.registros.some(r => r.id === seleccion.id)) {
-      cerrarDetalle(false);
-      botonActualizar.current?.focus();
-    }
-  }, [cargando, lista, seleccion]);
-  async function abrirRespuesta(id, numero) {
-    cerrarDetalle(false);
+  }, [activa, paginaEnviados, revisionEnviados]);
+  async function abrirRespuesta(id, numero, { conservarSeleccionEnviada = false } = {}) {
+    cerrarDetalle(false, conservarSeleccionEnviada);
     const actual = ++solicitud.current;
     const creadas = [];
     setSeleccion({ id, numero }); setCargandoDetalle(true); setErrorDetalle("");
@@ -252,14 +244,19 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
   }
   async function abrirRespuestaEnviada(radicado) {
     const numero = radicado.numero_radicado;
+    cerrarDetalle(false);
+    setSeleccionEnviada({ numero, id: null });
+    setCargandoDetalle(true);
+    setErrorDetalle("");
     setRespuestaEnviadaCargando(numero);
-    setSubvista("enviados");
     try {
       const datos = await datosApi(`/api/radicados/${encodeURIComponent(numero)}/recepcion-interna`);
       if (!recepcionValida(datos.recepcion)) throw new Error("Recepción interna inválida.");
-      await abrirRespuesta(datos.recepcion.id, numero);
+      setSeleccionEnviada({ numero, id: datos.recepcion.id });
+      await abrirRespuesta(datos.recepcion.id, numero, { conservarSeleccionEnviada: true });
     } catch (e) {
-      setErrorEnviados(e.message);
+      setErrorDetalle(e.message);
+      setCargandoDetalle(false);
     } finally {
       setRespuestaEnviadaCargando("");
     }
@@ -274,7 +271,7 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
       {!directa && <button type="button" className="entregas-boton" aria-expanded={abierto} aria-controls="internas-contenido"
         onClick={() => { aperturaInicialResuelta.current = true; cerrarDetalle(); setAbierto(v => !v); }}>{abierto ? "Ocultar bandeja interna" : "Ver bandeja interna"}</button>}
     </div>
-    <p className="internas-nota">Aquí encuentras las respuestas recibidas y los radicados internos que inició tu dependencia. {directa ? "Son distintas de los documentos recibidos de la pestaña Radicados." : "No aparecen en el listado de documentos recibidos de abajo."}</p>
+    <p className="internas-nota">Aquí encuentras los radicados internos que inició tu dependencia y el seguimiento de sus respuestas. {directa ? "Son distintos de los documentos recibidos de la pestaña Radicados." : "No aparecen en el listado de documentos recibidos de abajo."}</p>
     {cargando && <p className="internas-mensaje" role="status">Cargando bandeja interna…</p>}
     {error && <div className="internas-error" role="alert">
       <p>{error}</p>
@@ -289,21 +286,20 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
       </div>
       {lista.resumen.pendientes > 0 && <p className="internas-aviso" role="status">
         Tienes {lista.resumen.pendientes} {lista.resumen.pendientes === 1 ? "respuesta interna sin abrir" : "respuestas internas sin abrir"}.
-        {" "}Usa «Abrir respuesta» para consultar el contenido y sus adjuntos.
+        {" "}Consulta el radicado enviado correspondiente para ver el contenido y sus adjuntos.
       </p>}
     </>}
     {!abierto && <button className="entregas-boton" type="button" disabled={cargando}
       onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>}
     {abierto && <div id="internas-contenido">
-      <div className="internas-subpestanas" role="tablist" aria-label="Bandejas internas">
-        <button type="button" role="tab"  aria-selected={subvista === "recibidas"}
-          className={subvista === "recibidas" ? "internas-subpestana internas-subpestana--activa" : "internas-subpestana"}
-          onClick={() => setSubvista("recibidas")}>Respuestas recibidas</button>
-        <button type="button" role="tab" aria-selected={subvista === "enviados"}
-          className={subvista === "enviados" ? "internas-subpestana internas-subpestana--activa" : "internas-subpestana"}
-          onClick={() => setSubvista("enviados")}>Radicados enviados</button>
+      <div className="internas-subpestanas" role="tablist" aria-label="Bandeja interna">
+        <button type="button" role="tab" id="internas-tab-enviados" aria-selected="true"
+          aria-controls="internas-panel-enviados" tabIndex={0}
+          className="internas-subpestana internas-subpestana--activa">
+          Radicados enviados
+        </button>
       </div>
-      {subvista === "enviados" ? <section className="internas-enviados" role="tabpanel" aria-label="Radicados internos enviados">
+      <section id="internas-panel-enviados" className="internas-enviados" role="tabpanel" aria-labelledby="internas-tab-enviados">
         <div className="internas-controles">
           <p className="internas-nota">Consulta los radicados que Ventanilla registró a nombre de tu dependencia. Aquí podrás seguir la respuesta de la dependencia destinataria.</p>
           <button className="entregas-boton" type="button" disabled={cargandoEnviados} onClick={() => setRevisionEnviados(n => n + 1)}>Actualizar radicados enviados</button>
@@ -314,6 +310,7 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
           {enviados.radicados.map(r => {
             const respondido = ["Respondido", "Entregado"].includes(r.estado);
             const entregado = r.estado === "Entregado";
+            const idVista = `respuesta-interna-enviada-${String(r.numero_radicado).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
             return <li className="internas-enviado-tarjeta" key={r.numero_radicado}>
               <div className="internas-tarjeta-cabecera"><h3>{r.numero_radicado}</h3><span className={`internas-enviado-estado ${entregado ? "internas-enviado-estado--entregado" : respondido ? "internas-enviado-estado--respondido" : "internas-enviado-estado--pendiente"}`}>
                 {entregado ? "Entregado · respuesta abierta" : respondido ? "Respondido · respuesta disponible" : "Enviado · pendiente de respuesta"}
@@ -321,20 +318,25 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
               <dl className="internas-datos"><div><dt>Dependencia destinataria</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div><div><dt>Tipo de recepción</dt><dd>{canalRecepcion(r.tipo_recepcion)}</dd></div><div><dt>Radicación</dt><dd>{r.fecha_hora_recepcion ? fecha(r.fecha_hora_recepcion) : "No registrada"}</dd></div>{r.fecha_respuesta && <div><dt>Respuesta disponible</dt><dd>{fecha(r.fecha_respuesta)}</dd></div>}</dl>
               <div className="internas-enviado-acciones">
                 {respondido && <button type="button" className="entregas-boton internas-boton-primario" aria-busy={respuestaEnviadaCargando === r.numero_radicado}
-                  disabled={Boolean(respuestaEnviadaCargando)} onClick={() => abrirRespuestaEnviada(r)}>
+                  aria-expanded={seleccionEnviada?.numero === r.numero_radicado}
+                  aria-controls={idVista}
+                  disabled={Boolean(respuestaEnviadaCargando)} onClick={evento => {
+                    botonAbrir.current = evento.currentTarget;
+                    abrirRespuestaEnviada(r);
+                  }}>
                   {respuestaEnviadaCargando === r.numero_radicado ? "Cargando respuesta…" : `Ver respuesta de ${r.dependencia_destino?.trim() || "la dependencia destinataria"}`}
                 </button>}
                 {alVerTrazabilidad && <button type="button" className="entregas-boton" onClick={() => alVerTrazabilidad(r)}>Ver trazabilidad</button>}
               </div>
-              {seleccion?.numero === r.numero_radicado && <div className="internas-vista" id={`respuesta-interna-${seleccion.id}`}>
+              {seleccionEnviada?.numero === r.numero_radicado && <div ref={vistaEnviada} className="internas-vista" id={idVista}>
                 {!detalle && <div className="internas-cabecera">
-                  <h3>Respuesta · {seleccion.numero}</h3>
+                  <h3>Respuesta · {seleccionEnviada.numero}</h3>
                   <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>
                 </div>}
                 {cargandoDetalle && <p className="internas-mensaje" role="status">Cargando respuesta interna y PDF…</p>}
                 {errorDetalle && <div className="internas-error" role="alert">
                   <p>{errorDetalle}</p>
-                  <button className="entregas-boton" type="button" onClick={() => abrirRespuesta(seleccion.id, seleccion.numero)}>Reintentar carga de respuesta</button>
+                  <button className="entregas-boton" type="button" onClick={() => abrirRespuestaEnviada(r)}>Reintentar carga de respuesta</button>
                 </div>}
                 {detalle && <article aria-label="Respuesta interna abierta">
                   <div className="internas-cabecera">
@@ -363,81 +365,7 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
           })}
         </ul>)}
         {enviados && enviados.paginas > 1 && <nav className="internas-paginacion" aria-label="Páginas de radicados enviados"><button className="entregas-boton" type="button" disabled={cargandoEnviados || paginaEnviados === 1} onClick={() => setPaginaEnviados(n => n - 1)}>Anterior</button><span>Página {paginaEnviados} de {enviados.paginas}</span><button className="entregas-boton" type="button" disabled={cargandoEnviados || paginaEnviados >= enviados.paginas} onClick={() => setPaginaEnviados(n => n + 1)}>Siguiente</button></nav>}
-      </section> : <>
-      <p className="internas-nota">Respuesta digital dirigida a tu dependencia de origen. Se registra la primera apertura al mostrar correctamente la respuesta y sus adjuntos.</p>
-      <div className="internas-controles">
-        <label htmlFor="filtro-respuestas-internas" className="internas-filtro">Filtrar respuestas internas <select id="filtro-respuestas-internas" name="filtro_respuestas_internas" value={estado} onChange={e => cambiarFiltro(e.target.value)}>
-          <option value="todas">Todas</option><option value="pendientes">Sin apertura</option><option value="leidas">Con apertura</option>
-        </select></label>
-        <button ref={botonActualizar} className="entregas-boton" type="button" disabled={cargando} onClick={() => setRevision(n => n + 1)}>Actualizar bandeja interna</button>
-      </div>
-      {lista && <>
-        {estado !== "todas" && <p className="internas-total-filtro">{lista.total} respuestas en este filtro</p>}
-        {!lista.registros.length ? <div className="internas-vacio">
-          <h3>{estado === "pendientes" ? "Sin respuestas pendientes de apertura" : estado === "leidas" ? "Sin respuestas con apertura registrada" : "Aún no hay respuestas internas"}</h3>
-          <p>No hay respuestas internas para este filtro.</p>
-          {estado !== "todas" && <button className="entregas-boton" type="button"
-            onClick={() => cambiarFiltro("todas")}>Ver todas las respuestas internas</button>}
-        </div> : <ul className="internas-listado" aria-label="Respuestas disponibles">{lista.registros.map(r => <li className="internas-tarjeta" key={r.id}>
-          <div className="internas-tarjeta-cabecera">
-            <h3>{r.numero_radicado}</h3>
-            <span className={`recepcion-interna-estado ${r.radicado_estado === "Entregado" ? "recepcion-interna-estado--entregada" : r.primera_apertura_utc ? "recepcion-interna-estado--registrada" : "recepcion-interna-estado--pendiente"}`}>
-              {r.radicado_estado === "Entregado" ? "Entregado" : r.primera_apertura_utc ? "Primera apertura registrada" : "Respondido · pendiente de apertura"}
-            </span>
-          </div>
-          <dl className="internas-datos">
-            <div><dt>Respuesta dirigida a</dt><dd>{nombreOrigen(r)}</dd></div>
-            <div><dt>Dependencia que respondió</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div>
-            <div><dt>Tipo de recepción</dt><dd>{r.tipo_recepcion?.trim() || "No registrado"}</dd></div>
-          </dl>
-          <dl className="internas-fechas">
-            <div><dt>Disponibilidad (Bogotá)</dt><dd>{r.historica ? "Respuesta histórica; disponibilidad anterior desconocida" : r.disponible_en_utc ? fecha(r.disponible_en_utc) : "Fecha de disponibilidad no registrada"}</dd></div>
-            <div><dt>Primera apertura (Bogotá)</dt><dd>{r.primera_apertura_utc ? fecha(r.primera_apertura_utc) : "Sin apertura registrada"}</dd></div>
-          </dl>
-          <button type="button" className="entregas-boton internas-boton-primario" aria-label={`Abrir respuesta interna ${r.numero_radicado}`}
-            aria-expanded={seleccion?.id === r.id} aria-controls={`respuesta-interna-${r.id}`} onClick={e => {
-            botonAbrir.current = e.currentTarget; abrirRespuesta(r.id, r.numero_radicado);
-          }}>Abrir respuesta</button>
-      {seleccion?.id === r.id && <div className="internas-vista" id={`respuesta-interna-${r.id}`}>
-        {!detalle && <div className="internas-cabecera">
-          <h3>Respuesta · {seleccion.numero}</h3>
-          <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>
-        </div>}
-        {cargandoDetalle && <p className="internas-mensaje" role="status">Cargando respuesta interna y PDF…</p>}
-        {errorDetalle && <div className="internas-error" role="alert">
-          <p>{errorDetalle}</p>
-          <button className="entregas-boton" type="button" onClick={() => abrirRespuesta(seleccion.id, seleccion.numero)}>Reintentar carga de respuesta</button>
-        </div>}
-        {detalle && <article aria-label="Respuesta interna abierta">
-          <div className="internas-cabecera">
-            <div><p className="internas-antetitulo">Respuesta institucional</p><h3 ref={cabecera} tabIndex={-1}>{detalle.recepcion.numero_radicado}</h3></div>
-            <button className="entregas-boton" type="button" onClick={cerrarDetalle}>Cerrar respuesta interna</button>
-          </div>
-          <p className="internas-oficina">Dependencia que respondió: <strong>{detalle.recepcion.dependencia_destino?.trim() || "No registrada"}</strong></p>
-          <section className="internas-seccion" aria-label="Contenido de la respuesta">
-            <h4>Contenido de la respuesta</h4>
-            <p className="internas-texto">{detalle.recepcion.contenido}</p>
-          </section>
-          <section className="internas-seccion" aria-label="Adjuntos de la respuesta">
-            <h4>Adjuntos de la respuesta</h4>
-            {detalle.documentos.length ? <ul className="internas-adjuntos">{detalle.documentos.map(d => <li key={d.id}>
-              <a href={d.url} target="_blank" rel="noreferrer">{d.nombre_archivo}</a>
-              <span>PDF · {new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(d.tamano_bytes / 1024)} KiB · Abre en otra pestaña</span>
-            </li>)}</ul> : <p>Esta respuesta no tiene adjuntos.</p>}
-          </section>
-          <section className="internas-seccion" aria-label="Entrega interna de la respuesta">
-            <h4>{detalle.recepcion.radicado_estado === "Entregado" ? "Entrega interna confirmada" : "Entrega interna"}</h4>
-            <EstadoRecepcion recepcion={detalle.recepcion} />{errorApertura}
-          </section>
-        </article>}
-      </div>}
-        </li>)}</ul>}
-        {lista.registros.length > 0 && lista.paginas > 1 && <nav className="internas-paginacion" aria-label="Páginas de respuestas internas">
-          <button className="entregas-boton" type="button" disabled={cargando || pagina === 1} onClick={() => cambiarPagina(pagina - 1)}>Anterior</button>
-          <span>Página {pagina} de {lista.paginas}</span>
-          <button className="entregas-boton" type="button" disabled={cargando || pagina >= lista.paginas} onClick={() => cambiarPagina(pagina + 1)}>Siguiente</button>
-        </nav>}</>}
-      </>}
+      </section>
     </div>}
   </section>;
 }

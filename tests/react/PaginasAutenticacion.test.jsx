@@ -441,7 +441,7 @@ describe("gestión de usuarios React", () => {
     });
   });
 
-  it.each(["Cerrar edición", "Cancelar edición", "Escape"])("cierra con %s y conserva el borrador de alta y el foco de origen", async cierre => {
+  it.each(["Cancelar edición", "Escape"])("cierra con %s y conserva el borrador de alta y el foco de origen", async cierre => {
     const user = userEvent.setup({ delay: null });
     render(<PaginaRegistroUsuarios />);
     const fila = (await screen.findByText("Ana Perez")).closest("tr");
@@ -452,6 +452,7 @@ describe("gestión de usuarios React", () => {
     await user.click(editar);
     const dialogo = screen.getByRole("dialog", { name: "Editar usuario" });
     await within(dialogo).findByDisplayValue("ana@example.com");
+    expect(within(dialogo).queryByRole("button", { name: "Cerrar edición" })).toBeNull();
     expect(document.activeElement).toBe(within(dialogo).getByRole("heading", { name: "Editar usuario" }));
     expect(document.body.style.overflow).toBe("hidden");
     fireEvent.change(within(dialogo).getByLabelText("Nombre completo *"), { target: { value: "Edición descartada" } });
@@ -481,7 +482,7 @@ describe("gestión de usuarios React", () => {
     render(<PaginaRegistroUsuarios />);
     await user.click(within((await screen.findByText("Ana Perez")).closest("tr")).getByRole("button", { name: "Editar" }));
     expect(within(screen.getByRole("dialog")).getByText("Cargando los datos del usuario…")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Cerrar edición" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar edición" }));
     await user.click(within(screen.getByText("Otra cuenta").closest("tr")).getByRole("button", { name: "Editar" }));
     await within(screen.getByRole("dialog")).findByDisplayValue("otra@example.com");
     await act(async () => resolverAnterior(respuestaJson({ usuario: funcionario })));
@@ -498,7 +499,7 @@ describe("gestión de usuarios React", () => {
     const drawer = within(screen.getByRole("dialog"));
     expect(await drawer.findByText("No se pudo consultar la cuenta.")).toBeTruthy();
     expect(drawer.queryByRole("button", { name: "Guardar cambios" })).toBeNull();
-    await user.click(drawer.getByRole("button", { name: "Cerrar edición" }));
+    await user.click(drawer.getByRole("button", { name: "Cancelar edición" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -522,14 +523,14 @@ describe("gestión de usuarios React", () => {
     const panel = screen.getByRole("dialog");
     const drawer = within(panel);
     await drawer.findByDisplayValue("ana@example.com");
-    const cerrar = drawer.getByRole("button", { name: "Cerrar edición" });
     const cancelar = drawer.getByRole("button", { name: "Cancelar edición" });
+    const primerControl = drawer.getByLabelText("Nombre completo *");
     cancelar.focus();
     fireEvent.keyDown(cancelar, { key: "Tab" });
-    expect(document.activeElement).toBe(cerrar);
-    fireEvent.keyDown(cerrar, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(primerControl);
+    fireEvent.keyDown(primerControl, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(cancelar);
-    await user.click(cerrar);
+    await user.click(cancelar);
     expect(document.activeElement).toBe(editar);
     expect(document.body.style.overflow).not.toBe("hidden");
   });
@@ -595,7 +596,6 @@ describe("gestión de usuarios React", () => {
     fireEvent.submit(form);
     fireEvent.submit(form);
     fireEvent(panel, new Event("cancel", { cancelable: true }));
-    expect(drawer.getByRole("button", { name: "Cerrar edición" }).disabled).toBe(true);
     expect(drawer.getByRole("button", { name: "Cancelar edición" }).disabled).toBe(true);
     expect(drawer.getByRole("button", { name: "Guardando…" }).disabled).toBe(true);
     expect(drawer.getByLabelText("Nombre completo *").closest("fieldset").disabled).toBe(true);

@@ -409,7 +409,7 @@ describe("consulta de radicados React", () => {
     expect(screen.getByRole("tabpanel", { name: "Radicados" }).contains(screen.getByRole("heading", { name: "Alertas por dependencia" }))).toBe(true);
     expect(solicitarApi.mock.calls.some(([ruta]) => ruta.startsWith("/api/traslados?"))).toBe(false);
     await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Respuestas internas" })));
-    expect(screen.getByText("Aún no hay respuestas internas")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "RAD-002" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ver bandeja interna" })).toBeNull();
     expect(screen.queryByRole("table", { name: "Radicados" })).toBeNull();
     await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Traslados" })));
@@ -676,7 +676,7 @@ describe("consulta de radicados React", () => {
     expect(screen.queryByText("Dependencia remitente")).toBeNull();
   });
 
-  it("muestra el rechazo de un PDF de más de 10 MB fuera del cuerpo desplazable", async () => {
+  it("muestra el rechazo de un PDF de más de 10 MB dentro del bloque de adjuntos", async () => {
     const user = userEvent.setup({ delay: null });
     const selector = await abrirRespuesta();
     const consulta = within(selector.closest("dialog"));
@@ -687,7 +687,7 @@ describe("consulta de radicados React", () => {
     expect(alerta.textContent).toContain("excedido.pdf");
     expect(alerta.textContent).toContain("10485761 bytes");
     expect(alerta.textContent).toContain("10 MB");
-    expect(alerta.closest(".modal-content")).toBeNull();
+    expect(alerta.closest(".respuesta-grupo")).toBeTruthy();
     expect(selector.getAttribute("aria-invalid")).toBe("true");
     expect(selector.getAttribute("aria-describedby")).toContain(alerta.id);
     expect(consulta.queryByRole("list", { name: "Archivos seleccionados" })).toBeNull();
@@ -742,13 +742,84 @@ describe("consulta de radicados React", () => {
     expect(consulta.getByText(/limite.pdf/)).toBeTruthy();
   });
 
+  it("presenta el selector de adjuntos con contador y permite quitar archivos", async () => {
+    const user = userEvent.setup({ delay: null });
+    const selector = await abrirRespuesta();
+    const consulta = within(selector.closest("dialog"));
+
+    expect(selector.id).toBe("adjunto-respuesta");
+    expect(selector.multiple).toBe(true);
+    expect(selector.accept).toContain("application/pdf");
+    expect(selector.getAttribute("aria-describedby")).toContain("ayuda-adjuntos-respuesta");
+    const botonSeleccion = consulta.getByRole("button", { name: "Seleccionar archivos PDF" });
+    expect(botonSeleccion.tagName).toBe("BUTTON");
+    expect(botonSeleccion.getAttribute("type")).toBe("button");
+    const abrirSelector = vi.spyOn(selector, "click");
+    await user.click(botonSeleccion);
+    expect(abrirSelector).toHaveBeenCalledTimes(1);
+    expect(consulta.getByText("Hasta 5 archivos PDF · Máximo 10 MB por archivo")).toBeTruthy();
+    expect(consulta.getByText("o arrástralos aquí")).toBeTruthy();
+
+    await user.upload(selector, [crearPdf("uno.pdf", 32), crearPdf("dos.pdf", 32)]);
+    expect(document.activeElement).toBe(botonSeleccion);
+    const contador = consulta.getByText("2 de 5 archivos seleccionados");
+    expect(contador.closest('[role="status"]')).toBeTruthy();
+    expect(consulta.getAllByRole("button", { name: /^Quitar / })).toHaveLength(2);
+
+    await user.click(consulta.getByRole("button", { name: "Quitar uno.pdf" }));
+    expect(consulta.getByText("1 de 5 archivos seleccionados")).toBeTruthy();
+    expect(consulta.queryByText("uno.pdf")).toBeNull();
+    abrirSelector.mockRestore();
+  });
+
+  it("mantiene abierto el modal al cancelar el selector nativo y conserva el formulario", async () => {
+    const user = userEvent.setup({ delay: null });
+    const selector = await abrirRespuesta();
+    const dialogo = selector.closest("dialog");
+    const consulta = within(dialogo);
+    const botonSeleccion = consulta.getByRole("button", { name: "Seleccionar archivos PDF" });
+    const contenido = consulta.getByLabelText("Contenido de la respuesta *");
+    const archivo = crearPdf("conservar.pdf", 100);
+    const texto = "Respuesta que debe permanecer abierta.";
+
+    fireEvent.change(contenido, { target: { value: texto } });
+    await user.upload(selector, archivo);
+    const publicacionesAntes = solicitarApi.mock.calls.filter(([, opciones]) => opciones?.method === "POST");
+
+    await user.click(botonSeleccion);
+    const cancelacionSelector = new Event("cancel", { cancelable: true });
+    await act(async () => fireEvent(dialogo, cancelacionSelector));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 0)));
+
+    expect(cancelacionSelector.defaultPrevented).toBe(true);
+    expect(dialogo.open).toBe(true);
+    expect(document.activeElement).toBe(botonSeleccion);
+    expect(contenido.value).toBe(texto);
+    expect(consulta.getByText("conservar.pdf")).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([, opciones]) => opciones?.method === "POST"))
+      .toHaveLength(publicacionesAntes.length);
+
+    await user.click(botonSeleccion);
+    const segundaCancelacion = new Event("cancel", { cancelable: true });
+    await act(async () => fireEvent(dialogo, segundaCancelacion));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 0)));
+    expect(dialogo.open).toBe(true);
+
+    const escapeModal = new Event("cancel", { cancelable: true });
+    await act(async () => fireEvent(dialogo, escapeModal));
+    expect(escapeModal.defaultPrevented).toBe(true);
+    expect(dialogo.open).toBe(false);
+  });
+
   it("rechaza más de cinco PDFs y extensiones inválidas sin borrar los anteriores", async () => {
     const user = userEvent.setup({ applyAccept: false, delay: null });
     const selector = await abrirRespuesta();
     const consulta = within(selector.closest("dialog"));
     await user.upload(selector, crearPdf("anterior.pdf", 32));
-    await user.upload(selector, Array.from({ length: 6 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
+    await user.upload(selector, Array.from({ length: 7 }, (_, i) => crearPdf(`${i}.pdf`, 32)));
     expect(consulta.getByRole("alert").textContent).toContain("máximo 5");
+    expect(consulta.getByText("Seleccionaste 7 archivos. El máximo permitido es 5 PDF.")).toBeTruthy();
+    expect(consulta.getByText("Se conservan los adjuntos válidos anteriores.")).toBeTruthy();
     await user.upload(selector, new File(["texto"], "invalido.txt", { type: "text/plain" }));
     expect(consulta.getByRole("alert").textContent).toContain("invalido.txt");
     expect(consulta.getByText(/anterior.pdf/)).toBeTruthy();
@@ -821,11 +892,19 @@ describe("consulta de radicados React", () => {
     });
     await user.click(consulta.getByRole("button", { name: "Enviar respuesta" }));
     const mensaje = await consulta.findByText(errorServidor);
-    expect(mensaje.closest(".modal-content")).toBeNull();
+    expect(mensaje.closest(".respuesta-adjuntos-error")).toBeTruthy();
+    expect(consulta.getByText("No se pudo adjuntar el documento")).toBeTruthy();
+    expect(consulta.queryByText("Enviando respuesta…")).toBeNull();
+    expect(solicitarApi.mock.calls.filter(([, opciones]) => opciones?.method === "POST")).toHaveLength(1);
     const envio = solicitarApi.mock.calls.find(([, opciones]) => opciones?.method === "POST");
     expect(envio[1].body.getAll("archivos")).toEqual(adjuntos);
     expect(consulta.getByLabelText("Plantilla institucional").value).toBe("general");
-    if (conAdjunto) expect(consulta.getByText(/protegido.pdf/)).toBeTruthy();
+    if (conAdjunto) {
+      expect(consulta.getByText(/protegido.pdf/)).toBeTruthy();
+      expect(consulta.getByText("Retira el archivo protegido o selecciona una copia PDF sin contraseña.")).toBeTruthy();
+      expect(consulta.getByLabelText(/Contenido de la respuesta/).value).toContain("En atención");
+      expect(consulta.getByRole("button", { name: "Enviar respuesta" }).disabled).toBe(false);
+    }
   });
 
   it("descarta metadatos tardios al cambiar de radicado y al cerrar el detalle", async () => {

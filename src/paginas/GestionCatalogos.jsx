@@ -87,6 +87,12 @@ export function PaginaGestionCatalogos() {
 function GestionCatalogos({ usuario }) {
   const formularioCatalogoRef = useRef(null);
   const editorCatalogoRef = useRef(null);
+  const dialogoCatalogoRef = useRef(null);
+  const tituloCatalogoRef = useRef(null);
+  const terminoPanelRef = useRef(null);
+  const tituloTerminoRef = useRef(null);
+  const origenEdicionRef = useRef(null);
+  const solicitudEdicionRef = useRef(0);
   const [catalogoActual, setCatalogoActual] = useState(CATALOGO_DEPENDENCIAS);
   const [incluirInactivos, setIncluirInactivos] = useState(true);
   const [busqueda, setBusqueda] = useState("");
@@ -109,6 +115,8 @@ function GestionCatalogos({ usuario }) {
   });
   const [terminosVigentes, setTerminosVigentes] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [cargandoEdicion, setCargandoEdicion] = useState(false);
+  const [editorListo, setEditorListo] = useState(false);
   const [enProceso, setEnProceso] = useState(false);
   const [mensaje, setMensaje] = useState({ texto: "", tono: "" });
 
@@ -157,22 +165,34 @@ function GestionCatalogos({ usuario }) {
   }, [incluirInactivos]);
 
   useEffect(() => {
-    if (!registroEnEdicion || !editorCatalogoRef.current || !formularioCatalogoRef.current) return;
-    editorCatalogoRef.current.scrollIntoView?.({
+    if (!registroEnEdicion || !dialogoCatalogoRef.current) return undefined;
+    const panel = dialogoCatalogoRef.current;
+    const origen = origenEdicionRef.current;
+    const overflow = document.body.style.overflow;
+    if (!panel.open) panel.showModal();
+    document.body.style.overflow = "hidden";
+    tituloCatalogoRef.current?.focus({ preventScroll: true });
+    return () => {
+      if (panel.open) panel.close();
+      document.body.style.overflow = overflow;
+      const destino = origen?.isConnected
+        ? origen
+        : document.querySelector(`[data-editar-catalogo="${registroEnEdicion.id}"]`);
+      destino?.focus({ preventScroll: true });
+      origenEdicionRef.current = null;
+    };
+  }, [registroEnEdicion?.id]);
+
+  useEffect(() => {
+    if (!tramiteTerminoNuevo || !terminoPanelRef.current) return undefined;
+    terminoPanelRef.current.scrollIntoView?.({
       behavior: "smooth",
       block: "start",
       inline: "nearest",
     });
-    const primerCampo = formularioCatalogoRef.current.querySelector(
-      "input:not([type='hidden']), textarea, select",
-    );
-    if (!primerCampo) return;
-    try {
-      primerCampo.focus({ preventScroll: true });
-    } catch {
-      primerCampo.focus();
-    }
-  }, [registroEnEdicion]);
+    tituloTerminoRef.current?.focus({ preventScroll: true });
+    return undefined;
+  }, [tramiteTerminoNuevo?.id]);
 
   async function cargarTerminos(tipoTramiteId) {
     try {
@@ -196,7 +216,10 @@ function GestionCatalogos({ usuario }) {
   }
 
   function limpiarFormulario() {
+    solicitudEdicionRef.current += 1;
     setRegistroEnEdicion(null);
+    setCargandoEdicion(false);
+    setEditorListo(false);
     setCodigoTramiteEditado(false);
     setFormularioDependencia(FORMULARIO_DEPENDENCIA_VACIO);
     setFormularioTramite(FORMULARIO_TRAMITE_VACIO);
@@ -210,12 +233,24 @@ function GestionCatalogos({ usuario }) {
     setTramiteTerminoNuevo(null);
   }
 
-  async function editarRegistro(id) {
+  async function editarRegistro(id, origen) {
     const esDependencia = catalogoActual === CATALOGO_DEPENDENCIAS;
     const ruta = esDependencia
       ? `/api/dependencias/${id}`
       : `/api/tipos-tramite/${id}`;
-    setMensaje({ texto: "Cargando datos para editar…", tono: "" });
+    const solicitud = solicitudEdicionRef.current + 1;
+    solicitudEdicionRef.current = solicitud;
+    origenEdicionRef.current = origen;
+    setRegistroEnEdicion({ id });
+    setCargandoEdicion(true);
+    setEditorListo(false);
+    if (esDependencia) {
+      setFormularioDependencia(FORMULARIO_DEPENDENCIA_VACIO);
+    } else {
+      setCodigoTramiteEditado(true);
+      setFormularioTramite(FORMULARIO_TRAMITE_VACIO);
+    }
+    setMensaje({ texto: "", tono: "" });
     try {
       const respuesta = await solicitarApi(ruta);
       const resultado = await leerResultado(respuesta);
@@ -226,6 +261,7 @@ function GestionCatalogos({ usuario }) {
       if (!registro) {
         throw new Error("La respuesta no incluye los datos del registro.");
       }
+      if (solicitud !== solicitudEdicionRef.current) return;
       setRegistroEnEdicion(registro);
       if (esDependencia) {
         setFormularioDependencia({ nombre: registro.nombre || "" });
@@ -243,10 +279,14 @@ function GestionCatalogos({ usuario }) {
               : String(registro.orden),
         });
       }
+      setEditorListo(true);
       setMensaje({ texto: "", tono: "" });
     } catch (error) {
+      if (solicitud !== solicitudEdicionRef.current) return;
       if (error.status === 404) await cargarCatalogos();
       setMensaje({ texto: error.message, tono: "error" });
+    } finally {
+      if (solicitud === solicitudEdicionRef.current) setCargandoEdicion(false);
     }
   }
 
@@ -418,6 +458,7 @@ function GestionCatalogos({ usuario }) {
   const descripcionEditor = esDependenciaActual
     ? "Administra las dependencias disponibles para recibir y tramitar documentos."
     : "Define cómo se clasifican y gestionan las solicitudes.";
+  const EditorContenedor = editando ? "dialog" : "section";
 
   return (
     <div className="app-page">
@@ -485,27 +526,52 @@ function GestionCatalogos({ usuario }) {
             </button>
           </div>
 
-          <section
-            ref={editorCatalogoRef}
-            className={`catalog-editor-panel${editando ? " catalog-editor-panel--editing" : ""}`}
+          <EditorContenedor
+            ref={editando ? dialogoCatalogoRef : editorCatalogoRef}
+            className={editando ? "catalog-edit-drawer" : "catalog-editor-panel"}
             aria-labelledby="catalogo-formulario-titulo"
+            onCancel={editando ? (evento) => {
+              evento.preventDefault();
+              if (!enProceso) limpiarFormulario();
+            } : undefined}
+            onKeyDown={editando ? (evento) => {
+              if (evento.key !== "Tab") return;
+              const controles = Array.from(dialogoCatalogoRef.current.querySelectorAll("button, input, select, textarea"))
+                .filter((control) => !control.matches(":disabled") && control.tabIndex >= 0);
+              const primero = controles[0];
+              const ultimo = controles.at(-1);
+              if (!primero) {
+                evento.preventDefault();
+                tituloCatalogoRef.current?.focus({ preventScroll: true });
+              } else if (evento.shiftKey && (document.activeElement === primero || !controles.includes(document.activeElement))) {
+                evento.preventDefault();
+                ultimo?.focus();
+              } else if (!evento.shiftKey && document.activeElement === ultimo) {
+                evento.preventDefault();
+                primero?.focus();
+              }
+            } : undefined}
           >
             <div className="catalog-panel-heading">
               <div className="catalog-panel-heading__content">
                 <p className="catalog-panel-kicker">
                   {editando ? "Edición de catálogo" : "Nuevo registro"}
                 </p>
-                <h2 id="catalogo-formulario-titulo">{tituloEditor}</h2>
+                <h2
+                  ref={editando ? tituloCatalogoRef : undefined}
+                  id="catalogo-formulario-titulo"
+                  tabIndex={editando ? -1 : undefined}
+                >
+                  {tituloEditor}
+                </h2>
                 <p className="catalog-panel-description">{descripcionEditor}</p>
               </div>
-              <span
-                className="catalog-panel-icon"
-                aria-hidden="true"
-              >
-                {editando ? "✎" : "+"}
-              </span>
+              {!editando && (
+                <span className="catalog-panel-icon" aria-hidden="true">+</span>
+              )}
             </div>
-            <form
+            {editando && cargandoEdicion && <p role="status">Cargando datos para editar…</p>}
+            {(!editando || editorListo) && <form
               ref={formularioCatalogoRef}
               className="auth-form auth-form--grid catalog-form"
               onSubmit={guardarRegistro}
@@ -751,8 +817,18 @@ function GestionCatalogos({ usuario }) {
               )}
             </div>
             <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
-            </form>
-          </section>
+            </form>}
+            {editando && !editorListo && (
+              <div className="auth-field--full catalog-form-actions">
+                <button type="button" onClick={limpiarFormulario} disabled={enProceso}>
+                  Cancelar edición
+                </button>
+              </div>
+            )}
+            {editando && !cargandoEdicion && !editorListo && mensaje.texto && (
+              <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
+            )}
+          </EditorContenedor>
 
           <section className="users-table-section catalog-list-panel" aria-labelledby="catalogo-lista-titulo">
             <div className="users-table-toolbar catalog-list-toolbar">
@@ -765,9 +841,11 @@ function GestionCatalogos({ usuario }) {
                 </h2>
               </div>
               <div className="catalog-list-controls">
-                <label className="catalog-search">
+                <label htmlFor="catalogo-busqueda" className="catalog-search">
                   <span>Buscar en el catálogo</span>
                   <input
+                    id="catalogo-busqueda"
+                    name="busqueda_catalogo"
                     type="search"
                     value={busqueda}
                     onChange={(evento) => setBusqueda(evento.target.value)}
@@ -778,8 +856,10 @@ function GestionCatalogos({ usuario }) {
                     }
                   />
                 </label>
-                <label className="catalog-inactive-toggle">
+                <label htmlFor="catalogo-incluir-inactivos" className="catalog-inactive-toggle">
                   <input
+                    id="catalogo-incluir-inactivos"
+                    name="incluir_inactivos"
                     type="checkbox"
                     checked={incluirInactivos}
                     onChange={(evento) =>
@@ -860,7 +940,8 @@ function GestionCatalogos({ usuario }) {
                               <button
                                 type="button"
                                 className="catalog-action-edit"
-                                onClick={() => editarRegistro(registro.id)}
+                                data-editar-catalogo={registro.id}
+                                onClick={(evento) => editarRegistro(registro.id, evento.currentTarget)}
                                 disabled={enProceso}
                               >
                                 Editar
@@ -904,11 +985,21 @@ function GestionCatalogos({ usuario }) {
           </section>
 
           {tramiteTerminoNuevo && catalogoActual === CATALOGO_TRAMITES && (
-            <section className="catalog-term-panel" aria-labelledby="catalogo-termino-titulo">
+            <section
+              ref={terminoPanelRef}
+              className="catalog-term-panel"
+              aria-labelledby="catalogo-termino-titulo"
+            >
               <div className="users-table-toolbar">
                 <div>
                   <p className="catalog-panel-kicker">Reglas de respuesta</p>
-                  <h2 id="catalogo-termino-titulo">{tramiteTerminoNuevo.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}: {tramiteTerminoNuevo.nombre}</h2>
+                  <h2
+                    ref={tituloTerminoRef}
+                    id="catalogo-termino-titulo"
+                    tabIndex={-1}
+                  >
+                    {tramiteTerminoNuevo.termino_legal_id ? "Actualizar plazo" : "Configurar plazo"}: {tramiteTerminoNuevo.nombre}
+                  </h2>
                 </div>
                 <button
                   type="button"

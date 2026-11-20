@@ -1,0 +1,101 @@
+.users-edit-drawer,
+.catalog-edit-drawer {
+  width: min(100%, 40rem);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 0 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 0;
+  border-left: 1px solid #e2e8f0;
+  background: #fff;
+  color: #263448;
+  box-shadow: -12px 0 40px rgb(15 42 76 / 18%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.users-edit-drawer[open],
+.catalog-edit-drawer[open] {
+  animation: users-drawer-enter 180ms ease-out;
+}
+
+.users-edit-drawer::backdrop,
+.catalog-edit-drawer::backdrop {
+  background: rgb(15 23 42 / 45%);
+}
+
+.users-drawer-heading,
+.catalog-edit-drawer .catalog-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.users-drawer-heading h2,
+.catalog-edit-drawer .catalog-panel-heading h2 {
+  color: #172b46;
+  font-size: 1.3rem;
+}
+
+.users-drawer-heading > div,
+.catalog-edit-drawer .catalog-panel-heading__content {
+  min-width: 0;
+}
+
+.users-edit-drawer :is(p, h2, small),
+.catalog-edit-drawer :is(p, h2, small) {
+  overflow-wrap: anywhere;
+}
+
+.users-edit-drawer button,
+.catalog-edit-drawer button {
+  min-height: 2.75rem;
+}
+
+.users-edit-drawer button:not(.auth-submit),
+.catalog-edit-drawer button:not(.auth-submit) {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  background: #fff;
+  color: #1e40af;
+  font: inherit;
+  cursor: pointer;
+}
+
+.users-edit-drawer button:not(.auth-submit):hover:not(:disabled),
+.catalog-edit-drawer button:not(.auth-submit):hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.users-edit-drawer button:disabled,
+.catalog-edit-drawer button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.users-edit-drawer > .auth-message,
+.catalog-edit-drawer > .auth-message {
+  margin-top: 1rem;
+}
+
+@keyframes users-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .users-edit-drawer[open],
+  .catalog-edit-drawer[open] {
+    animation: none;
+  }
+}

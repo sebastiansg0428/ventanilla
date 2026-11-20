@@ -630,6 +630,19 @@ describe("radicación React", () => {
     expect(await screen.findByText("solicitud.pdf (10.00 MB)")).toBeTruthy();
   });
 
+  it("presenta un selector PDF accesible con instrucciones y atributos conservados", async () => {
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+
+    expect(selector.id).toBe("archivo-soporte");
+    expect(selector.name).toBe("archivos");
+    expect(selector.multiple).toBe(true);
+    expect(selector.accept).toContain("application/pdf");
+    expect(screen.getByRole("button", { name: "Seleccionar archivos PDF" })).toBeTruthy();
+    expect(screen.getByText("Hasta 5 archivos PDF · Máximo 10 MB por archivo")).toBeTruthy();
+    expect(screen.getByText("Selecciona o arrastra hasta 5 archivos PDF")).toBeTruthy();
+  });
+
   it("rechaza un PDF que supera el límite de 10 MB", async () => {
     const user = userEvent.setup();
     await abrirRadicacion();
@@ -660,7 +673,7 @@ describe("radicación React", () => {
       'El archivo "vacio.pdf" está vacío. Selecciona un PDF con contenido.',
     )).toBeTruthy();
     expect(selector.getAttribute("aria-invalid")).toBe("true");
-    expect(selector.getAttribute("aria-describedby")).toBe("error-archivos");
+    expect(selector.getAttribute("aria-describedby")).toContain("error-archivos");
     expect(selector.value).toBe("");
     expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
   });
@@ -716,13 +729,54 @@ describe("radicación React", () => {
       new File(["PDF"], `adjunto-${indice}.pdf`, { type: "application/pdf" }),
     );
     await user.upload(selector, archivos);
-    expect(await screen.findByText("Puedes adjuntar máximo 5 archivos PDF.")).toBeTruthy();
+    const mensaje = await screen.findByText("Puedes adjuntar máximo 5 archivos PDF.");
+    expect(mensaje.closest('[role="status"]')).toBeTruthy();
+    expect(await screen.findByText(
+      "Se rechazó la selección completa de 6 archivos. No se adjuntó ningún archivo. Selecciona hasta 5 PDF.",
+    )).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
+    expect(selector.value).toBe("");
     expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
     await user.upload(selector, archivos.slice(0, 5));
     expect(await screen.findByRole("list", { name: "Archivos de radicación seleccionados" })).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Quitar" })).toHaveLength(5);
+    const contador = screen.getByText("5 de 5 archivos seleccionados");
+    expect(contador.closest('[role="status"]')).toBeTruthy();
     expect(screen.queryByText("Puedes adjuntar máximo 5 archivos PDF.")).toBeNull();
+  });
+
+  it("actualiza el contador al quitar un archivo seleccionado", async () => {
+    const user = userEvent.setup();
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    const archivos = Array.from({ length: 2 }, (_, indice) =>
+      new File(["PDF"], `contador-${indice}.pdf`, { type: "application/pdf" }),
+    );
+
+    await user.upload(selector, archivos);
+    expect(screen.getByText("2 de 5 archivos seleccionados").closest('[role="status"]')).toBeTruthy();
+    await user.click(screen.getAllByRole("button", { name: "Quitar" })[0]);
+    expect(screen.getByText("1 de 5 archivos seleccionados").closest('[role="status"]')).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Quitar" })).toHaveLength(1);
+  });
+
+  it("rechaza más de cinco archivos también mediante arrastre", async () => {
+    await abrirRadicacion();
+    const selector = screen.getByLabelText("Documentos PDF de soporte");
+    const zona = selector.closest(".upload-field");
+    const archivos = Array.from({ length: 6 }, (_, indice) =>
+      new File(["PDF"], `arrastre-${indice}.pdf`, { type: "application/pdf" }),
+    );
+
+    fireEvent.drop(zona, { dataTransfer: { files: archivos } });
+
+    const mensaje = await screen.findByText("Puedes adjuntar máximo 5 archivos PDF.");
+    expect(mensaje.closest('[role="status"]')).toBeTruthy();
+    expect(await screen.findByText(
+      "Se rechazó la selección completa de 6 archivos. No se adjuntó ningún archivo. Selecciona hasta 5 PDF.",
+    )).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Archivos de radicación seleccionados" })).toBeNull();
+    expect(solicitarApi).not.toHaveBeenCalledWith("/api/radicados", expect.anything());
   });
 
   it("envía el formulario y genera el comprobante después del registro exitoso", async () => {

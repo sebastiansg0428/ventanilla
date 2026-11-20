@@ -40,6 +40,8 @@ function FormularioRadicacion({ usuario }) {
   });
   const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
   const [errorArchivos, setErrorArchivos] = useState("");
+  const [detalleErrorArchivos, setDetalleErrorArchivos] = useState("");
+  const [arrastreActivo, setArrastreActivo] = useState(false);
   const [enProceso, setEnProceso] = useState(false);
   const [confirmacionPendiente, setConfirmacionPendiente] = useState(false);
   const intentoRadicacion = useRef(null);
@@ -130,9 +132,13 @@ function FormularioRadicacion({ usuario }) {
     if (envioEnProceso.current || confirmacionPendiente) return;
     const seleccion = Array.from(archivosCandidatos || []);
     if (!seleccion.length) return;
+    let detalleError = "";
     let error = seleccion.length > 5
       ? "Puedes adjuntar máximo 5 archivos PDF."
       : "";
+    if (error) {
+      detalleError = `Se rechazó la selección completa de ${seleccion.length} archivos. No se adjuntó ningún archivo. Selecciona hasta 5 PDF.`;
+    }
     if (!error) {
       for (const archivo of seleccion) {
         if (!archivo.name.toLowerCase().endsWith(".pdf")) {
@@ -144,9 +150,13 @@ function FormularioRadicacion({ usuario }) {
         }
         if (error) break;
       }
+      if (error) {
+        detalleError = "No se adjuntó ningún archivo. Corrige el archivo indicado y vuelve a seleccionar.";
+      }
     }
     setMensaje({ texto: "", tono: "" });
     setErrorArchivos(error);
+    setDetalleErrorArchivos(detalleError);
     if (error) {
       setArchivosSeleccionados([]);
       if (selectorArchivo.current) selectorArchivo.current.value = "";
@@ -548,13 +558,47 @@ function FormularioRadicacion({ usuario }) {
               descripcion="Adjunta hasta 5 documentos PDF (máx. 10 MB cada uno)."
             >
               <div
-                className="upload-field"
-                onDragOver={(evento) => evento.preventDefault()}
+                className={`upload-field${errorArchivos ? " upload-field--invalid" : ""}${archivosSeleccionados.length ? " upload-field--has-files" : ""}${arrastreActivo ? " upload-field--drag-active" : ""}`}
+                onDragEnter={(evento) => {
+                  evento.preventDefault();
+                  setArrastreActivo(true);
+                }}
+                onDragOver={(evento) => {
+                  evento.preventDefault();
+                  evento.dataTransfer.dropEffect = "copy";
+                }}
+                onDragLeave={(evento) => {
+                  if (evento.currentTarget === evento.target) setArrastreActivo(false);
+                }}
                 onDrop={(evento) => {
                   evento.preventDefault();
+                  setArrastreActivo(false);
                   aceptarArchivos(evento.dataTransfer.files);
                 }}
               >
+                <div className="upload-field__surface">
+                  <span className="upload-field__icon" aria-hidden="true">PDF</span>
+                  <p className="upload-field__title">Adjunta tus documentos de soporte</p>
+                  <p id="ayuda-archivos" className="upload-field__hint">
+                    Hasta 5 archivos PDF · Máximo 10 MB por archivo
+                  </p>
+                  <div className="upload-field__actions">
+                    <label
+                      className="upload-field__button"
+                      htmlFor="archivo-soporte"
+                      role="button"
+                      tabIndex="0"
+                      onKeyDown={(evento) => {
+                        if (evento.key === "Enter" || evento.key === " ") {
+                          evento.preventDefault();
+                          selectorArchivo.current?.click();
+                        }
+                      }}
+                    >
+                      Seleccionar archivos PDF
+                    </label>
+                    <span className="upload-field__drop-hint">o arrástralos aquí</span>
+                  </div>
                 <input
                   id="archivo-soporte"
                   name="archivos"
@@ -563,14 +607,27 @@ function FormularioRadicacion({ usuario }) {
                   accept="application/pdf,.pdf"
                   aria-label="Documentos PDF de soporte"
                   aria-invalid={Boolean(errorArchivos)}
-                  aria-describedby={errorArchivos ? "error-archivos" : undefined}
+                  aria-describedby={["ayuda-archivos", errorArchivos ? "error-archivos" : ""].filter(Boolean).join(" ")}
                   multiple
+                  className="upload-field__input"
                   onChange={(evento) => aceptarArchivos(evento.target.files)}
                 />
-                <p>Selecciona o arrastra hasta 5 archivos PDF</p>
+                <p className="upload-field__instruction">
+                  Selecciona o arrastra hasta 5 archivos PDF
+                </p>
+                {archivosSeleccionados.length > 0 && (
+                  <p className="upload-field__counter" role="status" aria-live="polite">
+                    {archivosSeleccionados.length} de 5 archivos seleccionados
+                  </p>
+                )}
                 {errorArchivos && (
                   <div id="error-archivos">
                     <MensajeEstado tono="error">{errorArchivos}</MensajeEstado>
+                    {detalleErrorArchivos && (
+                      <p className="upload-field__error-detail" role="status" aria-live="polite">
+                        {detalleErrorArchivos}
+                      </p>
+                    )}
                   </div>
                 )}
                 {archivosSeleccionados.length > 0 && (
@@ -599,6 +656,7 @@ function FormularioRadicacion({ usuario }) {
                     ))}
                   </ul>
                 )}
+                </div>
               </div>
             </SeccionFormulario>
             </fieldset>

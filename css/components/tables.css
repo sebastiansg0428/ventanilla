@@ -1,0 +1,31 @@
+.table-card {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #fff;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 5%);
+}
+
+.table-scroll {
+  background: #fff;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: -3px;
+}
+
+.tabla-adaptable .tarjeta-etiqueta {
+  display: none;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: normal;
+}
+
+.tarjeta-valor {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -342,6 +342,9 @@ function VistaConsultaRadicados({ usuario }) {
   // Guardamos la selección en una lista porque el formulario permite varios PDF.
   const [archivosRespuesta, setArchivosRespuesta] = useState([]);
   const [errorArchivosRespuesta, setErrorArchivosRespuesta] = useState("");
+  const [detalleErrorArchivosRespuesta, setDetalleErrorArchivosRespuesta] = useState("");
+  const [errorEnvioRespuesta, setErrorEnvioRespuesta] = useState("");
+  const [arrastreArchivosRespuesta, setArrastreArchivosRespuesta] = useState(false);
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   const [guardandoEntrega, setGuardandoEntrega] = useState(false);
   const [vistaRegistroEntrega, setVistaRegistroEntrega] = useState(false);
@@ -355,6 +358,8 @@ function VistaConsultaRadicados({ usuario }) {
   const dialogoRespuesta = useRef(null);
   const tituloRespuesta = useRef(null);
   const entradaArchivosRespuesta = useRef(null);
+  const botonSeleccionArchivosRespuesta = useRef(null);
+  const selectorArchivosRespuestaAbierto = useRef(false);
   const solicitudDetalle = useRef(0);
   const solicitudHistorial = useRef(0);
   const solicitudDocumento = useRef(0);
@@ -397,6 +402,7 @@ function VistaConsultaRadicados({ usuario }) {
 
   function cerrarRespuesta() {
     if (respuestaEnProceso.current) return;
+    selectorArchivosRespuestaAbierto.current = false;
     solicitudRespuesta.current += 1;
     liberarUrlsRespuestaEnCarga();
     setRespuestaSeleccionada(null);
@@ -649,17 +655,24 @@ function VistaConsultaRadicados({ usuario }) {
     setPlantillaRespuesta("");
     setArchivosRespuesta([]);
     setErrorArchivosRespuesta("");
+    setDetalleErrorArchivosRespuesta("");
+    setErrorEnvioRespuesta("");
+    setArrastreArchivosRespuesta(false);
+    selectorArchivosRespuestaAbierto.current = false;
     if (entradaArchivosRespuesta.current)
       entradaArchivosRespuesta.current.value = "";
     setMensajeRespuesta("");
     setRespuestaSeleccionada(radicado);
   }
 
-  function aceptarArchivosRespuesta(evento) {
-    const seleccion = Array.from(evento.target.files || []);
+  function aceptarArchivosRespuesta(archivosCandidatos, elemento = null) {
+    const seleccion = Array.from(archivosCandidatos || []);
     if (!seleccion.length) return;
     let error =
       seleccion.length > 5 ? "Puedes adjuntar máximo 5 archivos PDF." : "";
+    let detalle = seleccion.length > 5
+      ? `Seleccionaste ${seleccion.length} archivos. El máximo permitido es 5 PDF.`
+      : "";
     for (const archivo of seleccion) {
       if (error) break;
       if (!archivo.name.toLowerCase().endsWith(".pdf")) {
@@ -670,10 +683,14 @@ function VistaConsultaRadicados({ usuario }) {
         error = `El archivo "${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(2)} MB (${archivo.size} bytes) y supera el máximo de 10 MB (10485760 bytes) por archivo.`;
       }
     }
+    if (error && !detalle)
+      detalle = "Corrige el archivo indicado y vuelve a seleccionar un PDF.";
     setMensajeRespuesta("");
+    setErrorEnvioRespuesta("");
     setErrorArchivosRespuesta(error);
+    setDetalleErrorArchivosRespuesta(detalle);
     if (error) {
-      evento.target.value = "";
+      if (elemento) elemento.value = "";
       return;
     }
     setArchivosRespuesta(seleccion);
@@ -690,6 +707,7 @@ function VistaConsultaRadicados({ usuario }) {
     respuestaEnProceso.current = true;
     const solicitud = solicitudRespuesta.current;
     setEnviandoRespuesta(true);
+    setErrorEnvioRespuesta("");
     setMensajeRespuesta("Enviando respuesta…");
     try {
       const datos = new FormData();
@@ -745,8 +763,10 @@ function VistaConsultaRadicados({ usuario }) {
         retirarVistasSinAcceso(error)
       )
         return;
-      if (solicitud === solicitudRespuesta.current)
-        setMensajeRespuesta(error.message);
+      if (solicitud === solicitudRespuesta.current) {
+        setMensajeRespuesta("");
+        setErrorEnvioRespuesta(error.message);
+      }
     } finally {
       respuestaEnProceso.current = false;
       if (solicitud === solicitudRespuesta.current) setEnviandoRespuesta(false);
@@ -1164,6 +1184,10 @@ function VistaConsultaRadicados({ usuario }) {
     setPestanaConsulta(id);
     botonesPestanas.current[id]?.focus();
   }
+
+  const errorEnvioEsAdjunto = Boolean(
+    errorEnvioRespuesta && /pdf|cifrado|protegido|archivo|10 mb/i.test(errorEnvioRespuesta),
+  );
 
   return (
     <div className={`page-consult app-page ${esDependencia ? "consulta-dependencia" : "consulta-ventanilla"}`}>
@@ -2201,6 +2225,14 @@ function VistaConsultaRadicados({ usuario }) {
           if (!dialogoRespuesta.current?.open) cerrarRespuesta();
         }}
         onCancel={(evento) => {
+          if (selectorArchivosRespuestaAbierto.current) {
+            evento.preventDefault();
+            selectorArchivosRespuestaAbierto.current = false;
+            window.setTimeout(() => {
+              botonSeleccionArchivosRespuesta.current?.focus({ preventScroll: true });
+            }, 0);
+            return;
+          }
           evento.preventDefault();
           cerrarRespuesta();
         }}
@@ -2505,67 +2537,171 @@ function VistaConsultaRadicados({ usuario }) {
                 aria-labelledby="respuesta-adjuntos-titulo"
               >
                 <h3 id="respuesta-adjuntos-titulo">Adjuntos de la respuesta</h3>
-                <label htmlFor="adjunto-respuesta">
-                  Documentos de respuesta (hasta 5 PDF, máximo 10 MB cada uno)
-                </label>
-                <input
-                  ref={entradaArchivosRespuesta}
-                  id="adjunto-respuesta"
-                  disabled={enviandoRespuesta}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  multiple
-                  aria-invalid={Boolean(errorArchivosRespuesta)}
-                  aria-describedby={
-                    errorArchivosRespuesta
-                      ? "error-archivos-respuesta"
-                      : undefined
-                  }
-                  onChange={aceptarArchivosRespuesta}
-                />
-                {archivosRespuesta.length > 0 && (
-                  <ul
-                    className="detalle-archivos"
-                    aria-label="Archivos seleccionados"
-                  >
-                    {archivosRespuesta.map((archivo) => (
-                      <li key={`${archivo.name}-${archivo.lastModified}`}>
-                        <span
-                          className="detalle-archivo-icono"
-                          aria-hidden="true"
-                        >
-                          PDF
-                        </span>
-                        <span className="detalle-archivo-nombre">
-                          {archivo.name}
-                        </span>
-                        <span className="detalle-archivo-tamano">
-                          {(archivo.size / (1024 * 1024)).toFixed(1)} MB
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div
+                  className={`respuesta-adjuntos-selector${errorArchivosRespuesta || errorEnvioEsAdjunto ? " respuesta-adjuntos-selector--error" : ""}${archivosRespuesta.length ? " respuesta-adjuntos-selector--con-archivos" : ""}${arrastreArchivosRespuesta ? " respuesta-adjuntos-selector--arrastrando" : ""}`}
+                  onDragEnter={(evento) => {
+                    evento.preventDefault();
+                    setArrastreArchivosRespuesta(true);
+                  }}
+                  onDragOver={(evento) => {
+                    evento.preventDefault();
+                    evento.dataTransfer.dropEffect = "copy";
+                  }}
+                  onDragLeave={(evento) => {
+                    if (evento.currentTarget === evento.target)
+                      setArrastreArchivosRespuesta(false);
+                  }}
+                  onDrop={(evento) => {
+                    evento.preventDefault();
+                    setArrastreArchivosRespuesta(false);
+                    selectorArchivosRespuestaAbierto.current = false;
+                    aceptarArchivosRespuesta(
+                      evento.dataTransfer.files,
+                      entradaArchivosRespuesta.current,
+                    );
+                  }}
+                >
+                  <div className="respuesta-adjuntos-selector__surface">
+                    <span className="respuesta-adjuntos-selector__icono" aria-hidden="true">
+                      PDF
+                    </span>
+                    <p className="respuesta-adjuntos-selector__titulo">
+                      Adjunta los documentos de la respuesta
+                    </p>
+                    <p
+                      id="ayuda-adjuntos-respuesta"
+                      className="respuesta-adjuntos-selector__ayuda"
+                    >
+                      Hasta 5 archivos PDF · Máximo 10 MB por archivo
+                    </p>
+                    <div className="respuesta-adjuntos-selector__acciones">
+                      <button
+                        type="button"
+                        className="respuesta-adjuntos-selector__boton"
+                        ref={botonSeleccionArchivosRespuesta}
+                        onClick={() => {
+                          if (!entradaArchivosRespuesta.current) return;
+                          selectorArchivosRespuestaAbierto.current = true;
+                          entradaArchivosRespuesta.current.click();
+                        }}
+                      >
+                        Seleccionar archivos PDF
+                      </button>
+                      <span>o arrástralos aquí</span>
+                    </div>
+                    <label
+                      className="respuesta-adjuntos-selector__etiqueta-oculta"
+                      htmlFor="adjunto-respuesta"
+                    >
+                      Documentos de respuesta
+                    </label>
+                    <input
+                      ref={entradaArchivosRespuesta}
+                      id="adjunto-respuesta"
+                      disabled={enviandoRespuesta}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      multiple
+                      className="respuesta-adjuntos-selector__input"
+                      aria-invalid={Boolean(errorArchivosRespuesta || errorEnvioEsAdjunto)}
+                      aria-describedby={[
+                        "ayuda-adjuntos-respuesta",
+                        errorArchivosRespuesta || errorEnvioEsAdjunto
+                          ? "error-archivos-respuesta"
+                          : "",
+                      ].filter(Boolean).join(" ")}
+                      onChange={(evento) => {
+                        selectorArchivosRespuestaAbierto.current = false;
+                        aceptarArchivosRespuesta(evento.target.files, evento.target);
+                        window.setTimeout(() => {
+                          botonSeleccionArchivosRespuesta.current?.focus({ preventScroll: true });
+                        }, 0);
+                      }}
+                    />
+                    {archivosRespuesta.length > 0 && (
+                      <p className="respuesta-adjuntos-selector__contador" role="status" aria-live="polite">
+                        {archivosRespuesta.length} de 5 archivos seleccionados
+                      </p>
+                    )}
+                    {(errorArchivosRespuesta || errorEnvioEsAdjunto) && (
+                      <div
+                        id="error-archivos-respuesta"
+                        className="respuesta-adjuntos-error"
+                        role="alert"
+                        aria-live="assertive"
+                      >
+                        <strong>No se pudo adjuntar el documento</strong>
+                        {errorArchivosRespuesta && <p>{errorArchivosRespuesta}</p>}
+                        {detalleErrorArchivosRespuesta && <p>{detalleErrorArchivosRespuesta}</p>}
+                        {errorArchivosRespuesta && (
+                          <p>
+                            {archivosRespuesta.length > 0
+                              ? "Se conservan los adjuntos válidos anteriores."
+                              : "No se ha adjuntado ningún archivo."}
+                          </p>
+                        )}
+                        {errorEnvioEsAdjunto && <p>{errorEnvioRespuesta}</p>}
+                        <p className="respuesta-adjuntos-error__ayuda">
+                          {errorEnvioRespuesta?.toLowerCase().includes("cifrado")
+                            ? "Retira el archivo protegido o selecciona una copia PDF sin contraseña."
+                            : "Corrige el archivo indicado y vuelve a intentarlo."}
+                        </p>
+                      </div>
+                    )}
+                    {archivosRespuesta.length > 0 && (
+                      <ul
+                        className="detalle-archivos"
+                        aria-label="Archivos seleccionados"
+                      >
+                        {archivosRespuesta.map((archivo, indice) => (
+                          <li key={`${archivo.name}-${archivo.lastModified}`}>
+                            <span
+                              className="detalle-archivo-icono"
+                              aria-hidden="true"
+                            >
+                              PDF
+                            </span>
+                            <span className="detalle-archivo-nombre">
+                              {archivo.name}
+                            </span>
+                            <span className="detalle-archivo-tamano">
+                              {(archivo.size / (1024 * 1024)).toFixed(1)} MB
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Quitar ${archivo.name}`}
+                              disabled={enviandoRespuesta}
+                              onClick={() => {
+                                setArchivosRespuesta((actual) => actual.filter((_, posicion) => posicion !== indice));
+                                setErrorArchivosRespuesta("");
+                                setDetalleErrorArchivosRespuesta("");
+                                setErrorEnvioRespuesta("");
+                                if (entradaArchivosRespuesta.current)
+                                  entradaArchivosRespuesta.current.value = "";
+                              }}
+                            >
+                              Quitar
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </section>
             </div>
-            {(errorArchivosRespuesta || mensajeRespuesta) && (
-              <div className="respuesta-mensajes">
-                {errorArchivosRespuesta && (
-                  <p
-                    id="error-archivos-respuesta"
-                    className="auth-message"
-                    data-state="error"
-                    role="alert"
-                  >
-                    {errorArchivosRespuesta}{" "}
-                    {archivosRespuesta.length > 0
-                      ? `Se conservan los adjuntos válidos anteriores (${archivosRespuesta.length} PDF).`
-                      : "No se ha adjuntado ningún archivo."}
-                  </p>
-                )}
+            {(mensajeRespuesta || (errorEnvioRespuesta && !errorEnvioEsAdjunto)) && (
+              <div className={`respuesta-mensajes${errorEnvioRespuesta && !errorEnvioEsAdjunto ? " respuesta-mensajes--error" : ""}`}>
                 <p role="status" aria-live="polite">
                   {mensajeRespuesta}
                 </p>
+                {errorEnvioRespuesta && !errorEnvioEsAdjunto && (
+                  <div role="alert" aria-live="assertive">
+                    <strong>No se pudo enviar la respuesta</strong>
+                    <p>{errorEnvioRespuesta}</p>
+                    <p>Revisa la información e inténtalo nuevamente.</p>
+                  </div>
+                )}
               </div>
             )}
             <div className="modal-footer">
@@ -2583,7 +2719,7 @@ function VistaConsultaRadicados({ usuario }) {
                   enviandoRespuesta || textoRespuesta.trim().length < 10
                 }
               >
-                {enviandoRespuesta ? "Enviando…" : "Enviar respuesta"}
+                {enviandoRespuesta ? "Enviando respuesta…" : "Enviar respuesta"}
               </button>
             </div>
           </form>

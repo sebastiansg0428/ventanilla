@@ -5,12 +5,31 @@ entradas HTML históricas. Los contratos compartidos de API, base de datos y
 reglas de negocio se definen en `../backend/specs/` durante el desarrollo local
 y deben consultarse antes de modificar un flujo integrado.
 
-## Fuente de verdad
+## Fuente de verdad y ubicación de specs
 
 - `AGENTS.md` contiene reglas permanentes del frontend.
-- Las specs compartidas viven en `backend/specs/`.
+- `specs/` contiene las specs cuyo alcance principal sea frontend: React, CSS,
+  vistas, interacción, accesibilidad y estados de UI.
+- `../backend/specs/` contiene specs backend y funcionalidades mixtas que
+  definan contratos de API, permisos, estados de negocio, migraciones o
+  validaciones del servidor.
 - `docs/specs-frontend.md` registra decisiones visuales y de interacción.
 - Los tests son evidencia del comportamiento implementado.
+
+Las funcionalidades mixtas permanecen en `../backend/specs/` como fuente
+compartida y deben indicar explícitamente el impacto en este frontend. Si
+requieren criterios independientes, usa specs relacionadas por ID, una por
+repositorio. No dupliques specs.
+
+## Prioridad y resolución de instrucciones
+
+- La solicitud explícita del usuario tiene prioridad sobre este archivo, salvo
+  contradicción con las instrucciones del sistema o la seguridad.
+- El `AGENTS.md` más cercano prevalece sobre uno más general.
+- `backend/specs/` y el contrato efectivo del backend son la fuente de verdad
+  para API, permisos, estados y reglas de negocio.
+- Las instrucciones de Copilot complementan este documento y no pueden
+  contradecirlo ni inventar contratos.
 
 ## Comandos oficiales
 
@@ -30,7 +49,8 @@ modifiquen componentes, servicios o estilos compartidos.
 
 Para cambios de riesgo medio o alto —formularios, consumo de API,
 autenticación, permisos, documentos, entregas, traslados y reglas de negocio—
-se debe enlazar una spec antes de editar código. La spec debe definir estados
+se debe crear o enlazar la spec en el repositorio correcto antes de editar
+código. La spec debe definir estados
 de carga, validación, errores, accesibilidad y criterios de aceptación.
 
 Después de implementar:
@@ -46,14 +66,18 @@ pueden romper un contrato ni contradecir una spec existente.
 
 ## Reglas de integración
 
-- Consultar primero la spec compartida en `../backend/specs/` para cualquier
-  flujo que también afecte al backend.
+- Consultar primero `specs/` para cambios frontend-only y
+  `../backend/specs/` para contratos backend o flujos mixtos.
+- Para una funcionalidad mixta, la spec backend compartida es la autoridad del
+  contrato y la spec frontend relacionada documenta la experiencia de UI.
 - Usar exclusivamente `src/servicios/api.js` para las peticiones HTTP.
 - Respetar `VITE_API_URL` y su respaldo local configurado en el servicio API.
 - No inventar rutas, campos, estados ni payloads; conservar los contratos del
   backend.
 - La autorización final pertenece al backend; el frontend solo refleja el
   resultado autorizado.
+- Mantener las URL, nombres de campos, clases públicas y estructura HTML
+  existentes salvo que una spec aprobada autorice cambiarlos.
 
 ## Criterios de interfaz y límites
 
@@ -66,6 +90,28 @@ pueden romper un contrato ni contradecir una spec existente.
 - No implementar autorización en el cliente.
 - Liberar `ObjectURL` y evitar llamadas duplicadas al cargar documentos o
   actualizar estados.
+
+## Validación responsive
+
+Para cambios visuales o de interacción, revisar la vista con anchos de al
+menos 320 px, 375 px y 440 px. Con los menús nativos cerrados, comprobar en la
+consola del navegador que no exista desplazamiento horizontal real:
+
+```js
+const anchoVisible = document.documentElement.clientWidth;
+const anchoContenido = document.documentElement.scrollWidth;
+
+anchoContenido <= anchoVisible
+```
+
+`true` significa que el contenido cabe en el ancho visible. `false` indica
+que algún elemento supera el viewport y debe investigarse. Un menú nativo de
+`select` abierto puede sobresalir visualmente por decisión del navegador o del
+sistema operativo; no debe clasificarse automáticamente como overflow de la
+página. La revisión también debe confirmar botones y campos sin recortes,
+tablas y tarjetas sin desbordamiento, navegación por teclado, foco visible y
+lectura correcta de textos largos. Si no fue posible validar manualmente en
+un navegador, se debe dejar registrada esa limitación.
 
 ## Resolución de ambigüedades y fallos
 
@@ -106,6 +152,8 @@ pueden romper un contrato ni contradecir una spec existente.
 - La revisión manual confirma accesibilidad, responsive y estados de error
   cuando corresponda.
 - Se confirma que no cambiaron rutas, payloads ni contratos del backend.
+- Las specs usan únicamente `proposed`, `implementing` o `completed`;
+  `completed` requiere implementación y revisión humana. No usar `implemented`.
 
 Las instrucciones específicas de GitHub Copilot en
 `.github/copilot-instructions.md` deben mantenerse alineadas con este archivo.

@@ -284,7 +284,6 @@ function DrawerEdicionUsuario({ id, usuario, dependencias, cargarUsuarios, carga
           <p className="auth-eyebrow">Administración de acceso</p>
           <h2 ref={titulo} id="usuarios-edicion-titulo" tabIndex={-1}>Editar usuario</h2>
         </div>
-        <button type="button" onClick={cerrar} disabled={guardando}>Cerrar edición</button>
       </header>
       {cargando ? <p role="status">Cargando los datos del usuario…</p> : formulario && (
         <form className="auth-form auth-form--grid" onSubmit={guardar}>
@@ -303,6 +302,11 @@ function DrawerEdicionUsuario({ id, usuario, dependencias, cargarUsuarios, carga
             <button type="button" onClick={cerrar} disabled={guardando}>Cancelar edición</button>
           </div>
         </form>
+      )}
+      {!formulario && (
+        <div className="users-drawer-actions">
+          <button type="button" onClick={cerrar} disabled={guardando}>Cancelar edición</button>
+        </div>
       )}
       <MensajeEstado tono={mensaje.tono}>{mensaje.texto}</MensajeEstado>
     </dialog>

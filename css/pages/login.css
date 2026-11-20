@@ -1,0 +1,35 @@
+/* Estilos específicos de la pantalla de inicio de sesión. */
+.page-login main {
+  width: min(100% - 2rem, 28rem);
+  margin: 4rem auto;
+  padding: 2rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 9%);
+}
+
+.page-login form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.page-login input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.page-login button {
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.page-login button:disabled {
+  opacity: 0.6;
+}

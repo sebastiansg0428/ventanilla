@@ -1,0 +1,312 @@
+.internas-bandeja {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 1.5rem;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  border: 1px solid #dbe5ef;
+  border-radius: 0.9rem;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.internas-bandeja
+  :is(h2, h3, p, ul, li, article, label, select, button, dl, dd) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.internas-bandeja :is(button, select) {
+  white-space: normal;
+  margin: 0;
+  min-height: 2.75rem;
+}
+.internas-bandeja .entregas-boton {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #2563eb;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+  cursor: pointer;
+}
+.internas-bandeja .internas-boton-primario {
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+.internas-bandeja button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.internas-bandeja .internas-cabecera,
+.internas-bandeja .internas-tarjeta-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.internas-bandeja h2,
+.internas-bandeja h3,
+.internas-bandeja h4 {
+  margin: 0;
+  color: #1e3a8a;
+}
+.internas-bandeja h2 {
+  font-size: 1.2rem;
+}
+.internas-bandeja h3 {
+  font-size: 1rem;
+}
+.internas-bandeja .internas-antetitulo {
+  margin: 0 0 0.25rem;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.internas-bandeja .internas-nota {
+  margin: 1rem 0;
+  padding: 0.7rem 0.85rem;
+  border-left: 3px solid #93c5fd;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.85rem;
+}
+.internas-bandeja .internas-controles {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.internas-bandeja .internas-subpestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  border-bottom: 1px solid #dbe5ef;
+}
+.internas-bandeja .internas-subpestana {
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: transparent;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+.internas-bandeja .internas-subpestana:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  color: #1d4ed8;
+}
+.internas-bandeja .internas-subpestana:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+.internas-bandeja .internas-subpestana--activa {
+  border-color: #bfdbfe;
+  border-bottom-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.internas-bandeja .internas-enviados-listado {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0;
+}
+.internas-bandeja .internas-enviado-tarjeta {
+  padding: 1rem;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #2563eb;
+  border-radius: 0.75rem;
+  background: #f8fbff;
+}
+.internas-bandeja .internas-enviado-estado {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.internas-bandeja .internas-enviado-estado--pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+.internas-bandeja .internas-enviado-estado--respondido {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.internas-bandeja .internas-enviado-estado--entregado {
+  background: #dcfce7;
+  color: #166534;
+}
+.internas-bandeja .internas-enviado-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.internas-bandeja .internas-filtro {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1 1 15rem;
+  max-width: 25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+}
+.internas-bandeja select {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #0f172a;
+}
+.internas-bandeja .internas-indicadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+  margin: 1rem 0;
+  padding: 0.75rem 0;
+  border-block: 1px solid #e2e8f0;
+}
+.internas-bandeja .internas-indicadores p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+.internas-bandeja .internas-indicadores strong {
+  color: #1e3a8a;
+  font-size: 1.25rem;
+}
+.internas-bandeja .internas-aviso {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid #d97706;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  color: #92400e;
+}
+.internas-bandeja .internas-total-filtro,
+.internas-bandeja .internas-oficina {
+  color: #475569;
+  font-size: 0.9rem;
+}
+.internas-bandeja .internas-vacio {
+  padding: 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  text-align: center;
+}
+.internas-bandeja .internas-vacio p {
+  margin: 0.5rem 0 0.85rem;
+  color: #475569;
+}
+.internas-bandeja .internas-error,
+.internas-bandeja .internas-mensaje {
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+.internas-bandeja .internas-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.internas-bandeja .internas-listado,
+.internas-bandeja .internas-adjuntos {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: grid;
+  gap: 1rem;
+}
+.internas-bandeja .internas-tarjeta,
+.internas-bandeja .internas-vista {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.75rem;
+}
+.internas-bandeja .internas-listado .internas-tarjeta {
+  margin: 0;
+}
+.internas-bandeja .internas-datos,
+.internas-bandeja .internas-fechas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.internas-bandeja .internas-fechas {
+  padding: 0.85rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+.internas-bandeja :is(.internas-datos, .internas-fechas) dt {
+  font-weight: 700;
+  color: #475569;
+}
+.internas-bandeja :is(.internas-datos, .internas-fechas) dd {
+  margin: 0.35rem 0 0;
+}
+.internas-bandeja .internas-seccion {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+.internas-bandeja .internas-texto {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.internas-bandeja .internas-adjuntos li {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+.internas-bandeja .internas-adjuntos a {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  color: #1e40af;
+  font-weight: 700;
+}
+.internas-bandeja .internas-adjuntos span {
+  color: #475569;
+  font-size: 0.85rem;
+}
+.internas-bandeja nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+.internas-bandeja :is(button, select, a, h3):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .internas-bandeja .internas-cabecera > button,
+  .internas-bandeja .internas-controles > button,
+  .internas-bandeja .internas-tarjeta > button {
+    width: 100%;
+  }
+  .internas-bandeja .internas-filtro {
+    max-width: none;
+  }
+  .internas-bandeja .internas-subpestana,
+  .internas-bandeja .internas-enviado-acciones .entregas-boton {
+    width: 100%;
+  }
+}

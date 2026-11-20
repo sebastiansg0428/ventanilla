@@ -1,0 +1,22 @@
+/* Tokens compartidos para migraciones graduales. No reemplazan todavía las
+ * clases ni los valores existentes del sistema. */
+:root {
+  --color-brand-900: #173c70;
+  --color-brand-700: #214db5;
+  --color-brand-600: #2563eb;
+  --color-accent: #facc15;
+
+  --color-text: #263448;
+  --color-muted: #64748b;
+  --color-border: #cbd5e1;
+  --color-surface: #ffffff;
+  --color-background: #f1f5f9;
+  --color-focus: #fbbf24;
+
+  --font-family-base: "Inter", "Segoe UI", sans-serif;
+  --line-height-base: 1.5;
+
+  --radius-control: 0.5rem;
+  --radius-card: 1rem;
+  --shadow-card: 0 4px 12px rgb(15 23 42 / 9%);
+}

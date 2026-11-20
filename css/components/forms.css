@@ -1,0 +1,73 @@
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-form--grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem 1.25rem;
+}
+
+.auth-field {
+  min-width: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.auth-field--full {
+  grid-column: 1 / -1;
+}
+
+.auth-field label {
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.auth-field label span {
+  color: #dc2626;
+}
+
+.auth-field input,
+.auth-field select {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background-color: #fff;
+  color: #172b46;
+}
+
+.auth-field input::placeholder {
+  color: #94a3b8;
+}
+
+.auth-field input:focus,
+.auth-field select:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 14%);
+}
+
+.auth-field input:disabled,
+.auth-field select:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.auth-field small {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.auth-field textarea {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  font: inherit;
+}
