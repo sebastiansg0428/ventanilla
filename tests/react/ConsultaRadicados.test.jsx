@@ -429,6 +429,30 @@ describe("consulta de radicados React", () => {
     expect(screen.getByRole("region", { name: "Alertas por dependencia" })).toBeTruthy();
   });
 
+  it("mantiene foco visible y desplaza alertas al enfocar su acción como administrador", async () => {
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/alertas?")
+      ? Promise.resolve(respuestaJson({ success: true, total: 0, paginas: 0, alertas: [] }))
+      : base(ruta, opciones));
+    await abrirConsulta();
+    const panel = screen.getByRole("region", { name: "Alertas por dependencia" });
+    const desplazamiento = vi.fn();
+    panel.scrollIntoView = desplazamiento;
+    await act(async () => fireEvent.change(screen.getByLabelText("Dependencia"), { target: { value: "3" } }));
+    const actualizar = within(panel).getByRole("button", { name: "Actualizar alertas" });
+    const llamadasAntesDeEnfocar = solicitarApi.mock.calls.length;
+
+    actualizar.focus();
+
+    expect(document.activeElement).toBe(actualizar);
+    expect(desplazamiento).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+    expect(solicitarApi.mock.calls.length).toBe(llamadasAntesDeEnfocar);
+  });
+
   it("mantiene aviso de respuestas sin abrir sin cambiar la pestaña ni registrar apertura", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     const base = solicitarApi.getMockImplementation();

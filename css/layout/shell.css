@@ -1,1 +1,144 @@
-/* Reservado para la extracción gradual del shell compartido. */
+/* Shell institucional compartido: estructura, navegación y pie. */
+.app-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell-container {
+  width: min(100% - 2rem, 72rem);
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 0.75rem;
+  left: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.55rem;
+  background: #fcd34d;
+  color: #172554;
+  font-weight: 800;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+  transform: translateY(0);
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0;
+  border-bottom: 1px solid rgb(147 197 253 / 22%);
+  background: #1e40af;
+  color: #bfdbfe;
+}
+
+.app-nav__inner {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 1rem;
+  padding-block: 0.4rem;
+}
+
+.app-nav-links {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.app-nav .app-nav-toggle {
+  display: none;
+}
+
+.app-nav a,
+.app-nav button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.app-nav a:focus-visible,
+.app-nav button:focus-visible {
+  outline: 3px solid #fcd34d;
+  outline-offset: 3px;
+}
+
+.app-nav a:hover,
+.app-nav a[aria-current="page"] {
+  color: #fcd34d;
+  text-decoration: underline;
+}
+
+.app-nav button {
+  margin-left: auto;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #93c5fd;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.app-nav-links a,
+.app-nav-links button {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-weight: 700;
+}
+
+.app-nav-links a:hover,
+.app-nav-links a:focus-visible,
+.app-nav-links a[aria-current="page"] {
+  border-color: rgb(191 219 254 / 55%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  text-decoration: none;
+}
+
+.app-nav-links a[aria-current="page"] {
+  box-shadow: inset 0 -3px 0 #fcd34d;
+}
+
+.app-nav-links > button {
+  margin-left: auto;
+  border-color: #93c5fd;
+  background: rgb(15 23 42 / 12%);
+}
+
+.app-nav-links > button:hover {
+  border-color: #fcd34d;
+  background: rgb(15 23 42 / 25%);
+  color: #fef3c7;
+}
+
+.app-nav-toggle {
+  border: 1px solid rgb(191 219 254 / 55%);
+  background: rgb(15 23 42 / 12%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app-footer {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.75rem;
+  text-align: center;
+}

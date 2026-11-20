@@ -319,6 +319,7 @@ function VistaConsultaRadicados({ usuario }) {
   const [cargandoAlertas, setCargandoAlertas] = useState(false);
   const [consultaAlertasValida, setConsultaAlertasValida] = useState(false);
   const solicitudAlertas = useRef(0);
+  const seccionAlertas = useRef(null);
   const [radicadoSeleccionado, setRadicadoSeleccionado] = useState(null);
   const [archivoAdjunto, setArchivoAdjunto] = useState({
     url: "",
@@ -1675,6 +1676,7 @@ function VistaConsultaRadicados({ usuario }) {
         <section
           id="seccion-alertas"
           className="alerts-card"
+          ref={seccionAlertas}
           aria-labelledby="alertas-titulo"
         >
           <div className="alertas-cabecera">
@@ -1717,6 +1719,15 @@ function VistaConsultaRadicados({ usuario }) {
             <button
               type="button"
               disabled={!dependenciaAlertas || cargandoAlertas}
+              onFocus={() => {
+                seccionAlertas.current?.scrollIntoView({
+                  behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+                    ? "auto"
+                    : "smooth",
+                  block: "nearest",
+                  inline: "nearest",
+                });
+              }}
               onClick={cargarAlertas}
             >
               Actualizar alertas

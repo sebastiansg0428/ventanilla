@@ -1,1 +1,80 @@
-/* Reservado para la extracción gradual de media queries compartidas. */
+/* Responsive exclusivo del shell institucional. */
+@media (max-width: 767px) {
+  .app-nav {
+    display: block;
+  }
+
+  .app-nav .app-nav-toggle {
+    display: inline-flex;
+    margin: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .app-nav-links {
+    display: none;
+    padding-top: 0.65rem;
+  }
+
+  .app-nav-links[data-abierto="true"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-nav-links a,
+  .app-nav-links button {
+    width: 100%;
+    padding: 0.65rem;
+    margin: 0;
+    border-radius: 0.45rem;
+  }
+
+  .app-nav-links a[aria-current="page"] {
+    background: rgb(255 255 255 / 10%);
+  }
+}
+
+@media (max-width: 700px) {
+  .app-header__inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+  }
+
+  .app-header__escudo {
+    height: 3rem;
+  }
+
+  .app-session {
+    max-width: 100%;
+  }
+
+  .app-nav {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .app-nav__inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding-block: 0.55rem;
+  }
+
+  .app-nav button {
+    margin-left: 0;
+  }
+
+  .app-nav-links {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .app-nav-links a,
+  .app-nav-links button {
+    transition: none;
+  }
+}

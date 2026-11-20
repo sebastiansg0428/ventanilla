@@ -1,7 +1,7 @@
 ---
 id: FE-063
 title: Modularización CSS del shell institucional
-status: implementing
+status: completed
 risk: medium
 repository: ventanilla
 backend_specs: []
@@ -30,8 +30,8 @@ visuales, foco, navegación, responsive y orden efectivo de cascada.
   páginas concretas.
 - No mover bloques responsive que mezclen reglas del shell con otros módulos
   hasta aislar únicamente sus declaraciones del shell.
-- No modificar `dist/` ni iniciar la extracción antes de clasificar la revisión
-  visual de la spec 061.
+- No modificar `dist/` ni iniciar nuevas extracciones fuera del shell definido
+  en esta spec.
 
 # Comportamiento esperado
 
@@ -68,10 +68,11 @@ No aplica. El cambio es exclusivamente CSS y no altera contratos del backend.
   correspondientes y no aparecen duplicados en `legacy.css`.
 - Las páginas React conservan apariencia, navegación, foco y responsive.
 - No se modifican clases, estructura, APIs ni comportamiento funcional.
-- La spec 061 fue clasificada antes de iniciar esta extracción.
+- La spec 061 fue clasificada como `completed` antes de iniciar esta
+  extracción.
 - Pasan las pruebas React relacionadas, el build, la suite legacy y
   `git diff --check`.
-- La spec permanece en `implementing` hasta la revisión visual humana.
+- La spec pasa a `completed` después de la revisión visual humana aprobada.
 
 # Plan de pruebas
 
@@ -89,3 +90,17 @@ No aplica. El cambio es exclusivamente CSS y no altera contratos del backend.
 - Backend relacionado: ninguno.
 - Tests: suites React de las páginas que usan el shell.
 - Documentación: esta spec y `AGENTS.md` del frontend.
+
+# Revisión visual aprobada
+
+Se validaron las páginas de consulta con los roles Administrador y Funcionario
+de dependencia. La navegación principal y el cierre de sesión funcionan
+correctamente. El `skip-link` se muestra como primer foco visible después de
+recargar la página y conserva su comportamiento accesible.
+
+El encabezado, el menú móvil y el footer fueron revisados en 320, 375 y 440 px
+y en escritorio. También se confirmó la ausencia de overflow horizontal con
+los menús nativos cerrados mediante `clientWidth` y `scrollWidth`.
+
+Las pruebas React relacionadas, el build, la suite legacy y `git diff --check`
+fueron exitosos. No se observaron regresiones visuales en el shell.

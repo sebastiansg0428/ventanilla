@@ -1,1 +1,87 @@
-/* Reservado para la extracción gradual del encabezado y navegación. */
+/* Encabezado institucional, identidad y sesión activa. */
+.app-header {
+  padding: 0;
+  background: linear-gradient(115deg, #173c70 0%, #1e467e 100%);
+  color: #fff;
+}
+
+.app-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-block: 0.9rem;
+}
+
+.app-header__identidad {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.app-header__escudo {
+  display: block;
+  width: auto;
+  height: 3.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  border: 2px solid rgb(255 255 255 / 70%);
+  border-radius: 20%;
+  background: #fff;
+  box-shadow: 0 3px 10px rgb(15 23 42 / 18%);
+}
+
+.app-header__texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.app-header__texto h1 {
+  letter-spacing: -0.015em;
+}
+
+.app-header p {
+  margin: 0;
+  color: #ffffff;
+}
+
+.app-header__texto p {
+  color: #dbeafe;
+  font-size: 0.82rem;
+}
+
+.app-header > span {
+  color: #fcd34d;
+  font-size: 0.78rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: min(20rem, 42%);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(147 197 253 / 35%);
+  border-radius: 999px;
+  background: rgb(15 23 42 / 18%);
+  color: #dbeafe;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.app-session strong {
+  color: #fef3c7;
+}

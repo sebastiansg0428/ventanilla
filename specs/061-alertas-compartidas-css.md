@@ -1,6 +1,6 @@
 # Alertas compartidas CSS
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -49,9 +49,24 @@ Planeación. La respuesta del endpoint fue válida con `total: 0`, y la interfaz
 mostró `Sin alertas para esta dependencia` junto con el mensaje de que no hay
 radicados próximos a vencer ni vencidos.
 
-## Revisión manual pendiente
+También se revisaron los estados de carga, vacío, éxito y error, junto con la
+respuesta responsive en 320, 375, 440 px y escritorio. La comprobación de
+`clientWidth`/`scrollWidth` confirmó ausencia de overflow horizontal con los
+menús nativos cerrados.
 
-Revisar las alertas de consulta con los roles de funcionario, Ventanilla y
-Administrador, incluyendo carga, error, vacío, éxito, controles, paginación,
-teclado, foco visible y comprobación `clientWidth`/`scrollWidth` con menús
-nativos cerrados.
+Como ajuste final, el botón `Actualizar alertas` conserva un anillo de foco
+visible y desplaza suavemente la sección al viewport cuando recibe el foco por
+teclado. Se respeta `prefers-reduced-motion` usando desplazamiento automático
+cuando el usuario lo solicita.
+
+## Revisión manual aprobada
+
+La revisión en navegador fue aprobada con los roles Funcionario, Ventanilla y
+Administrador. Se validaron los estados de carga, vacío para Oficina de
+Planeación, éxito y error, además de los controles, paginación, navegación por
+teclado, foco visible y desplazamiento de `Actualizar alertas`.
+
+La revisión cubrió 320, 375 y 440 px y escritorio. Con los menús nativos
+cerrados, `clientWidth`/`scrollWidth` confirmó ausencia de desbordamiento
+horizontal. No se observaron llamadas API adicionales provocadas únicamente
+por el foco ni regresiones visuales.

@@ -3,10 +3,6 @@
 @import "./foundations/typography.css";
 @import "./foundations/accessibility.css";
 
-@import "./layout/shell.css";
-@import "./layout/header.css";
-@import "./layout/responsive.css";
-
 @import "./components/buttons.css";
 @import "./components/forms.css";
 @import "./components/modals.css";
@@ -22,5 +18,9 @@
 @import "./pages/respuestas-internas.css";
 @import "./pages/catalogos.css";
 @import "./pages/usuarios.css";
+
+@import "./layout/shell.css";
+@import "./layout/header.css";
+@import "./layout/responsive.css";
 
 @import "./compatibility/legacy.css";
