@@ -1204,7 +1204,7 @@ function VistaConsultaRadicados({ usuario }) {
               <button key={id} type="button" role="tab" id={`consulta-tab-${id}`}
                 ref={nodo => { botonesPestanas.current[id] = nodo; }}
                 aria-selected={pestanaConsulta === id} aria-controls={`consulta-panel-${id}`}
-                tabIndex={pestanaConsulta === id ? 0 : -1}
+                tabIndex={0}
                 onClick={() => setPestanaConsulta(id)} onKeyDown={evento => navegarPestanas(evento, indice)}>
                 {nombre}
               </button>
@@ -2599,6 +2599,7 @@ function VistaConsultaRadicados({ usuario }) {
                       ref={entradaArchivosRespuesta}
                       id="adjunto-respuesta"
                       disabled={enviandoRespuesta}
+                      tabIndex={-1}
                       type="file"
                       accept="application/pdf,.pdf"
                       multiple

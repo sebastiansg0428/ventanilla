@@ -1,0 +1,46 @@
+/* Estilos base compartidos por tarjetas y controles de alertas. */
+.alerts-card {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.alerts-card h2 {
+  margin-bottom: 0.8rem;
+  color: #1e293b;
+  font-size: 1.1rem;
+}
+
+.alerts-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.alerts-controls select {
+  min-width: min(15rem, 100%);
+  max-width: 100%;
+  padding: 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.alerts-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.alerts-columns h3 {
+  margin: 0.8rem 0;
+  font-size: 0.95rem;
+}
+
+.alerts-columns ul {
+  padding-left: 1.2rem;
+  color: #475569;
+  font-size: 0.85rem;
+}

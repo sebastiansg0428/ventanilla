@@ -465,6 +465,16 @@ describe("consulta de radicados React", () => {
   it("navega pestañas con teclado y conserva filtros de Radicados", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     await abrirConsulta();
+    const user = userEvent.setup({ delay: null });
+    const pestañas = screen.getAllByRole("tab");
+    const llamadasAntesDeEnfocar = solicitarApi.mock.calls.length;
+    expect(pestañas.map((pestaña) => pestaña.tabIndex)).toEqual([0, 0, 0]);
+    pestañas[0].focus();
+    await user.tab();
+    expect(document.activeElement).toBe(pestañas[1]);
+    await user.tab();
+    expect(document.activeElement).toBe(pestañas[2]);
+    expect(solicitarApi.mock.calls.length).toBe(llamadasAntesDeEnfocar);
     await act(async () => fireEvent.change(screen.getByLabelText("Tipo de comunicación"), { target: { value: "interna" } }));
     const tab = screen.getByRole("tab", { name: "Radicados" });
     await act(async () => fireEvent.keyDown(tab, { key: "ArrowRight" }));
@@ -750,10 +760,17 @@ describe("consulta de radicados React", () => {
     expect(selector.id).toBe("adjunto-respuesta");
     expect(selector.multiple).toBe(true);
     expect(selector.accept).toContain("application/pdf");
+    expect(selector.tabIndex).toBe(-1);
     expect(selector.getAttribute("aria-describedby")).toContain("ayuda-adjuntos-respuesta");
     const botonSeleccion = consulta.getByRole("button", { name: "Seleccionar archivos PDF" });
+    const cancelar = consulta.getByRole("button", { name: "Cancelar" });
     expect(botonSeleccion.tagName).toBe("BUTTON");
     expect(botonSeleccion.getAttribute("type")).toBe("button");
+    botonSeleccion.focus();
+    await user.tab();
+    expect(document.activeElement).toBe(cancelar);
+    expect(selector).not.toBe(document.activeElement);
+    expect(selector.closest("dialog").contains(document.activeElement)).toBe(true);
     const abrirSelector = vi.spyOn(selector, "click");
     await user.click(botonSeleccion);
     expect(abrirSelector).toHaveBeenCalledTimes(1);

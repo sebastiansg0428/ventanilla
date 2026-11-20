@@ -1,6 +1,6 @@
 # Editores laterales unificados
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -61,9 +61,11 @@ usuarios mediante modificadores específicos para usuarios y catálogos.
 - La revisión visual humana en escritorio, móvil y zoom se realiza antes de
   cambiar esta spec a `completed`.
 
-## Revisión manual pendiente
+## Revisión manual aprobada
 
-Revisar los drawers de usuarios, dependencias y tipos de trámite con carga,
-error, guardado, cancelación mediante `Cancelar edición`, `Escape`, backdrop,
-responsive, ausencia del botón superior de cierre y ausencia de cambios en la
-creación y los términos legales.
+La revisión visual humana fue aprobada en los drawers de usuarios,
+dependencias y tipos de trámite. Se validaron carga, error, guardado,
+cancelación mediante `Cancelar edición`, `Escape` y backdrop, restauración del
+foco, vista responsive y zoom. También se confirmó la ausencia del botón
+superior `Cerrar edición` y la conservación de los flujos de creación y
+términos legales.
