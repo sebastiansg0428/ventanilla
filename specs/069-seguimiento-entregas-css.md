@@ -1,6 +1,6 @@
 # Spec 069 — Seguimiento de entregas CSS
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -32,8 +32,12 @@ estados ni lógica de entregas. Los estilos generales del modal permanecen en
   menús nativos cerrados.
 - Las pruebas React, build y suite legacy continúan pasando.
 
-## Revisión visual pendiente
+## Revisión visual aprobada
 
-Validar con roles Administrador, Ventanilla y Funcionario el seguimiento de
-entrega dentro de respuesta institucional, sus estados, formularios, historial,
-documentos, botones, foco, teclado y responsive.
+Se revisó el seguimiento de entrega dentro de la respuesta institucional con
+roles Administrador, Ventanilla y Funcionario. Los estados, formularios,
+historial y documentos se visualizaron claros, legibles y coherentes.
+
+La navegación con `Tab` y `Shift+Tab` funcionó correctamente, con foco visible
+en los controles. La revisión responsive en 320, 375, 440 px y escritorio fue
+aprobada con `scrollWidth <= clientWidth` y sin regresiones visuales.

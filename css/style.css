@@ -31,4 +31,6 @@
 
 @import "./components/delivery-tracking.css";
 
+@import "./pages/consulta-detalle.css";
+
 @import "./compatibility/legacy.css";
