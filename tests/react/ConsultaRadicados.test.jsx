@@ -798,7 +798,7 @@ describe("consulta de radicados React", () => {
     const abrirSelector = vi.spyOn(selector, "click");
     await user.click(botonSeleccion);
     expect(abrirSelector).toHaveBeenCalledTimes(1);
-    expect(consulta.getByText("Hasta 5 archivos PDF · Máximo 10 MB por archivo")).toBeTruthy();
+    expect(consulta.getByText("Hasta 5 archivos PDF opcionales · Máximo 10 MB por archivo")).toBeTruthy();
     expect(consulta.getByText("o arrástralos aquí")).toBeTruthy();
 
     await user.upload(selector, [crearPdf("uno.pdf", 32), crearPdf("dos.pdf", 32)]);

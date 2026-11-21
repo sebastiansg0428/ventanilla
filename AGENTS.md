@@ -101,7 +101,7 @@ consola del navegador que no exista desplazamiento horizontal real:
 const anchoVisible = document.documentElement.clientWidth;
 const anchoContenido = document.documentElement.scrollWidth;
 
-anchoContenido <= anchoVisible
+anchoContenido <= anchoVisible;
 ```
 
 `true` significa que el contenido cabe en el ancho visible. `false` indica
@@ -142,6 +142,7 @@ un navegador, se debe dejar registrada esa limitación.
   existentes salvo que una spec aprobada autorice cambiarlos.
 - Mantén componentes pequeños y evita reescribir archivos completos para
   cambios localizados.
+- Los comentarios en el código deben ser claros, concisos y explicar el propósito y riesgo de los cambios realizados.
 
 ## Criterios de terminado
 

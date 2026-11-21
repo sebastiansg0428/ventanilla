@@ -91,6 +91,7 @@ function GestionCatalogos({ usuario }) {
   const tituloCatalogoRef = useRef(null);
   const terminoPanelRef = useRef(null);
   const tituloTerminoRef = useRef(null);
+  const catalogoResultadosRef = useRef(null);
   const origenEdicionRef = useRef(null);
   const solicitudEdicionRef = useRef(0);
   const [catalogoActual, setCatalogoActual] = useState(CATALOGO_DEPENDENCIAS);
@@ -830,7 +831,11 @@ function GestionCatalogos({ usuario }) {
             )}
           </EditorContenedor>
 
-          <section className="users-table-section catalog-list-panel" aria-labelledby="catalogo-lista-titulo">
+          <section
+            ref={catalogoResultadosRef}
+            className="users-table-section catalog-list-panel"
+            aria-labelledby="catalogo-lista-titulo"
+          >
             <div className="users-table-toolbar catalog-list-toolbar">
               <div className="catalog-list-heading">
                 <p className="catalog-panel-kicker">Directorio</p>
@@ -842,13 +847,26 @@ function GestionCatalogos({ usuario }) {
               </div>
               <div className="catalog-list-controls">
                 <label htmlFor="catalogo-busqueda" className="catalog-search">
-                  <span>Buscar en el catálogo</span>
+                  <span>
+                    {catalogoActual === CATALOGO_DEPENDENCIAS
+                      ? "Buscar Dependencia"
+                      : "Buscar tramites"}
+                  </span>
                   <input
                     id="catalogo-busqueda"
                     name="busqueda_catalogo"
                     type="search"
                     value={busqueda}
                     onChange={(evento) => setBusqueda(evento.target.value)}
+                    onKeyDown={(evento) => {
+                      if (evento.key !== "Enter") return;
+                      evento.preventDefault();
+                      catalogoResultadosRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                        inline: "nearest",
+                      });
+                    }}
                     placeholder={
                       catalogoActual === CATALOGO_DEPENDENCIAS
                         ? "Buscar por nombre"

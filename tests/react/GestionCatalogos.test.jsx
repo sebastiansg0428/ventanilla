@@ -221,7 +221,7 @@ describe("gestión de catálogos React", () => {
       Array.from(document.querySelectorAll(".catalog-summary-card strong"),
         (nodo) => nodo.textContent),
     ).toEqual(["2", "1", "1"]);
-    const buscador = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
+    const buscador = screen.getByRole("searchbox", { name: "Buscar Dependencia" });
     expect(buscador).toBeTruthy();
     expect(buscador.getAttribute("id")).toBe("catalogo-busqueda");
     expect(buscador.getAttribute("name")).toBe("busqueda_catalogo");
@@ -230,18 +230,30 @@ describe("gestión de catálogos React", () => {
     expect(filtroInactivos.getAttribute("name")).toBe("incluir_inactivos");
 
     await user.type(
-      screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
+      screen.getByRole("searchbox", { name: "Buscar Dependencia" }),
       "disciplinario",
     );
     expect(screen.getByRole("cell", { name: "Control Disciplinario" })).toBeTruthy();
     expect(screen.queryByRole("cell", { name: "Planeación" })).toBeNull();
     expect(screen.getByText("1 resultado para tu búsqueda.")).toBeTruthy();
 
+    const solicitudesAntesDeConfirmarBusqueda = solicitarApi.mock.calls.length;
+    fireEvent.keyDown(buscador, { key: "Enter", code: "Enter" });
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    expect(scrollIntoViewMock.mock.instances.at(-1)).toBe(
+      screen.getByRole("region", { name: "Listado del catálogo" }).closest(".catalog-list-panel"),
+    );
+    expect(solicitarApi.mock.calls.length).toBe(solicitudesAntesDeConfirmarBusqueda);
+
     await user.click(screen.getByRole("tab", { name: "Tipos de trámite" }));
-    expect(screen.getByRole("searchbox", { name: "Buscar en el catálogo" }).placeholder)
+    expect(screen.getByRole("searchbox", { name: "Buscar tramites" }).placeholder)
       .toBe("Buscar por nombre, código o categoría");
     await user.type(
-      screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
+      screen.getByRole("searchbox", { name: "Buscar tramites" }),
       "consulta",
     );
     expect(screen.getByRole("cell", { name: "Licencia urbanística" })).toBeTruthy();

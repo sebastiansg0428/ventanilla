@@ -1,0 +1,104 @@
+/* Componentes visuales compartidos por autenticación y formularios protegidos. */
+.auth-card {
+  width: 100%;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 24px 64px rgb(15 42 76 / 12%);
+  overflow-wrap: anywhere;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #173c70;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.auth-brand strong {
+  font-weight: 750;
+}
+
+.auth-brand__mark {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: #173c70;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.auth-heading {
+  margin: 2rem 0 1.5rem;
+}
+
+.auth-eyebrow {
+  margin-bottom: 0.5rem;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-heading h1 {
+  color: #172b46;
+  font-size: clamp(1.6rem, 5vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+
+.auth-heading > p:last-child {
+  margin-top: 0.65rem;
+  color: #64748b;
+  font-size: 0.925rem;
+}
+
+.auth-switch {
+  margin-top: 1.2rem;
+  color: #64748b;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.auth-switch a:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+.auth-footnote {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+@media (max-width: 36rem) {
+  .auth-card {
+    padding: 1.35rem;
+    border-radius: 1rem;
+  }
+
+  .auth-heading {
+    margin-top: 1.5rem;
+  }
+
+  .auth-form--grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

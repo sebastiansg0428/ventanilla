@@ -23,4 +23,12 @@
 @import "./layout/header.css";
 @import "./layout/responsive.css";
 
+@import "./components/auth.css";
+
+@import "./pages/catalogos-terminos.css";
+
+@import "./components/response-attachments.css";
+
+@import "./components/delivery-tracking.css";
+
 @import "./compatibility/legacy.css";

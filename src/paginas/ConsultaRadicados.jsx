@@ -162,12 +162,13 @@ const ETIQUETAS_ROL = {
   administrador: "Administrador",
   funcionario: "Funcionario de dependencia",
 };
-const esEventoEntrega = (evento) => [
-  "entrega_registrada",
-  "entrega_acreditada",
-  "entrega_anulada",
-  "entrega_estado_restaurado",
-].includes(evento.event_type);
+const esEventoEntrega = (evento) =>
+  [
+    "entrega_registrada",
+    "entrega_acreditada",
+    "entrega_anulada",
+    "entrega_estado_restaurado",
+  ].includes(evento.event_type);
 function identidadActor(evento) {
   if (Number.isSafeInteger(evento.actor_id) && evento.actor_id > 0) {
     return `id:${evento.actor_id}:${evento.actor_name || ""}`;
@@ -230,17 +231,34 @@ function agruparEventos(eventos) {
   }, []);
 }
 function esParejaEntrega(evento, siguiente, inicial, final) {
-  return evento.event_type === inicial && siguiente?.event_type === final &&
-    identidadActor(evento) && identidadActor(evento) === identidadActor(siguiente) &&
-    minutoEvento(evento) && minutoEvento(evento) === minutoEvento(siguiente);
+  return (
+    evento.event_type === inicial &&
+    siguiente?.event_type === final &&
+    identidadActor(evento) &&
+    identidadActor(evento) === identidadActor(siguiente) &&
+    minutoEvento(evento) &&
+    minutoEvento(evento) === minutoEvento(siguiente)
+  );
 }
 function unificarEventosEntrega(eventos) {
   const visibles = [];
   for (let indice = 0; indice < eventos.length; indice += 1) {
     const evento = eventos[indice];
     const siguiente = eventos[indice + 1];
-    if (esParejaEntrega(evento, siguiente, "entrega_registrada", "entrega_acreditada") ||
-        esParejaEntrega(evento, siguiente, "entrega_anulada", "entrega_estado_restaurado")) {
+    if (
+      esParejaEntrega(
+        evento,
+        siguiente,
+        "entrega_registrada",
+        "entrega_acreditada",
+      ) ||
+      esParejaEntrega(
+        evento,
+        siguiente,
+        "entrega_anulada",
+        "entrega_estado_restaurado",
+      )
+    ) {
       visibles.push({
         ...siguiente,
         motivo_actuacion_entrega: evento.motivo,
@@ -270,15 +288,28 @@ const PESTANAS_DEPENDENCIA = [
 
 function PanelConsulta({ habilitado, id, actual, children }) {
   if (!habilitado) return <>{children}</>;
-  return <section id={`consulta-panel-${id}`} role="tabpanel"
-    aria-labelledby={`consulta-tab-${id}`} hidden={actual !== id} tabIndex={0}
-    className="consulta-panel">{children}</section>;
+  return (
+    <section
+      id={`consulta-panel-${id}`}
+      role="tabpanel"
+      aria-labelledby={`consulta-tab-${id}`}
+      hidden={actual !== id}
+      tabIndex={0}
+      className="consulta-panel"
+    >
+      {children}
+    </section>
+  );
 }
 
 function VistaConsultaRadicados({ usuario }) {
   const esDependencia = usuario.rol === "funcionario";
   const [pestanaConsulta, setPestanaConsulta] = useState("radicados");
-  const [estadoInternas, setEstadoInternas] = useState({ resumen: null, error: "", cargando: true });
+  const [estadoInternas, setEstadoInternas] = useState({
+    resumen: null,
+    error: "",
+    cargando: true,
+  });
   const [revisionInternas, setRevisionInternas] = useState(0);
   const botonesPestanas = useRef({});
   const [solicitudTraslado, setSolicitudTraslado] = useState(null);
@@ -315,7 +346,10 @@ function VistaConsultaRadicados({ usuario }) {
   );
   const [errorAlertas, setErrorAlertas] = useState("");
   const [paginaAlertas, setPaginaAlertas] = useState(1);
-  const [paginacionAlertas, setPaginacionAlertas] = useState({ paginas: 0, total: 0 });
+  const [paginacionAlertas, setPaginacionAlertas] = useState({
+    paginas: 0,
+    total: 0,
+  });
   const [cargandoAlertas, setCargandoAlertas] = useState(false);
   const [consultaAlertasValida, setConsultaAlertasValida] = useState(false);
   const solicitudAlertas = useRef(0);
@@ -343,9 +377,11 @@ function VistaConsultaRadicados({ usuario }) {
   // Guardamos la selección en una lista porque el formulario permite varios PDF.
   const [archivosRespuesta, setArchivosRespuesta] = useState([]);
   const [errorArchivosRespuesta, setErrorArchivosRespuesta] = useState("");
-  const [detalleErrorArchivosRespuesta, setDetalleErrorArchivosRespuesta] = useState("");
+  const [detalleErrorArchivosRespuesta, setDetalleErrorArchivosRespuesta] =
+    useState("");
   const [errorEnvioRespuesta, setErrorEnvioRespuesta] = useState("");
-  const [arrastreArchivosRespuesta, setArrastreArchivosRespuesta] = useState(false);
+  const [arrastreArchivosRespuesta, setArrastreArchivosRespuesta] =
+    useState(false);
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   const [guardandoEntrega, setGuardandoEntrega] = useState(false);
   const [vistaRegistroEntrega, setVistaRegistroEntrega] = useState(false);
@@ -554,11 +590,15 @@ function VistaConsultaRadicados({ usuario }) {
         resultado.success !== true ||
         !Array.isArray(resultado.alertas) ||
         resultado.alertas.length > 25 ||
-        !Number.isSafeInteger(resultado.total) || resultado.total < 0 ||
+        !Number.isSafeInteger(resultado.total) ||
+        resultado.total < 0 ||
         resultado.paginas !== Math.ceil(resultado.total / 25) ||
-        resultado.alertas.some(radicado => !radicado ||
-          typeof radicado.numero_radicado !== "string" ||
-          !["alerta", "vencido"].includes(radicado.semaforo?.nivel))
+        resultado.alertas.some(
+          (radicado) =>
+            !radicado ||
+            typeof radicado.numero_radicado !== "string" ||
+            !["alerta", "vencido"].includes(radicado.semaforo?.nivel),
+        )
       )
         throw new Error(
           resultado.message ||
@@ -575,7 +615,10 @@ function VistaConsultaRadicados({ usuario }) {
       setEstadoAlertas(
         `${resultado.total} alertas encontradas. Mostrando ${resultado.alertas.length}.`,
       );
-      setPaginacionAlertas({ paginas: resultado.paginas, total: resultado.total });
+      setPaginacionAlertas({
+        paginas: resultado.paginas,
+        total: resultado.total,
+      });
       setConsultaAlertasValida(true);
       if (paginaAlertas > Math.max(1, resultado.paginas))
         setPaginaAlertas(Math.max(1, resultado.paginas));
@@ -671,9 +714,10 @@ function VistaConsultaRadicados({ usuario }) {
     if (!seleccion.length) return;
     let error =
       seleccion.length > 5 ? "Puedes adjuntar máximo 5 archivos PDF." : "";
-    let detalle = seleccion.length > 5
-      ? `Seleccionaste ${seleccion.length} archivos. El máximo permitido es 5 PDF.`
-      : "";
+    let detalle =
+      seleccion.length > 5
+        ? `Seleccionaste ${seleccion.length} archivos. El máximo permitido es 5 PDF.`
+        : "";
     for (const archivo of seleccion) {
       if (error) break;
       if (!archivo.name.toLowerCase().endsWith(".pdf")) {
@@ -975,8 +1019,11 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   function estadoBloqueadoPorTraslado(radicado) {
-    return usuario.rol === "funcionario" &&
-      !radicado.destino_todas_dependencias && radicado.traslado_pendiente;
+    return (
+      usuario.rol === "funcionario" &&
+      !radicado.destino_todas_dependencias &&
+      radicado.traslado_pendiente
+    );
   }
 
   function actualizarRadicadoEnVista(radicado, cambios) {
@@ -993,7 +1040,12 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   async function confirmarEnteradoInformativo(radicado) {
-    if (usuario.rol !== "funcionario" || requiereRespuesta(radicado) || esFinal(radicado)) return;
+    if (
+      usuario.rol !== "funcionario" ||
+      requiereRespuesta(radicado) ||
+      esFinal(radicado)
+    )
+      return;
     const clave = claveEstado(radicado);
     if (cierresInformativosEnProceso.current.has(clave)) return;
     cierresInformativosEnProceso.current.add(clave);
@@ -1025,7 +1077,12 @@ function VistaConsultaRadicados({ usuario }) {
       }));
       setRevisionConsulta((valor) => valor + 1);
       const solicitud = ++solicitudHistorial.current;
-      setHistorial((actual) => ({ ...actual, eventos: [], cargando: true, error: "" }));
+      setHistorial((actual) => ({
+        ...actual,
+        eventos: [],
+        cargando: true,
+        error: "",
+      }));
       cargarHistorial({ ...radicado, ...cambios }, solicitud, null, false);
     } catch (error) {
       cierresInformativosEnProceso.current.delete(clave);
@@ -1045,7 +1102,8 @@ function VistaConsultaRadicados({ usuario }) {
     if (estadoBloqueadoPorTraslado(radicado) && nuevoEstado !== "Enterado") {
       setErroresEstado((actual) => ({
         ...actual,
-        [clave]: "Traslado pendiente de decisión. No puedes cambiar el estado mientras se resuelve la solicitud.",
+        [clave]:
+          "Traslado pendiente de decisión. No puedes cambiar el estado mientras se resuelve la solicitud.",
       }));
       return;
     }
@@ -1175,8 +1233,12 @@ function VistaConsultaRadicados({ usuario }) {
 
   function navegarPestanas(evento, indice) {
     let siguiente;
-    if (evento.key === "ArrowRight") siguiente = (indice + 1) % PESTANAS_DEPENDENCIA.length;
-    else if (evento.key === "ArrowLeft") siguiente = (indice + PESTANAS_DEPENDENCIA.length - 1) % PESTANAS_DEPENDENCIA.length;
+    if (evento.key === "ArrowRight")
+      siguiente = (indice + 1) % PESTANAS_DEPENDENCIA.length;
+    else if (evento.key === "ArrowLeft")
+      siguiente =
+        (indice + PESTANAS_DEPENDENCIA.length - 1) %
+        PESTANAS_DEPENDENCIA.length;
     else if (evento.key === "Home") siguiente = 0;
     else if (evento.key === "End") siguiente = PESTANAS_DEPENDENCIA.length - 1;
     else return;
@@ -1187,610 +1249,832 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   const errorEnvioEsAdjunto = Boolean(
-    errorEnvioRespuesta && /pdf|cifrado|protegido|archivo|10 mb/i.test(errorEnvioRespuesta),
+    errorEnvioRespuesta &&
+    /pdf|cifrado|protegido|archivo|10 mb/i.test(errorEnvioRespuesta),
   );
 
   return (
-    <div className={`page-consult app-page ${esDependencia ? "consulta-dependencia" : "consulta-ventanilla"}`}>
+    <div
+      className={`page-consult app-page ${esDependencia ? "consulta-dependencia" : "consulta-ventanilla"}`}
+    >
       <EncabezadoAplicacion usuario={usuario} pantallaActual="consultar" />
       <main id="contenido-principal" className="consult-main">
-        {esDependencia && <>
-          <header className="consulta-intro">
-            <p className="consulta-antetitulo">Gestión documental · {usuario.dependencia_nombre || "Mi dependencia"}</p>
-            <h1>Consultar radicados</h1>
-            <p>Consulta tus documentos, revisa respuestas y sigue tus solicitudes de traslado.</p>
-          </header>
-          <nav className="consulta-pestanas" role="tablist" aria-label="Secciones de consulta">
-            {PESTANAS_DEPENDENCIA.map(([id, nombre], indice) => (
-              <button key={id} type="button" role="tab" id={`consulta-tab-${id}`}
-                ref={nodo => { botonesPestanas.current[id] = nodo; }}
-                aria-selected={pestanaConsulta === id} aria-controls={`consulta-panel-${id}`}
-                tabIndex={0}
-                onClick={() => setPestanaConsulta(id)} onKeyDown={evento => navegarPestanas(evento, indice)}>
-                {nombre}
-              </button>
-            ))}
-          </nav>
-          {pestanaConsulta !== "respuestas" && <section className="consulta-aviso" aria-label="Avisos de respuestas internas">
-            {estadoInternas.cargando ? <p role="status">Comprobando respuestas internas…</p>
-              : estadoInternas.error ? <div role="alert">
-                <p>No se pudo comprobar si hay respuestas sin abrir. {estadoInternas.error}</p>
-                <button type="button" onClick={() => setRevisionInternas(n => n + 1)}>Reintentar resumen de respuestas</button>
-              </div>
-              : estadoInternas.resumen?.pendientes > 0 && <div role="status">
-                <p><strong>{estadoInternas.resumen.pendientes} {estadoInternas.resumen.pendientes === 1 ? "respuesta interna sin abrir" : "respuestas internas sin abrir"}</strong> para tu dependencia.</p>
-                <button type="button" onClick={() => {
-                  setPestanaConsulta("respuestas"); botonesPestanas.current.respuestas?.focus();
-                }}>Ver respuestas internas</button>
-              </div>}
-          </section>}
-          <PanelConsulta habilitado id="respuestas" actual={pestanaConsulta}>
-            <RespuestasInternas key={usuario.id} usuario={usuario} directa
-              activa={pestanaConsulta === "respuestas"} alResumen={setEstadoInternas} revisionExterna={revisionInternas}
-              alVerTrazabilidad={abrirDetalle} />
-          </PanelConsulta>
-        </>}
-        {esDependencia && <PanelConsulta habilitado id="traslados" actual={pestanaConsulta}>
-          <BandejaTraslados
-            usuario={usuario} revision={revisionConsulta} alGuardar={trasladoGuardado}
-            directa={esDependencia} activa={pestanaConsulta === "traslados"}
-          />
-        </PanelConsulta>}
-        {!esDependencia && <header className="consulta-intro consulta-intro--operativa">
-          <p className="consulta-antetitulo">Gestión documental · Ventanilla Única</p>
-          <h1>Consultar radicados</h1>
-          <p>Recibe documentos, organiza la bandeja y da seguimiento a cada actuación.</p>
-        </header>}
-        <PanelConsulta habilitado={esDependencia} id="radicados" actual={pestanaConsulta}>
-        <div className="consult-heading">
-          {esDependencia ? <h2>Listado de documentos recibidos</h2> : <h1>Listado de documentos recibidos</h1>}
-          {usuario.rol !== "funcionario" && (
-            <a href="index.html">← Registrar nuevo radicado</a>
-          )}
-        </div>
-
-        {!esDependencia && <BandejaTraslados usuario={usuario} revision={revisionConsulta} alGuardar={trasladoGuardado} />}
-        {mensajeTraslado && (
-          <MensajeEstado tono="success">{mensajeTraslado}</MensajeEstado>
-        )}
-        {solicitudTraslado && (
-          <SolicitudTraslado
-            key={solicitudTraslado.numero_radicado}
-            radicado={solicitudTraslado}
-            alCerrar={() => {
-              setSolicitudTraslado(null);
-              botonTraslado.current?.focus();
-            }}
-            alGuardar={(resultado) => {
-              setMensajeTraslado(
-                `Solicitud de traslado confirmada para ${resultado.numero_radicado}. Consulta Traslados para ver su estado.`,
-              );
-              trasladoGuardado();
-            }}
-          />
-        )}
-
-        <section className="consulta-bloque consulta-bloque--indicadores" aria-labelledby="indicadores-titulo">
-          <div className="consulta-seccion-heading">
-            <div>
-              <p className="consulta-seccion-kicker">Resumen de la bandeja</p>
-              <h3 id="indicadores-titulo">Indicadores principales</h3>
-            </div>
-            <p>Consulta rápidamente el volumen y los casos que requieren atención.</p>
-          </div>
-          <div className="dashboard-cards" aria-label="Resumen y filtros">
-          <button
-            className={`dashboard-card dashboard-card--total ${!hayFiltrosActivos ? "filtro-activo" : ""}`}
-            type="button"
-            aria-pressed={!hayFiltrosActivos}
-            onClick={limpiarFiltros}
-          >
-            <span>Total</span>
-            <strong>{resumenConsulta.total}</strong>
-            <small>Mostrar todos los registros</small>
-          </button>
-          <button
-            className={`dashboard-card dashboard-card--criticos ${soloCriticos ? "filtro-activo" : ""}`}
-            type="button"
-            aria-pressed={soloCriticos}
-            onClick={() => setSoloCriticos((valor) => !valor)}
-          >
-            <span>Críticos</span>
-            <strong>{radicadosCriticos}</strong>
-            <small>Filtrar alerta y vencido</small>
-          </button>
-          <button
-            className={`dashboard-card dashboard-card--hoy ${soloHoy ? "filtro-activo" : ""}`}
-            type="button"
-            aria-pressed={soloHoy}
-            onClick={() => setSoloHoy((valor) => !valor)}
-          >
-            <span>Registrados hoy</span>
-            <strong>{radicadosHoy}</strong>
-            <small>Activar o quitar filtro de hoy</small>
-          </button>
-          {!esDependencia && <label className="dashboard-card">
-            <span>Tipo de comunicación</span>
-            <select
-              id="filtro-tipo-comunicacion"
-              name="filtro_tipo_comunicacion"
-              value={filtroComunicacion}
-              onChange={(evento) => setFiltroComunicacion(evento.target.value)}
-              disabled={cargando}
+        {esDependencia && (
+          <>
+            <header className="consulta-intro">
+              <p className="consulta-antetitulo">
+                Gestión documental ·{" "}
+                {usuario.dependencia_nombre || "Mi dependencia"}
+              </p>
+              <h1>Consultar radicados</h1>
+              <p>
+                Consulta tus documentos, revisa respuestas y sigue tus
+                solicitudes de traslado.
+              </p>
+            </header>
+            <nav
+              className="consulta-pestanas"
+              role="tablist"
+              aria-label="Secciones de consulta"
             >
-              <option value="">Todos</option>
-              <option value="interna">Interna</option>
-              <option value="externa">Externa</option>
-              <option value="sin-tipo">No especificado</option>
-            </select>
-          </label>}
-          </div>
-        </section>
-        <div className="filtros-activos-resumen" aria-live="polite">
-          {filtrosActivos.length ? (
-            <ul className="filtros-activos-lista" aria-label="Filtros activos">
-              {filtrosActivos.map((filtro) => (
-                <li key={filtro.key}>
-                  <button
-                    type="button"
-                    className="filtro-badge"
-                    onClick={filtro.onRemove}
-                    aria-label={`Quitar filtro ${filtro.label}`}
-                  >
-                    <span>{filtro.label}</span>
-                    <strong aria-hidden="true">×</strong>
-                  </button>
-                </li>
+              {PESTANAS_DEPENDENCIA.map(([id, nombre], indice) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  id={`consulta-tab-${id}`}
+                  ref={(nodo) => {
+                    botonesPestanas.current[id] = nodo;
+                  }}
+                  aria-selected={pestanaConsulta === id}
+                  aria-controls={`consulta-panel-${id}`}
+                  tabIndex={0}
+                  onClick={() => setPestanaConsulta(id)}
+                  onKeyDown={(evento) => navegarPestanas(evento, indice)}
+                >
+                  {nombre}
+                </button>
               ))}
-            </ul>
-          ) : (
-            !esDependencia && <p>Sin filtros activos.</p>
-          )}
-        </div>
-
-        <section className="consult-filters" aria-labelledby="filtros-radicados-titulo">
-          <div className="consulta-seccion-heading">
-            <div>
-              <p className="consulta-seccion-kicker">Consulta de la bandeja</p>
-              <h3 id="filtros-radicados-titulo">Buscar y filtrar</h3>
-            </div>
-            <p>Combina una búsqueda con el tipo de comunicación para encontrar un radicado.</p>
-          </div>
-          <label htmlFor="busqueda-radicados">Buscar radicados</label>
-          <input
-            id="busqueda-radicados"
-            name="busqueda_radicados"
-            value={textoBusqueda}
-            maxLength={150}
-            onChange={(evento) => setTextoBusqueda(evento.target.value)}
-            placeholder="Buscar por radicado, documento o remitente…"
-            aria-label="Buscar radicados"
-          />
-          {esDependencia && <label className="consulta-tipo" htmlFor="filtro-tipo-comunicacion">
-            Tipo de comunicación
-            <select id="filtro-tipo-comunicacion" name="filtro_tipo_comunicacion"
-              value={filtroComunicacion} onChange={evento => setFiltroComunicacion(evento.target.value)} disabled={cargando}>
-              <option value="">Todos</option><option value="interna">Interna</option>
-              <option value="externa">Externa</option><option value="sin-tipo">No especificado</option>
-            </select>
-          </label>}
-          <div>
-            <p role="status" aria-live="polite">
-              {cargando
-                ? "Cargando radicados…"
-                : mensajeError
-                  ? `No se pudieron cargar radicados. ${mensajeError}`
-                  : `Mostrando ${radicadosVisibles.length} de ${esDependencia ? paginacion.total : resumenConsulta.total}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
-            </p>
-            {!esDependencia && !cargando && !mensajeError && (
-              <p>{paginacion.total} registros coinciden con los filtros.</p>
+            </nav>
+            {pestanaConsulta !== "respuestas" && (
+              <section
+                className="consulta-aviso"
+                aria-label="Avisos de respuestas internas"
+              >
+                {estadoInternas.cargando ? (
+                  <p role="status">Comprobando respuestas internas…</p>
+                ) : estadoInternas.error ? (
+                  <div role="alert">
+                    <p>
+                      No se pudo comprobar si hay respuestas sin abrir.{" "}
+                      {estadoInternas.error}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setRevisionInternas((n) => n + 1)}
+                    >
+                      Reintentar resumen de respuestas
+                    </button>
+                  </div>
+                ) : (
+                  estadoInternas.resumen?.pendientes > 0 && (
+                    <div role="status">
+                      <p>
+                        <strong>
+                          {estadoInternas.resumen.pendientes}{" "}
+                          {estadoInternas.resumen.pendientes === 1
+                            ? "respuesta interna sin abrir"
+                            : "respuestas internas sin abrir"}
+                        </strong>{" "}
+                        para tu dependencia.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPestanaConsulta("respuestas");
+                          botonesPestanas.current.respuestas?.focus();
+                        }}
+                      >
+                        Ver respuestas internas
+                      </button>
+                    </div>
+                  )
+                )}
+              </section>
             )}
-            <button
-              type="button"
-              onClick={limpiarFiltros}
-              disabled={!hayFiltrosActivos}
-            >
-              Limpiar filtros
-            </button>
-            {mensajeError && (
+            <PanelConsulta habilitado id="respuestas" actual={pestanaConsulta}>
+              <RespuestasInternas
+                key={usuario.id}
+                usuario={usuario}
+                directa
+                activa={pestanaConsulta === "respuestas"}
+                alResumen={setEstadoInternas}
+                revisionExterna={revisionInternas}
+                alVerTrazabilidad={abrirDetalle}
+              />
+            </PanelConsulta>
+          </>
+        )}
+        {esDependencia && (
+          <PanelConsulta habilitado id="traslados" actual={pestanaConsulta}>
+            <BandejaTraslados
+              usuario={usuario}
+              revision={revisionConsulta}
+              alGuardar={trasladoGuardado}
+              directa={esDependencia}
+              activa={pestanaConsulta === "traslados"}
+            />
+          </PanelConsulta>
+        )}
+        {!esDependencia && (
+          <header className="consulta-intro consulta-intro--operativa">
+            <p className="consulta-antetitulo">
+              Gestión documental · Ventanilla Única
+            </p>
+            <h1>Consultar radicados</h1>
+            <p>
+              Recibe documentos, organiza la bandeja y da seguimiento a cada
+              actuación.
+            </p>
+          </header>
+        )}
+        <PanelConsulta
+          habilitado={esDependencia}
+          id="radicados"
+          actual={pestanaConsulta}
+        >
+          <div className="consult-heading">
+            {esDependencia ? (
+              <h2>Listado de documentos recibidos</h2>
+            ) : (
+              <h1>Listado de documentos recibidos</h1>
+            )}
+            {usuario.rol !== "funcionario" && (
+              <a href="index.html">← Registrar nuevo radicado</a>
+            )}
+          </div>
+
+          {!esDependencia && (
+            <BandejaTraslados
+              usuario={usuario}
+              revision={revisionConsulta}
+              alGuardar={trasladoGuardado}
+            />
+          )}
+          {mensajeTraslado && (
+            <MensajeEstado tono="success">{mensajeTraslado}</MensajeEstado>
+          )}
+          {solicitudTraslado && (
+            <SolicitudTraslado
+              key={solicitudTraslado.numero_radicado}
+              radicado={solicitudTraslado}
+              alCerrar={() => {
+                setSolicitudTraslado(null);
+                botonTraslado.current?.focus();
+              }}
+              alGuardar={(resultado) => {
+                setMensajeTraslado(
+                  `Solicitud de traslado confirmada para ${resultado.numero_radicado}. Consulta Traslados para ver su estado.`,
+                );
+                trasladoGuardado();
+              }}
+            />
+          )}
+
+          <section
+            className="consulta-bloque consulta-bloque--indicadores"
+            aria-labelledby="indicadores-titulo"
+          >
+            <div className="consulta-seccion-heading">
+              <div>
+                <p className="consulta-seccion-kicker">Resumen de la bandeja</p>
+                <h3 id="indicadores-titulo">Indicadores principales</h3>
+              </div>
+              <p>
+                Consulta rápidamente el volumen y los casos que requieren
+                atención.
+              </p>
+            </div>
+            <div className="dashboard-cards" aria-label="Resumen y filtros">
+              <button
+                className={`dashboard-card dashboard-card--total ${!hayFiltrosActivos ? "filtro-activo" : ""}`}
+                type="button"
+                aria-pressed={!hayFiltrosActivos}
+                onClick={limpiarFiltros}
+              >
+                <span>Total</span>
+                <strong>{resumenConsulta.total}</strong>
+                <small>Mostrar todos los registros</small>
+              </button>
+              <button
+                className={`dashboard-card dashboard-card--criticos ${soloCriticos ? "filtro-activo" : ""}`}
+                type="button"
+                aria-pressed={soloCriticos}
+                onClick={() => setSoloCriticos((valor) => !valor)}
+              >
+                <span>Críticos</span>
+                <strong>{radicadosCriticos}</strong>
+                <small>Filtrar alerta y vencido</small>
+              </button>
+              <button
+                className={`dashboard-card dashboard-card--hoy ${soloHoy ? "filtro-activo" : ""}`}
+                type="button"
+                aria-pressed={soloHoy}
+                onClick={() => setSoloHoy((valor) => !valor)}
+              >
+                <span>Registrados hoy</span>
+                <strong>{radicadosHoy}</strong>
+                <small>Activar o quitar filtro de hoy</small>
+              </button>
+              {!esDependencia && (
+                <label className="dashboard-card">
+                  <span>Tipo de comunicación</span>
+                  <select
+                    id="filtro-tipo-comunicacion"
+                    name="filtro_tipo_comunicacion"
+                    value={filtroComunicacion}
+                    onChange={(evento) =>
+                      setFiltroComunicacion(evento.target.value)
+                    }
+                    disabled={cargando}
+                  >
+                    <option value="">Todos</option>
+                    <option value="interna">Interna</option>
+                    <option value="externa">Externa</option>
+                    <option value="sin-tipo">No especificado</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          </section>
+          <div className="filtros-activos-resumen" aria-live="polite">
+            {filtrosActivos.length ? (
+              <ul
+                className="filtros-activos-lista"
+                aria-label="Filtros activos"
+              >
+                {filtrosActivos.map((filtro) => (
+                  <li key={filtro.key}>
+                    <button
+                      type="button"
+                      className="filtro-badge"
+                      onClick={filtro.onRemove}
+                      aria-label={`Quitar filtro ${filtro.label}`}
+                    >
+                      <span>{filtro.label}</span>
+                      <strong aria-hidden="true">×</strong>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !esDependencia && <p>Sin filtros activos.</p>
+            )}
+          </div>
+
+          <section
+            className="consult-filters"
+            aria-labelledby="filtros-radicados-titulo"
+          >
+            <div className="consulta-seccion-heading">
+              <div>
+                <p className="consulta-seccion-kicker">
+                  Consulta de la bandeja
+                </p>
+                <h3 id="filtros-radicados-titulo">Buscar y filtrar</h3>
+              </div>
+              <p>
+                Combina una búsqueda con el tipo de comunicación para encontrar
+                un radicado.
+              </p>
+            </div>
+            <label htmlFor="busqueda-radicados">Buscar radicados</label>
+            <input
+              id="busqueda-radicados"
+              name="busqueda_radicados"
+              value={textoBusqueda}
+              maxLength={150}
+              onChange={(evento) => setTextoBusqueda(evento.target.value)}
+              placeholder="Buscar por radicado, documento o remitente…"
+              aria-label="Buscar radicados"
+            />
+            {esDependencia && (
+              <label
+                className="consulta-tipo"
+                htmlFor="filtro-tipo-comunicacion"
+              >
+                Tipo de comunicación
+                <select
+                  id="filtro-tipo-comunicacion"
+                  name="filtro_tipo_comunicacion"
+                  value={filtroComunicacion}
+                  onChange={(evento) =>
+                    setFiltroComunicacion(evento.target.value)
+                  }
+                  disabled={cargando}
+                >
+                  <option value="">Todos</option>
+                  <option value="interna">Interna</option>
+                  <option value="externa">Externa</option>
+                  <option value="sin-tipo">No especificado</option>
+                </select>
+              </label>
+            )}
+            <div>
+              <p role="status" aria-live="polite">
+                {cargando
+                  ? "Cargando radicados…"
+                  : mensajeError
+                    ? `No se pudieron cargar radicados. ${mensajeError}`
+                    : `Mostrando ${radicadosVisibles.length} de ${esDependencia ? paginacion.total : resumenConsulta.total}. ${hayFiltrosActivos ? "Hay filtros activos." : "Sin filtros activos."}`}
+              </p>
+              {!esDependencia && !cargando && !mensajeError && (
+                <p>{paginacion.total} registros coinciden con los filtros.</p>
+              )}
               <button
                 type="button"
-                onClick={() => setRevisionConsulta((valor) => valor + 1)}
+                onClick={limpiarFiltros}
+                disabled={!hayFiltrosActivos}
               >
-                Reintentar consulta
+                Limpiar filtros
               </button>
-            )}
-          </div>
-        </section>
-
-        <section className="table-card" aria-labelledby="tabla-radicados-titulo">
-          <div className="consulta-seccion-heading consulta-seccion-heading--tabla">
-            <div>
-              <p className="consulta-seccion-kicker">Resultados</p>
-              <h3 id="tabla-radicados-titulo">Radicados de la bandeja</h3>
+              {mensajeError && (
+                <button
+                  type="button"
+                  onClick={() => setRevisionConsulta((valor) => valor + 1)}
+                >
+                  Reintentar consulta
+                </button>
+              )}
             </div>
-            <p>Revisa el estado, el semáforo y las acciones disponibles para cada registro.</p>
-          </div>
-          <p className="tabla-ayuda">
-            En pantallas intermedias, desplaza la tabla para ver todas las
-            columnas.
-          </p>
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Listado de radicados"
-            tabIndex={0}
+          </section>
+
+          <section
+            className="table-card"
+            aria-labelledby="tabla-radicados-titulo"
           >
-            <table
-              id="tabla-radicados"
-              className="tabla-adaptable"
-              role="table"
-              aria-label="Radicados"
+            <div className="consulta-seccion-heading consulta-seccion-heading--tabla">
+              <div>
+                <p className="consulta-seccion-kicker">Resultados</p>
+                <h3 id="tabla-radicados-titulo">Radicados de la bandeja</h3>
+              </div>
+              <p>
+                Revisa el estado, el semáforo y las acciones disponibles para
+                cada registro.
+              </p>
+            </div>
+            <p className="tabla-ayuda">
+              En pantallas intermedias, desplaza la tabla para ver todas las
+              columnas.
+            </p>
+            <div
+              className="table-scroll"
+              role="region"
+              aria-label="Listado de radicados"
+              tabIndex={0}
             >
-              <thead role="rowgroup">
-                <tr role="row">
-                  <th scope="col" role="columnheader">
-                    Radicado
-                  </th>
-                  <th scope="col" role="columnheader">
-                    Tipo / fecha
-                  </th>
-                  <th scope="col" role="columnheader">
-                    Remitente
-                  </th>
-                  <th scope="col" role="columnheader">
-                    Semáforo
-                  </th>
-                  <th scope="col" role="columnheader">
-                    Estado
-                  </th>
-                  <th scope="col" role="columnheader">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {cargando ? (
-                  <tr>
-                    <td colSpan="6">Cargando radicados…</td>
+              <table
+                id="tabla-radicados"
+                className="tabla-adaptable"
+                role="table"
+                aria-label="Radicados"
+              >
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">
+                      Radicado
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Tipo / fecha
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Remitente
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Semáforo
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Estado
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Acciones
+                    </th>
                   </tr>
-                ) : mensajeError ? (
-                  <tr>
-                    <td colSpan="6" className="text-red-500">
-                      {mensajeError}
-                    </td>
-                  </tr>
-                ) : radicadosVisibles.length === 0 ? (
-                  <tr>
-                    <td colSpan="6">No se encontraron registros.</td>
-                  </tr>
-                ) : (
-                  radicadosVisibles.map((radicado) => (
-                    <tr
-                      role="row"
-                      key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}
-                    >
-                      <CeldaAdaptable etiqueta="Radicado">
-                        <small className="regla-respuesta">
-                          {requiereRespuesta(radicado)
-                            ? "Requiere respuesta"
-                            : "No requiere respuesta"}
-                        </small>
-                        <button
-                          className="ver-detalle"
-                          type="button"
-                          onClick={(evento) => {
-                            botonDetalle.current = evento.currentTarget;
-                            abrirDetalle(radicado);
-                          }}
-                        >
-                          {radicado.numero_radicado}
-                        </button>
-                        {radicado.destino_todas_dependencias === 1 &&
-                          radicado.seguimiento_dependencia_nombre && (
-                            <small>
-                              Seguimiento:{" "}
-                              {radicado.seguimiento_dependencia_nombre}
+                </thead>
+                <tbody role="rowgroup">
+                  {cargando ? (
+                    <tr>
+                      <td colSpan="6">Cargando radicados…</td>
+                    </tr>
+                  ) : mensajeError ? (
+                    <tr>
+                      <td colSpan="6" className="text-red-500">
+                        {mensajeError}
+                      </td>
+                    </tr>
+                  ) : radicadosVisibles.length === 0 ? (
+                    <tr>
+                      <td colSpan="6">No se encontraron registros.</td>
+                    </tr>
+                  ) : (
+                    radicadosVisibles.map((radicado) => (
+                      <tr
+                        role="row"
+                        key={`${radicado.numero_radicado}-${radicado.radicado_dependencia_id || "single"}`}
+                      >
+                        <CeldaAdaptable etiqueta="Radicado">
+                          <small className="regla-respuesta">
+                            {requiereRespuesta(radicado)
+                              ? "Requiere respuesta"
+                              : "No requiere respuesta"}
+                          </small>
+                          <button
+                            className="ver-detalle"
+                            type="button"
+                            onClick={(evento) => {
+                              botonDetalle.current = evento.currentTarget;
+                              abrirDetalle(radicado);
+                            }}
+                          >
+                            {radicado.numero_radicado}
+                          </button>
+                          {radicado.destino_todas_dependencias === 1 &&
+                            radicado.seguimiento_dependencia_nombre && (
+                              <small>
+                                Seguimiento:{" "}
+                                {radicado.seguimiento_dependencia_nombre}
+                              </small>
+                            )}
+                        </CeldaAdaptable>
+                        <CeldaAdaptable etiqueta="Tipo / fecha">
+                          <span
+                            className={`badge-comunicacion badge-comunicacion--${obtenerTipoComunicacion(radicado)}`}
+                          >
+                            {obtenerTipoComunicacion(radicado)}
+                          </span>
+                          <small>{formatearFechaRadicacion(radicado)}</small>
+                        </CeldaAdaptable>
+                        <CeldaAdaptable etiqueta="Remitente">
+                          <strong>
+                            {radicado.remitente_nombre || "No registrado"}
+                          </strong>
+                          <small>
+                            CC/NIT:{" "}
+                            {radicado.remitente_documento ||
+                              radicado.remitente_nit ||
+                              "N/A"}
+                          </small>
+                        </CeldaAdaptable>
+                        <CeldaAdaptable etiqueta="Semáforo">
+                          <span
+                            className={`semaforo semaforo--${radicado.semaforo?.nivel === "completado" ? "verde" : radicado.semaforo?.nivel === "vencido" ? "rojo" : radicado.semaforo?.nivel === "alerta" ? "amarillo" : radicado.semaforo?.nivel === "a_tiempo" ? "verde" : "sin-calcular"}`}
+                          >
+                            <i className="semaforo__dot" />
+                            {radicado.semaforo?.texto || "Sin calcular"}
+                          </span>
+                        </CeldaAdaptable>
+                        <CeldaAdaptable etiqueta="Estado">
+                          {esFinal(radicado) &&
+                          !guardandoEstados[claveEstado(radicado)] ? (
+                            <span
+                              className="estado-final"
+                              aria-label={`Estado de ${radicado.numero_radicado}: ${radicado.estado}`}
+                            >
+                              {radicado.estado}
+                            </span>
+                          ) : (
+                            <select
+                              id={`estado-radicado-${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "-")}-${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "-")}`}
+                              name={`estado_radicado_${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "_")}_${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "_")}`}
+                              aria-label={`Estado de ${radicado.numero_radicado}`}
+                              disabled={
+                                usuario.rol === "ventanilla" ||
+                                estadoBloqueadoPorTraslado(radicado) ||
+                                guardandoEstados[claveEstado(radicado)]
+                              }
+                              value={radicado.estado || "Recibido"}
+                              onChange={(evento) =>
+                                cambiarEstado(radicado, evento.target.value)
+                              }
+                            >
+                              {estadosParaRadicado(radicado, usuario.rol).map(
+                                (estadoPosible) => (
+                                  <option
+                                    key={estadoPosible}
+                                    disabled={
+                                      (!ESTADOS_POSIBLES.includes(
+                                        estadoPosible,
+                                      ) &&
+                                        estadoPosible !== "Enterado") ||
+                                      (["funcionario", "ventanilla"].includes(
+                                        usuario.rol,
+                                      ) &&
+                                        !requiereRespuesta(radicado) &&
+                                        !["Recibido", "Enterado"].includes(
+                                          estadoPosible,
+                                        ))
+                                    }
+                                  >
+                                    {estadoPosible}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          )}
+                          {estadoBloqueadoPorTraslado(radicado) &&
+                            !esFinal(radicado) && (
+                              <>
+                                <small role="status">
+                                  Traslado pendiente de decisión
+                                </small>
+                                {!requiereRespuesta(radicado) && (
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      guardandoEstados[claveEstado(radicado)]
+                                    }
+                                    onClick={() =>
+                                      cambiarEstado(radicado, "Enterado")
+                                    }
+                                  >
+                                    Registrar Enterado
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          {guardandoEstados[claveEstado(radicado)] && (
+                            <small role="status">Guardando estado…</small>
+                          )}
+                          {erroresEstado[claveEstado(radicado)] && (
+                            <small role="alert">
+                              {erroresEstado[claveEstado(radicado)]}
                             </small>
                           )}
-                      </CeldaAdaptable>
-                      <CeldaAdaptable etiqueta="Tipo / fecha">
-                        <span
-                          className={`badge-comunicacion badge-comunicacion--${obtenerTipoComunicacion(radicado)}`}
-                        >
-                          {obtenerTipoComunicacion(radicado)}
-                        </span>
-                        <small>{formatearFechaRadicacion(radicado)}</small>
-                      </CeldaAdaptable>
-                      <CeldaAdaptable etiqueta="Remitente">
-                        <strong>
-                          {radicado.remitente_nombre || "No registrado"}
-                        </strong>
-                        <small>
-                          CC/NIT:{" "}
-                          {radicado.remitente_documento ||
-                            radicado.remitente_nit ||
-                            "N/A"}
-                        </small>
-                      </CeldaAdaptable>
-                      <CeldaAdaptable etiqueta="Semáforo">
-                        <span
-                          className={`semaforo semaforo--${radicado.semaforo?.nivel === "completado" ? "verde" : radicado.semaforo?.nivel === "vencido" ? "rojo" : radicado.semaforo?.nivel === "alerta" ? "amarillo" : radicado.semaforo?.nivel === "a_tiempo" ? "verde" : "sin-calcular"}`}
-                        >
-                          <i className="semaforo__dot" />
-                          {radicado.semaforo?.texto || "Sin calcular"}
-                        </span>
-                      </CeldaAdaptable>
-                      <CeldaAdaptable etiqueta="Estado">
-                        {esFinal(radicado) &&
-                        !guardandoEstados[claveEstado(radicado)] ? (
-                          <span
-                            className="estado-final"
-                            aria-label={`Estado de ${radicado.numero_radicado}: ${radicado.estado}`}
+                        </CeldaAdaptable>
+                        <CeldaAdaptable etiqueta="Acciones">
+                          {usuario.rol === "funcionario" &&
+                            !radicado.destino_todas_dependencias &&
+                            radicado.dependencia_destino_id &&
+                            !esFinal(radicado) && (
+                              <button
+                                type="button"
+                                className="generar-comprobante"
+                                onClick={(evento) => {
+                                  botonTraslado.current = evento.currentTarget;
+                                  setSolicitudTraslado(radicado);
+                                }}
+                              >
+                                Solicitar traslado
+                              </button>
+                            )}
+                          <button
+                            className="generar-comprobante"
+                            disabled={generandoComprobante}
+                            type="button"
+                            onClick={() => mostrarComprobante(radicado)}
                           >
-                            {radicado.estado}
-                          </span>
-                        ) : (
-                          <select
-                            id={`estado-radicado-${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "-")}-${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "-")}`}
-                            name={`estado_radicado_${String(radicado.numero_radicado).replace(/[^A-Za-z0-9_-]/g, "_")}_${String(radicado.radicado_dependencia_id || "single").replace(/[^A-Za-z0-9_-]/g, "_")}`}
-                            aria-label={`Estado de ${radicado.numero_radicado}`}
-                            disabled={
-                              usuario.rol === "ventanilla" ||
-                              estadoBloqueadoPorTraslado(radicado) ||
-                              guardandoEstados[claveEstado(radicado)]
-                            }
-                            value={radicado.estado || "Recibido"}
-                            onChange={(evento) =>
-                              cambiarEstado(radicado, evento.target.value)
-                            }
-                          >
-                            {estadosParaRadicado(radicado, usuario.rol).map((estadoPosible) => (
-                              <option
-                                key={estadoPosible}
-                                disabled={
-                                  !ESTADOS_POSIBLES.includes(estadoPosible) &&
-                                  estadoPosible !== "Enterado" ||
-                                  (["funcionario", "ventanilla"].includes(usuario.rol) &&
-                                    !requiereRespuesta(radicado) &&
-                                    !["Recibido", "Enterado"].includes(estadoPosible))
+                            Ver comprobante
+                          </button>
+                          {usuario.rol !== "ventanilla" &&
+                            !(
+                              usuario.rol === "administrador" &&
+                              String(radicado.tipo_comunicacion)
+                                .trim()
+                                .toLowerCase() === "interna" &&
+                              !radicado.destino_todas_dependencias
+                            ) &&
+                            requiereRespuesta(radicado) &&
+                            !esFinal(radicado) && (
+                              <button
+                                type="button"
+                                className="generar-comprobante"
+                                onClick={() =>
+                                  abrirFormularioRespuesta(radicado)
                                 }
                               >
-                                {estadoPosible}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {estadoBloqueadoPorTraslado(radicado) && !esFinal(radicado) && (
-                            <>
-                              <small role="status">Traslado pendiente de decisión</small>
-                              {!requiereRespuesta(radicado) && (
-                                <button
-                                  type="button"
-                                  disabled={guardandoEstados[claveEstado(radicado)]}
-                                  onClick={() => cambiarEstado(radicado, "Enterado")}
-                                >
-                                  Registrar Enterado
-                                </button>
-                              )}
-                            </>
-                        )}
-                        {guardandoEstados[claveEstado(radicado)] && (
-                          <small role="status">Guardando estado…</small>
-                        )}
-                        {erroresEstado[claveEstado(radicado)] && (
-                          <small role="alert">
-                            {erroresEstado[claveEstado(radicado)]}
-                          </small>
-                        )}
-                      </CeldaAdaptable>
-                      <CeldaAdaptable etiqueta="Acciones">
-                        {usuario.rol === "funcionario" &&
-                          !radicado.destino_todas_dependencias &&
-                          radicado.dependencia_destino_id &&
-                          !esFinal(radicado) && (
+                                Responder
+                              </button>
+                            )}
+                          {["Respondido", "Entregado"].includes(
+                            radicado.estado,
+                          ) && (
                             <button
                               type="button"
                               className="generar-comprobante"
-                              onClick={(evento) => {
-                                botonTraslado.current = evento.currentTarget;
-                                setSolicitudTraslado(radicado);
-                              }}
+                              onClick={() => consultarRespuesta(radicado)}
                             >
-                              Solicitar traslado
+                              Ver respuesta
                             </button>
                           )}
-                        <button
-                          className="generar-comprobante"
-                          disabled={generandoComprobante}
-                          type="button"
-                          onClick={() => mostrarComprobante(radicado)}
-                        >
-                          Ver comprobante
-                        </button>
-                        {usuario.rol !== "ventanilla" &&
-                          !(
-                            usuario.rol === "administrador" &&
-                            String(radicado.tipo_comunicacion)
-                              .trim()
-                              .toLowerCase() === "interna" &&
-                            !radicado.destino_todas_dependencias
-                          ) &&
-                          requiereRespuesta(radicado) &&
-                          !esFinal(radicado) && (
-                            <button
-                              type="button"
-                              className="generar-comprobante"
-                              onClick={() => abrirFormularioRespuesta(radicado)}
-                            >
-                              Responder
-                            </button>
-                          )}
-                        {["Respondido", "Entregado"].includes(radicado.estado) && (
-                          <button
-                            type="button"
-                            className="generar-comprobante"
-                            onClick={() => consultarRespuesta(radicado)}
-                          >
-                            Ver respuesta
-                          </button>
-                        )}
-                      </CeldaAdaptable>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                        </CeldaAdaptable>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        {paginacion.paginas > 1 && <nav className="alerts-controls" aria-label="Paginación de radicados">
-          <button
-            type="button"
-            disabled={cargando || paginaConsulta <= 1}
-            onClick={() =>
-              setNavegacion({
-                filtros: filtrosConsulta,
-                pagina: paginaConsulta - 1,
-              })
-            }
-          >
-            Anterior
-          </button>
-          <span>
-            Página {paginaConsulta} de {Math.max(1, paginacion.paginas)}
-          </span>
-          <button
-            type="button"
-            disabled={cargando || paginaConsulta >= paginacion.paginas}
-            onClick={() =>
-              setNavegacion({
-                filtros: filtrosConsulta,
-                pagina: paginaConsulta + 1,
-              })
-            }
-          >
-            Siguiente
-          </button>
-        </nav>}
-        <section
-          id="seccion-alertas"
-          className="alerts-card"
-          ref={seccionAlertas}
-          aria-labelledby="alertas-titulo"
-        >
-          <div className="alertas-cabecera">
-            <div>
-              <p className="consulta-seccion-kicker">Seguimiento de plazos</p>
-              <h2 id="alertas-titulo">Alertas por dependencia</h2>
-              <p className="alertas-nota">Seguimiento de plazos de respuesta de la dependencia seleccionada.</p>
-            </div>
-            <span className="alertas-distintivo">Atención prioritaria</span>
-          </div>
-          <div className="alerts-controls">
-            <div className="alertas-filtro">
-            <label htmlFor="alertas-dependencia">Dependencia</label>
-            <select
-              id="alertas-dependencia"
-              name="dependencia_alertas"
-              value={dependenciaAlertas}
-              disabled={usuario.rol === "funcionario"}
-              onChange={(evento) => {
-                setPaginaAlertas(1);
-                setCargandoAlertas(false);
-                setDependenciaAlertas(evento.target.value);
-                setResumenAlertas({ porVencer: [], vencidos: [] });
-                setPaginacionAlertas({ paginas: 0, total: 0 });
-                setErrorAlertas("");
-                setConsultaAlertasValida(false);
-                setEstadoAlertas(
-                  "Elige una dependencia para consultar alertas.",
-                );
-              }}
+          {paginacion.paginas > 1 && (
+            <nav
+              className="alerts-controls"
+              aria-label="Paginación de radicados"
             >
-              <option value="">Selecciona una dependencia</option>
-              {dependencias.map((dep) => (
-                <option key={dep.id} value={dep.id}>
-                  {dep.nombre}
-                </option>
-              ))}
-            </select>
+              <button
+                type="button"
+                disabled={cargando || paginaConsulta <= 1}
+                onClick={() =>
+                  setNavegacion({
+                    filtros: filtrosConsulta,
+                    pagina: paginaConsulta - 1,
+                  })
+                }
+              >
+                Anterior
+              </button>
+              <span>
+                Página {paginaConsulta} de {Math.max(1, paginacion.paginas)}
+              </span>
+              <button
+                type="button"
+                disabled={cargando || paginaConsulta >= paginacion.paginas}
+                onClick={() =>
+                  setNavegacion({
+                    filtros: filtrosConsulta,
+                    pagina: paginaConsulta + 1,
+                  })
+                }
+              >
+                Siguiente
+              </button>
+            </nav>
+          )}
+          <section
+            id="seccion-alertas"
+            className="alerts-card"
+            ref={seccionAlertas}
+            aria-labelledby="alertas-titulo"
+          >
+            <div className="alertas-cabecera">
+              <div>
+                <p className="consulta-seccion-kicker">Seguimiento de plazos</p>
+                <h2 id="alertas-titulo">Alertas por dependencia</h2>
+                <p className="alertas-nota">
+                  Seguimiento de plazos de respuesta de la dependencia
+                  seleccionada.
+                </p>
+              </div>
+              <span className="alertas-distintivo">Atención prioritaria</span>
             </div>
-            <button
-              type="button"
-              disabled={!dependenciaAlertas || cargandoAlertas}
-              onFocus={() => {
-                seccionAlertas.current?.scrollIntoView({
-                  behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-                    ? "auto"
-                    : "smooth",
-                  block: "nearest",
-                  inline: "nearest",
-                });
-              }}
-              onClick={cargarAlertas}
-            >
-              Actualizar alertas
-            </button>
-          </div>
-          {errorAlertas ? <p className="alertas-error" role="alert">{errorAlertas}</p>
-            : !dependenciaAlertas ? <div className="alertas-vacio"><MensajeEstado>{estadoAlertas}</MensajeEstado></div>
-            : cargandoAlertas ? <MensajeEstado>{estadoAlertas}</MensajeEstado>
-            : consultaAlertasValida && <>
-              {paginacionAlertas.total === 0 ? <div className="alertas-vacio">
-                <h3>Sin alertas para esta dependencia</h3>
-                <p>No hay radicados próximos a vencer ni vencidos en esta consulta.</p>
-              </div> : <>
-                <MensajeEstado>{estadoAlertas}</MensajeEstado>
-                <div className="alerts-columns">
-                  {[["porVencer", "Próximos a vencer", "alerta"], ["vencidos", "Vencidos", "vencido"]].map(([grupo, titulo, nivel]) => (
-                    <section className={`alertas-grupo alertas-grupo--${nivel}`} key={grupo} aria-label={titulo}>
-                      <div className="alertas-grupo-cabecera">
-                        <h3>{titulo}</h3><span>{resumenAlertas[grupo].length} en esta página</span>
-                      </div>
-                      {resumenAlertas[grupo].length ? <ul className="alertas-listado">
-                        {resumenAlertas[grupo].map(radicado => (
-                          <li className="alertas-tarjeta" key={claveEstado(radicado)}>
-                            <h4>{radicado.numero_radicado}</h4>
-                            <span className={`alertas-etiqueta alertas-etiqueta--${nivel}`}>{radicado.semaforo?.texto || titulo}</span>
-                            <dl>
-                              <div><dt>Remitente</dt><dd>{radicado.remitente_nombre || "No registrado"}</dd></div>
-                              <div><dt>Fecha límite</dt><dd>{radicado.fecha_limite_actual || "No registrada"}</dd></div>
-                            </dl>
-                          </li>
-                        ))}
-                      </ul> : <p className="alertas-grupo-vacio">Sin alertas de este grupo en esta página.</p>}
-                    </section>
+            <div className="alerts-controls">
+              <div className="alertas-filtro">
+                <label htmlFor="alertas-dependencia">Dependencia</label>
+                <select
+                  id="alertas-dependencia"
+                  name="dependencia_alertas"
+                  value={dependenciaAlertas}
+                  disabled={usuario.rol === "funcionario"}
+                  onChange={(evento) => {
+                    setPaginaAlertas(1);
+                    setCargandoAlertas(false);
+                    setDependenciaAlertas(evento.target.value);
+                    setResumenAlertas({ porVencer: [], vencidos: [] });
+                    setPaginacionAlertas({ paginas: 0, total: 0 });
+                    setErrorAlertas("");
+                    setConsultaAlertasValida(false);
+                    setEstadoAlertas(
+                      "Elige una dependencia para consultar alertas.",
+                    );
+                  }}
+                >
+                  <option value="">Selecciona una dependencia</option>
+                  {dependencias.map((dep) => (
+                    <option key={dep.id} value={dep.id}>
+                      {dep.nombre}
+                    </option>
                   ))}
-                </div>
-              </>}
-            </>}
-          {consultaAlertasValida && !cargandoAlertas && paginacionAlertas.paginas > 1 && <nav className="alerts-controls alertas-paginacion" aria-label="Paginación de alertas">
-            <button
-              type="button"
-              disabled={
-                !consultaAlertasValida || cargandoAlertas || paginaAlertas <= 1
-              }
-              onClick={() => setPaginaAlertas((valor) => valor - 1)}
-            >
-              Anteriores
-            </button>
-            <span>
-              Página {paginaAlertas} de {Math.max(1, paginacionAlertas.paginas)}
-            </span>
-            <button
-              type="button"
-              disabled={
-                !consultaAlertasValida ||
-                cargandoAlertas ||
-                paginaAlertas >= paginacionAlertas.paginas
-              }
-              onClick={() => setPaginaAlertas((valor) => valor + 1)}
-            >
-              Siguientes
-            </button>
-          </nav>}
-        </section>
+                </select>
+              </div>
+              <button
+                type="button"
+                disabled={!dependenciaAlertas || cargandoAlertas}
+                onFocus={() => {
+                  seccionAlertas.current?.scrollIntoView({
+                    behavior: window.matchMedia?.(
+                      "(prefers-reduced-motion: reduce)",
+                    ).matches
+                      ? "auto"
+                      : "smooth",
+                    block: "nearest",
+                    inline: "nearest",
+                  });
+                }}
+                onClick={cargarAlertas}
+              >
+                Actualizar alertas
+              </button>
+            </div>
+            {errorAlertas ? (
+              <p className="alertas-error" role="alert">
+                {errorAlertas}
+              </p>
+            ) : !dependenciaAlertas ? (
+              <div className="alertas-vacio">
+                <MensajeEstado>{estadoAlertas}</MensajeEstado>
+              </div>
+            ) : cargandoAlertas ? (
+              <MensajeEstado>{estadoAlertas}</MensajeEstado>
+            ) : (
+              consultaAlertasValida && (
+                <>
+                  {paginacionAlertas.total === 0 ? (
+                    <div className="alertas-vacio">
+                      <h3>Sin alertas para esta dependencia</h3>
+                      <p>
+                        No hay radicados próximos a vencer ni vencidos en esta
+                        consulta.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <MensajeEstado>{estadoAlertas}</MensajeEstado>
+                      <div className="alerts-columns">
+                        {[
+                          ["porVencer", "Próximos a vencer", "alerta"],
+                          ["vencidos", "Vencidos", "vencido"],
+                        ].map(([grupo, titulo, nivel]) => (
+                          <section
+                            className={`alertas-grupo alertas-grupo--${nivel}`}
+                            key={grupo}
+                            aria-label={titulo}
+                          >
+                            <div className="alertas-grupo-cabecera">
+                              <h3>{titulo}</h3>
+                              <span>
+                                {resumenAlertas[grupo].length} en esta página
+                              </span>
+                            </div>
+                            {resumenAlertas[grupo].length ? (
+                              <ul className="alertas-listado">
+                                {resumenAlertas[grupo].map((radicado) => (
+                                  <li
+                                    className="alertas-tarjeta"
+                                    key={claveEstado(radicado)}
+                                  >
+                                    <h4>{radicado.numero_radicado}</h4>
+                                    <span
+                                      className={`alertas-etiqueta alertas-etiqueta--${nivel}`}
+                                    >
+                                      {radicado.semaforo?.texto || titulo}
+                                    </span>
+                                    <dl>
+                                      <div>
+                                        <dt>Remitente</dt>
+                                        <dd>
+                                          {radicado.remitente_nombre ||
+                                            "No registrado"}
+                                        </dd>
+                                      </div>
+                                      <div>
+                                        <dt>Fecha límite</dt>
+                                        <dd>
+                                          {radicado.fecha_limite_actual ||
+                                            "No registrada"}
+                                        </dd>
+                                      </div>
+                                    </dl>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="alertas-grupo-vacio">
+                                Sin alertas de este grupo en esta página.
+                              </p>
+                            )}
+                          </section>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )
+            )}
+            {consultaAlertasValida &&
+              !cargandoAlertas &&
+              paginacionAlertas.paginas > 1 && (
+                <nav
+                  className="alerts-controls alertas-paginacion"
+                  aria-label="Paginación de alertas"
+                >
+                  <button
+                    type="button"
+                    disabled={
+                      !consultaAlertasValida ||
+                      cargandoAlertas ||
+                      paginaAlertas <= 1
+                    }
+                    onClick={() => setPaginaAlertas((valor) => valor - 1)}
+                  >
+                    Anteriores
+                  </button>
+                  <span>
+                    Página {paginaAlertas} de{" "}
+                    {Math.max(1, paginacionAlertas.paginas)}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={
+                      !consultaAlertasValida ||
+                      cargandoAlertas ||
+                      paginaAlertas >= paginacionAlertas.paginas
+                    }
+                    onClick={() => setPaginaAlertas((valor) => valor + 1)}
+                  >
+                    Siguientes
+                  </button>
+                </nav>
+              )}
+          </section>
         </PanelConsulta>
       </main>
       <PiePagina />
@@ -2022,7 +2306,10 @@ function VistaConsultaRadicados({ usuario }) {
                 aria-labelledby="historial-radicado-titulo"
               >
                 <h3 id="historial-radicado-titulo">Historial de actuaciones</h3>
-                <ResumenTraslados key={radicadoSeleccionado.numero_radicado} numero={radicadoSeleccionado.numero_radicado} />
+                <ResumenTraslados
+                  key={radicadoSeleccionado.numero_radicado}
+                  numero={radicadoSeleccionado.numero_radicado}
+                />
                 <p className="timeline-ayuda">
                   Registros cargados en orden de registro, del más antiguo al
                   más reciente. Las fechas nuevas se muestran en hora de Bogotá.
@@ -2071,40 +2358,62 @@ function VistaConsultaRadicados({ usuario }) {
                             <ul className="timeline-subeventos">
                               {unificarEventosEntrega(grupo).map((evento) => (
                                 <li key={evento.id}>
-                                  <article className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}${evento.event_type === "respuesta_interna_abierta" ? " timeline-evento--entrega-interna" : ""}${esCierreInformativo(evento, radicadoSeleccionado) ? " timeline-evento--informativo-finalizado" : ""}`}>
+                                  <article
+                                    className={`timeline-evento${evento.event_type === "entrega_acreditada" ? " timeline-evento--entrega-final" : ""}${evento.event_type === "entrega_estado_restaurado" ? " timeline-evento--entrega-anulada" : ""}${evento.event_type === "respuesta_interna_abierta" ? " timeline-evento--entrega-interna" : ""}${esCierreInformativo(evento, radicadoSeleccionado) ? " timeline-evento--informativo-finalizado" : ""}`}
+                                  >
                                     <h4>
-                                      {esCierreInformativo(evento, radicadoSeleccionado)
+                                      {esCierreInformativo(
+                                        evento,
+                                        radicadoSeleccionado,
+                                      )
                                         ? "Trámite informativo enterado"
                                         : ETIQUETAS_EVENTO[evento.event_type] ||
-                                        (evento.campo_modificado === "estado"
-                                          ? "Cambio de estado histórico"
-                                          : "Evento histórico")}
+                                          (evento.campo_modificado === "estado"
+                                            ? "Cambio de estado histórico"
+                                            : "Evento histórico")}
                                     </h4>
                                     <time className="timeline-fecha">
                                       {presentarFechaEvento(evento)}
                                     </time>
                                     {esEventoEntrega(evento) ? (
                                       <p className="timeline-dato timeline-responsable-entrega">
-                                        <strong>Responsable de la actuación: </strong>
+                                        <strong>
+                                          Responsable de la actuación:{" "}
+                                        </strong>
                                         {nombreActor(evento)}
                                         {evento.actor_role && (
-                                          <> · {ETIQUETAS_ROL[evento.actor_role] || evento.actor_role}</>
+                                          <>
+                                            {" "}
+                                            ·{" "}
+                                            {ETIQUETAS_ROL[evento.actor_role] ||
+                                              evento.actor_role}
+                                          </>
                                         )}
                                       </p>
                                     ) : (
                                       <p className="timeline-dato">
                                         <strong>
-                                          {CONTEXTO_DEPENDENCIA[evento.event_type] || "Dependencia asociada al evento"}:
+                                          {CONTEXTO_DEPENDENCIA[
+                                            evento.event_type
+                                          ] || "Dependencia asociada al evento"}
+                                          :
                                         </strong>{" "}
-                                        {evento.dependencia_nombre || "No registrada en este evento"}
+                                        {evento.dependencia_nombre ||
+                                          "No registrada en este evento"}
                                       </p>
                                     )}
-                                    {evento.event_type === "respuesta_interna_abierta" && evento.actor_role && (
-                                      <p className="timeline-dato timeline-responsable-entrega">
-                                        <strong>Responsable de la apertura: </strong>
-                                        {nombreActor(evento)} · {ETIQUETAS_ROL[evento.actor_role] || evento.actor_role}
-                                      </p>
-                                    )}
+                                    {evento.event_type ===
+                                      "respuesta_interna_abierta" &&
+                                      evento.actor_role && (
+                                        <p className="timeline-dato timeline-responsable-entrega">
+                                          <strong>
+                                            Responsable de la apertura:{" "}
+                                          </strong>
+                                          {nombreActor(evento)} ·{" "}
+                                          {ETIQUETAS_ROL[evento.actor_role] ||
+                                            evento.actor_role}
+                                        </p>
+                                      )}
                                     {evento.event_type ===
                                       "regla_respuesta_aplicada" && (
                                       <p className="timeline-automatico">
@@ -2114,28 +2423,44 @@ function VistaConsultaRadicados({ usuario }) {
                                       </p>
                                     )}
                                     <p className="timeline-descripcion">
-                                      {esCierreInformativo(evento, radicadoSeleccionado)
+                                      {esCierreInformativo(
+                                        evento,
+                                        radicadoSeleccionado,
+                                      )
                                         ? "La dependencia destinataria abrió el documento y confirmó que quedó enterada."
-                                        : evento.event_type === "respuesta_interna_abierta"
-                                        ? DESCRIPCIONES_EVENTO.respuesta_interna_abierta
-                                        : evento.event_type === "entrega_acreditada" && evento.entrega_unificada
-                                        ? DESCRIPCIONES_EVENTO.entrega_acreditada
-                                        : evento.event_type === "entrega_estado_restaurado" && evento.entrega_unificada
-                                          ? DESCRIPCIONES_EVENTO.entrega_anulada
-                                          : evento.motivo ||
-                                        DESCRIPCIONES_EVENTO[
-                                          evento.event_type
-                                        ] ||
-                                        "Registro conservado del historial del expediente."}
+                                        : evento.event_type ===
+                                            "respuesta_interna_abierta"
+                                          ? DESCRIPCIONES_EVENTO.respuesta_interna_abierta
+                                          : evento.event_type ===
+                                                "entrega_acreditada" &&
+                                              evento.entrega_unificada
+                                            ? DESCRIPCIONES_EVENTO.entrega_acreditada
+                                            : evento.event_type ===
+                                                  "entrega_estado_restaurado" &&
+                                                evento.entrega_unificada
+                                              ? DESCRIPCIONES_EVENTO.entrega_anulada
+                                              : evento.motivo ||
+                                                DESCRIPCIONES_EVENTO[
+                                                  evento.event_type
+                                                ] ||
+                                                "Registro conservado del historial del expediente."}
                                     </p>
-                                    {evento.event_type === "respuesta_interna_abierta" && (
+                                    {evento.event_type ===
+                                      "respuesta_interna_abierta" && (
                                       <>
                                         <p className="timeline-dato">
-                                          <strong>Canal de recepción del radicado: </strong>
-                                          {presentarTipoRecepcion(radicadoSeleccionado.tipo_recepcion)}
+                                          <strong>
+                                            Canal de recepción del
+                                            radicado:{" "}
+                                          </strong>
+                                          {presentarTipoRecepcion(
+                                            radicadoSeleccionado.tipo_recepcion,
+                                          )}
                                         </p>
                                         <p className="timeline-dato">
-                                          <strong>Apertura de la respuesta: </strong>
+                                          <strong>
+                                            Apertura de la respuesta:{" "}
+                                          </strong>
                                           registrada en la aplicación web
                                         </p>
                                       </>
@@ -2149,16 +2474,62 @@ function VistaConsultaRadicados({ usuario }) {
                                     {(evento.event_type === "estado_cambiado" ||
                                       evento.event_type ===
                                         "respuesta_enviada" ||
-                                      evento.event_type === "entrega_acreditada" ||
-                                      evento.event_type === "entrega_estado_restaurado" ||
-                                      evento.event_type === "respuesta_interna_abierta" ||
+                                      evento.event_type ===
+                                        "entrega_acreditada" ||
+                                      evento.event_type ===
+                                        "entrega_estado_restaurado" ||
+                                      evento.event_type ===
+                                        "respuesta_interna_abierta" ||
                                       evento.campo_modificado === "estado") &&
-                                      (evento.valor_anterior || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta" || esCierreInformativo(evento, radicadoSeleccionado)) &&
-                                      (evento.valor_nuevo || evento.event_type === "entrega_acreditada" || evento.event_type === "entrega_estado_restaurado" || evento.event_type === "respuesta_interna_abierta" || esCierreInformativo(evento, radicadoSeleccionado)) && (
+                                      (evento.valor_anterior ||
+                                        evento.event_type ===
+                                          "entrega_acreditada" ||
+                                        evento.event_type ===
+                                          "entrega_estado_restaurado" ||
+                                        evento.event_type ===
+                                          "respuesta_interna_abierta" ||
+                                        esCierreInformativo(
+                                          evento,
+                                          radicadoSeleccionado,
+                                        )) &&
+                                      (evento.valor_nuevo ||
+                                        evento.event_type ===
+                                          "entrega_acreditada" ||
+                                        evento.event_type ===
+                                          "entrega_estado_restaurado" ||
+                                        evento.event_type ===
+                                          "respuesta_interna_abierta" ||
+                                        esCierreInformativo(
+                                          evento,
+                                          radicadoSeleccionado,
+                                        )) && (
                                         <p className="timeline-cambio">
                                           <strong>Estado del radicado: </strong>
-                                          {evento.valor_anterior || (esCierreInformativo(evento, radicadoSeleccionado) ? "Recibido" : evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Respondido" : "Entregado")} →{" "}
-                                          {evento.valor_nuevo || (esCierreInformativo(evento, radicadoSeleccionado) ? "Enterado" : evento.event_type === "entrega_acreditada" || evento.event_type === "respuesta_interna_abierta" ? "Entregado" : "Respondido")}
+                                          {evento.valor_anterior ||
+                                            (esCierreInformativo(
+                                              evento,
+                                              radicadoSeleccionado,
+                                            )
+                                              ? "Recibido"
+                                              : evento.event_type ===
+                                                    "entrega_acreditada" ||
+                                                  evento.event_type ===
+                                                    "respuesta_interna_abierta"
+                                                ? "Respondido"
+                                                : "Entregado")}{" "}
+                                          →{" "}
+                                          {evento.valor_nuevo ||
+                                            (esCierreInformativo(
+                                              evento,
+                                              radicadoSeleccionado,
+                                            )
+                                              ? "Enterado"
+                                              : evento.event_type ===
+                                                    "entrega_acreditada" ||
+                                                  evento.event_type ===
+                                                    "respuesta_interna_abierta"
+                                                ? "Entregado"
+                                                : "Respondido")}
                                         </p>
                                       )}
                                     {evento.event_type ===
@@ -2240,7 +2611,9 @@ function VistaConsultaRadicados({ usuario }) {
             evento.preventDefault();
             selectorArchivosRespuestaAbierto.current = false;
             window.setTimeout(() => {
-              botonSeleccionArchivosRespuesta.current?.focus({ preventScroll: true });
+              botonSeleccionArchivosRespuesta.current?.focus({
+                preventScroll: true,
+              });
             }, 0);
             return;
           }
@@ -2256,7 +2629,9 @@ function VistaConsultaRadicados({ usuario }) {
                 ref={tituloRespuesta}
                 tabIndex={-1}
               >
-                {vistaRegistroEntrega ? "Registrar envío/entrega" : "Respuesta institucional"}{" "}
+                {vistaRegistroEntrega
+                  ? "Registrar envío/entrega"
+                  : "Respuesta institucional"}{" "}
                 <span className="respuesta-numero">
                   {respuestaConsultada.radicado.numero_radicado}
                 </span>
@@ -2313,85 +2688,88 @@ function VistaConsultaRadicados({ usuario }) {
                 </div>
               ) : (
                 <>
-                  <div className="respuesta-contenido-consultado" hidden={vistaRegistroEntrega}>
-                  <section
-                    className="detalle-resumen"
-                    aria-label="Resumen de la respuesta"
+                  <div
+                    className="respuesta-contenido-consultado"
+                    hidden={vistaRegistroEntrega}
                   >
-                    <CampoDetalle
-                      etiqueta="Respondida por"
-                      valor={respuestaConsultada.funcionario_nombre}
-                    />
-                    <CampoDetalle
-                      etiqueta="Dependencia responsable"
-                      valor={
-                        respuestaConsultada.dependencia_responsable ||
-                        "No registrada"
-                      }
-                    />
-                    <CampoDetalle
-                      etiqueta="Fecha de registro de respuesta"
-                      valor={convertirFechaLocal(
-                        respuestaConsultada.fecha_envio,
-                      )?.toLocaleString("es-CO")}
-                    />
-                    <CampoDetalle etiqueta="Plantilla">
-                      <span className="detalle-badge detalle-badge--plantilla">
-                        {NOMBRES_PLANTILLA[respuestaConsultada.plantilla] ||
-                          respuestaConsultada.plantilla ||
-                          "Sin plantilla"}
-                      </span>
-                    </CampoDetalle>
-                  </section>
-                  <section
-                    className="detalle-seccion respuesta-grupo"
-                    aria-labelledby="respuesta-contenido-titulo"
-                  >
-                    <h3 id="respuesta-contenido-titulo">
-                      Contenido de la respuesta
-                    </h3>
-                    <p className="detalle-asunto">
-                      {respuestaConsultada.contenido}
-                    </p>
-                  </section>
-                  <section
-                    className="detalle-seccion respuesta-grupo"
-                    aria-labelledby="respuesta-documentos-titulo"
-                  >
-                    <h3 id="respuesta-documentos-titulo">
-                      Documentos adjuntos
-                    </h3>
-                    {respuestaConsultada.documentos.length ? (
-                      <ul className="detalle-archivos">
-                        {respuestaConsultada.documentos.map((documento) => (
-                          <li key={documento.id}>
-                            <span
-                              className="detalle-archivo-icono"
-                              aria-hidden="true"
-                            >
-                              PDF
-                            </span>
-                            <a
-                              href={documento.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {documento.nombre_archivo}
-                            </a>
-                            <span className="detalle-archivo-tamano">
-                              {(
-                                Number(documento.tamano_bytes) /
-                                (1024 * 1024)
-                              ).toFixed(1)}{" "}
-                              MB
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>La respuesta no tiene PDF adjuntos.</p>
-                    )}
-                  </section>
+                    <section
+                      className="detalle-resumen"
+                      aria-label="Resumen de la respuesta"
+                    >
+                      <CampoDetalle
+                        etiqueta="Respondida por"
+                        valor={respuestaConsultada.funcionario_nombre}
+                      />
+                      <CampoDetalle
+                        etiqueta="Dependencia responsable"
+                        valor={
+                          respuestaConsultada.dependencia_responsable ||
+                          "No registrada"
+                        }
+                      />
+                      <CampoDetalle
+                        etiqueta="Fecha de registro de respuesta"
+                        valor={convertirFechaLocal(
+                          respuestaConsultada.fecha_envio,
+                        )?.toLocaleString("es-CO")}
+                      />
+                      <CampoDetalle etiqueta="Plantilla">
+                        <span className="detalle-badge detalle-badge--plantilla">
+                          {NOMBRES_PLANTILLA[respuestaConsultada.plantilla] ||
+                            respuestaConsultada.plantilla ||
+                            "Sin plantilla"}
+                        </span>
+                      </CampoDetalle>
+                    </section>
+                    <section
+                      className="detalle-seccion respuesta-grupo"
+                      aria-labelledby="respuesta-contenido-titulo"
+                    >
+                      <h3 id="respuesta-contenido-titulo">
+                        Contenido de la respuesta
+                      </h3>
+                      <p className="detalle-asunto">
+                        {respuestaConsultada.contenido}
+                      </p>
+                    </section>
+                    <section
+                      className="detalle-seccion respuesta-grupo"
+                      aria-labelledby="respuesta-documentos-titulo"
+                    >
+                      <h3 id="respuesta-documentos-titulo">
+                        Documentos adjuntos
+                      </h3>
+                      {respuestaConsultada.documentos.length ? (
+                        <ul className="detalle-archivos">
+                          {respuestaConsultada.documentos.map((documento) => (
+                            <li key={documento.id}>
+                              <span
+                                className="detalle-archivo-icono"
+                                aria-hidden="true"
+                              >
+                                PDF
+                              </span>
+                              <a
+                                href={documento.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {documento.nombre_archivo}
+                              </a>
+                              <span className="detalle-archivo-tamano">
+                                {(
+                                  Number(documento.tamano_bytes) /
+                                  (1024 * 1024)
+                                ).toFixed(1)}{" "}
+                                MB
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>La respuesta no tiene PDF adjuntos.</p>
+                      )}
+                    </section>
                   </div>
                   {String(respuestaConsultada.radicado.tipo_comunicacion)
                     .trim()
@@ -2405,15 +2783,22 @@ function VistaConsultaRadicados({ usuario }) {
                         alVistaRegistro={setVistaRegistroEntrega}
                         alEntregaConfirmada={(estado) => {
                           if (!estado) return;
-                          setRadicados((actual) => actual.map((fila) =>
-                            fila.numero_radicado === respuestaConsultada.radicado.numero_radicado
-                              ? { ...fila, estado }
-                              : fila,
-                          ));
-                          setRespuestaConsultada((actual) => actual ? {
-                            ...actual,
-                            radicado: { ...actual.radicado, estado },
-                          } : actual);
+                          setRadicados((actual) =>
+                            actual.map((fila) =>
+                              fila.numero_radicado ===
+                              respuestaConsultada.radicado.numero_radicado
+                                ? { ...fila, estado }
+                                : fila,
+                            ),
+                          );
+                          setRespuestaConsultada((actual) =>
+                            actual
+                              ? {
+                                  ...actual,
+                                  radicado: { ...actual.radicado, estado },
+                                }
+                              : actual,
+                          );
                           setRevisionConsulta((valor) => valor + 1);
                         }}
                         contenedorAcciones={pieEntrega.current}
@@ -2573,17 +2958,20 @@ function VistaConsultaRadicados({ usuario }) {
                   }}
                 >
                   <div className="respuesta-adjuntos-selector__surface">
-                    <span className="respuesta-adjuntos-selector__icono" aria-hidden="true">
+                    <span
+                      className="respuesta-adjuntos-selector__icono"
+                      aria-hidden="true"
+                    >
                       PDF
                     </span>
                     <p className="respuesta-adjuntos-selector__titulo">
-                      Adjunta los documentos de la respuesta
+                      Adjunta documentos de soporte (opcional)
                     </p>
                     <p
                       id="ayuda-adjuntos-respuesta"
                       className="respuesta-adjuntos-selector__ayuda"
                     >
-                      Hasta 5 archivos PDF · Máximo 10 MB por archivo
+                      Hasta 5 archivos PDF opcionales · Máximo 10 MB por archivo
                     </p>
                     <div className="respuesta-adjuntos-selector__acciones">
                       <button
@@ -2615,23 +3003,36 @@ function VistaConsultaRadicados({ usuario }) {
                       accept="application/pdf,.pdf"
                       multiple
                       className="respuesta-adjuntos-selector__input"
-                      aria-invalid={Boolean(errorArchivosRespuesta || errorEnvioEsAdjunto)}
+                      aria-invalid={Boolean(
+                        errorArchivosRespuesta || errorEnvioEsAdjunto,
+                      )}
                       aria-describedby={[
                         "ayuda-adjuntos-respuesta",
                         errorArchivosRespuesta || errorEnvioEsAdjunto
                           ? "error-archivos-respuesta"
                           : "",
-                      ].filter(Boolean).join(" ")}
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                       onChange={(evento) => {
                         selectorArchivosRespuestaAbierto.current = false;
-                        aceptarArchivosRespuesta(evento.target.files, evento.target);
+                        aceptarArchivosRespuesta(
+                          evento.target.files,
+                          evento.target,
+                        );
                         window.setTimeout(() => {
-                          botonSeleccionArchivosRespuesta.current?.focus({ preventScroll: true });
+                          botonSeleccionArchivosRespuesta.current?.focus({
+                            preventScroll: true,
+                          });
                         }, 0);
                       }}
                     />
                     {archivosRespuesta.length > 0 && (
-                      <p className="respuesta-adjuntos-selector__contador" role="status" aria-live="polite">
+                      <p
+                        className="respuesta-adjuntos-selector__contador"
+                        role="status"
+                        aria-live="polite"
+                      >
                         {archivosRespuesta.length} de 5 archivos seleccionados
                       </p>
                     )}
@@ -2643,8 +3044,12 @@ function VistaConsultaRadicados({ usuario }) {
                         aria-live="assertive"
                       >
                         <strong>No se pudo adjuntar el documento</strong>
-                        {errorArchivosRespuesta && <p>{errorArchivosRespuesta}</p>}
-                        {detalleErrorArchivosRespuesta && <p>{detalleErrorArchivosRespuesta}</p>}
+                        {errorArchivosRespuesta && (
+                          <p>{errorArchivosRespuesta}</p>
+                        )}
+                        {detalleErrorArchivosRespuesta && (
+                          <p>{detalleErrorArchivosRespuesta}</p>
+                        )}
                         {errorArchivosRespuesta && (
                           <p>
                             {archivosRespuesta.length > 0
@@ -2654,7 +3059,9 @@ function VistaConsultaRadicados({ usuario }) {
                         )}
                         {errorEnvioEsAdjunto && <p>{errorEnvioRespuesta}</p>}
                         <p className="respuesta-adjuntos-error__ayuda">
-                          {errorEnvioRespuesta?.toLowerCase().includes("cifrado")
+                          {errorEnvioRespuesta
+                            ?.toLowerCase()
+                            .includes("cifrado")
                             ? "Retira el archivo protegido o selecciona una copia PDF sin contraseña."
                             : "Corrige el archivo indicado y vuelve a intentarlo."}
                         </p>
@@ -2684,7 +3091,11 @@ function VistaConsultaRadicados({ usuario }) {
                               aria-label={`Quitar ${archivo.name}`}
                               disabled={enviandoRespuesta}
                               onClick={() => {
-                                setArchivosRespuesta((actual) => actual.filter((_, posicion) => posicion !== indice));
+                                setArchivosRespuesta((actual) =>
+                                  actual.filter(
+                                    (_, posicion) => posicion !== indice,
+                                  ),
+                                );
                                 setErrorArchivosRespuesta("");
                                 setDetalleErrorArchivosRespuesta("");
                                 setErrorEnvioRespuesta("");
@@ -2702,8 +3113,11 @@ function VistaConsultaRadicados({ usuario }) {
                 </div>
               </section>
             </div>
-            {(mensajeRespuesta || (errorEnvioRespuesta && !errorEnvioEsAdjunto)) && (
-              <div className={`respuesta-mensajes${errorEnvioRespuesta && !errorEnvioEsAdjunto ? " respuesta-mensajes--error" : ""}`}>
+            {(mensajeRespuesta ||
+              (errorEnvioRespuesta && !errorEnvioEsAdjunto)) && (
+              <div
+                className={`respuesta-mensajes${errorEnvioRespuesta && !errorEnvioEsAdjunto ? " respuesta-mensajes--error" : ""}`}
+              >
                 <p role="status" aria-live="polite">
                   {mensajeRespuesta}
                 </p>
