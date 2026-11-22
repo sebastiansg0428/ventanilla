@@ -33,4 +33,8 @@
 
 @import "./pages/consulta-detalle.css";
 
+@import "./pages/consulta-alertas.css";
+
+@import "./pages/usuarios-management.css";
+
 @import "./compatibility/legacy.css";

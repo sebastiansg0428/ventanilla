@@ -155,7 +155,7 @@ function CamposUsuario({ formulario, dependencias, actualizarCampo, edicion = fa
           maxLength="72" aria-describedby={`${prefijo}politica-contrasena`}
           aria-invalid={formulario.password !== "" && !contrasenaValida(formulario.password)}
           required={!edicion} placeholder={edicion ? "Déjalo vacío para conservar la contraseña" : ""} />
-        <small id={`${prefijo}politica-contrasena`}>{POLITICA_CONTRASENA}</small>
+        <small className="users-password-help" id={`${prefijo}politica-contrasena`}>{POLITICA_CONTRASENA}</small>
       </div>
     </>
   );
@@ -480,6 +480,9 @@ function GestionUsuarios({ usuario }) {
             <h2 id="usuarios-formulario-titulo" className="auth-field--full">
               Registrar usuario
             </h2>
+            <p className="users-registration-description">
+              Completa los datos para crear una cuenta y asignar sus permisos de acceso.
+            </p>
             <CamposUsuario formulario={formulario} dependencias={dependencias} actualizarCampo={actualizarCampo} />
             <div className="auth-field--full users-form-actions">
               <button

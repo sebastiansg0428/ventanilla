@@ -326,7 +326,7 @@ describe("gestión de usuarios React", () => {
 
   it.each([
     "abcdefghij1!", "ABCDEFGHIJ1!", "Abcdefghij!!", "Abcdefghij12",
-    "Abcdefghij12 ", "Abcdefghij1!\0", `Aa1!${"x".repeat(69)}`,
+    "Abcdefghij12 ", "Password 123!", "Abcdefghij1!\0", `Aa1!${"x".repeat(69)}`,
     `Aa1!${"é".repeat(35)}`, "Aa1!😀😀😀😀😀",
   ])("rechaza la contraseña inválida %j antes de enviar", async (password) => {
     render(<PaginaRegistroUsuarios />);
