@@ -1,0 +1,136 @@
+/* Compatibilidad legacy de la página de registro. */
+
+.page-register > header:not(.app-header) {
+  background: #1e3a8a;
+  color: #fff;
+  box-shadow: 0 4px 10px rgb(15 23 42 / 12%);
+}
+
+.page-register > header:not(.app-header) > div {
+  max-width: 72rem;
+  margin: auto;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-register > header:not(.app-header) > div > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.page-register > header:not(.app-header) svg {
+  width: 2rem;
+  height: 2rem;
+  color: #fbbf24;
+}
+
+.page-register > header:not(.app-header) h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.page-register > header:not(.app-header) p {
+  color: #bfdbfe;
+  font-size: 0.75rem;
+}
+
+.page-register > header:not(.app-header) > div > div:last-child {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 999px;
+  background: #1e40af;
+  font-size: 0.875rem;
+}
+
+.page-register > header:not(.app-header) span {
+  color: #fcd34d;
+  font-weight: 600;
+}
+
+.page-register > nav:not(.app-nav) {
+  background: #1e40af;
+  color: #bfdbfe;
+}
+
+.page-register > nav:not(.app-nav) > div {
+  max-width: 72rem;
+  margin: auto;
+  padding: 0.625rem 1rem;
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.page-register > nav:not(.app-nav) a:first-child {
+  color: #fcd34d;
+}
+
+.page-register > nav:not(.app-nav) a:hover,
+.page-register > nav:not(.app-nav) a:focus-visible {
+  color: #fff;
+}
+
+.page-register main {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.page-register main > section {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 9%);
+}
+
+.page-register main > section > div:first-child {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.page-register main > section > div:first-child h2 {
+  color: #1e293b;
+  font-size: 1.125rem;
+}
+
+.page-register main > section > div:first-child p {
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.page-register main > section > div:first-child > span {
+  flex-shrink: 0;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.page-register footer {
+  margin-top: 2.5rem;
+}
+
+@media (max-width: 640px) {
+  .page-register > header:not(.app-header) > div,
+  .page-register main > section > div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

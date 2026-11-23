@@ -43,3 +43,11 @@ export function formatearFechaRadicacion(radicado) {
     timeZone: ZONA, dateStyle: "medium", timeStyle: "medium",
   }).format(fecha) : "Fecha no válida";
 }
+
+export function formatearFechaHoraLocalBogota(valor) {
+  if (faltaFecha(valor)) return "Fecha no disponible";
+  const fecha = convertirFechaBogota(valor);
+  return fecha ? new Intl.DateTimeFormat("es-CO", {
+    timeZone: ZONA, dateStyle: "medium", timeStyle: "short",
+  }).format(fecha) : "Fecha no válida";
+}

@@ -1,0 +1,130 @@
+/* Compatibilidad de consulta legacy: detalle y comprobante. */
+
+#modal-num-radicado {
+  color: #93c5fd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#modal-contenedor-soporte a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+#modal-contenedor-soporte a[hidden],
+#modal-adjunto-preview[hidden] {
+  display: none;
+}
+
+#modal-contenedor-soporte h4 {
+  margin: 0 0 0.5rem;
+  color: #1e293b;
+}
+
+#modal-contenedor-soporte > p {
+  margin: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
+
+#modal-contenedor-soporte #modal-adjunto-nombre {
+  color: #334155;
+  font-style: normal;
+  font-weight: 600;
+}
+
+#modal-adjunto-preview {
+  display: block;
+  width: 100%;
+  height: clamp(320px, 60vh, 600px);
+  margin-top: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+#modal-contenedor-soporte a:hover {
+  background: #dbeafe;
+}
+
+.generar-comprobante {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.generar-comprobante:hover {
+  background: #dbeafe;
+}
+
+.generar-comprobante svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+#visor-comprobante {
+  width: min(95vw, 64rem);
+  max-height: 92vh;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+#visor-comprobante::backdrop {
+  background: rgb(15 23 42 / 65%);
+}
+
+#visor-comprobante .comprobante-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+#visor-comprobante .comprobante-cabecera h3 {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+#cerrar-comprobante {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+
+#comprobante-preview {
+  display: block;
+  width: 100%;
+  height: 72vh;
+  border: 1px solid #e2e8f0;
+}
+
+#modal-contenedor-soporte p {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  #modal-detalle {
+    align-items: flex-end;
+    padding: 0;
+  }
+}

@@ -453,36 +453,51 @@ describe("consulta de radicados React", () => {
     expect(solicitarApi.mock.calls.length).toBe(llamadasAntesDeEnfocar);
   });
 
-  it("mantiene aviso de respuestas sin abrir sin cambiar la pestaña ni registrar apertura", async () => {
+  it("muestra la respuesta pendiente solo en el radicado interno correspondiente", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
-    const base = solicitarApi.getMockImplementation();
-    solicitarApi.mockImplementation((ruta, opciones) => ruta.startsWith("/api/respuestas-internas?")
-      ? Promise.resolve(respuestaJson({ success: true, registros: [], pagina: 1, paginas: 0, total: 0,
-        resumen: { total: 2, pendientes: 2, leidas: 0 } })) : base(ruta, opciones));
+    Object.assign(registrosSimulados[0], { tipo_comunicacion: "Interna", estado: "Respondido",
+      dependencia_remitente_id: 3, fecha_respuesta: "2026-11-23 10:00:00", respuesta_interna_pendiente: true });
+    Object.assign(registrosSimulados[1], { tipo_comunicacion: "Interna", estado: "Recibido",
+      dependencia_remitente_id: 3, respuesta_interna_pendiente: false });
     await abrirConsulta();
-    expect(screen.getByText("2 respuestas internas sin abrir")).toBeTruthy();
+    expect(screen.getByText("Nueva respuesta interna sin abrir")).toBeTruthy();
+    const filaSinRespuesta = screen.getByText("RAD-002", { selector: "button" }).closest("tr");
+    expect(within(filaSinRespuesta).queryByText("Nueva respuesta interna sin abrir")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Avisos de respuestas internas" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Respuestas internas" }).textContent).not.toMatch(/nueva/);
     expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ver respuestas internas" })));
-    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Respuestas internas" }));
-    expect(screen.getByRole("tabpanel", { name: "Respuestas internas" })).toBeTruthy();
     expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(false);
     expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/respuestas-internas?"))).toHaveLength(1);
   });
 
-  it("expone error del resumen fuera de Respuestas y permite reintentar sin informar cero", async () => {
+  it("muestra la insignia de respuestas internas pendientes antes de abrir la pestaña", async () => {
     confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
     const base = solicitarApi.getMockImplementation();
-    let fallo = true;
-    solicitarApi.mockImplementation((ruta, opciones) => {
-      if (ruta.startsWith("/api/respuestas-internas?") && fallo) return Promise.reject(new Error("Fallo de prueba del resumen"));
+    solicitarApi.mockImplementation(async (ruta, opciones) => {
+      if (ruta.startsWith("/api/respuestas-internas?")) {
+        return respuestaJson({ success: true, registros: [], pagina: 1, paginas: 1, total: 2,
+          resumen: { total: 2, pendientes: 2, leidas: 0 } });
+      }
       return base(ruta, opciones);
     });
     await abrirConsulta();
-    const aviso = within(screen.getByRole("region", { name: "Avisos de respuestas internas" }));
-    expect(aviso.getByRole("alert").textContent).toContain("No se pudo comprobar si hay respuestas sin abrir");
-    fallo = false;
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reintentar resumen de respuestas" })));
-    expect(aviso.queryByRole("alert")).toBeNull();
+    const pestaña = screen.getByRole("tab", { name: /Respuestas internas/ });
+    expect(pestaña.textContent).toContain("2 nuevas");
+    expect(pestaña.getAttribute("aria-label")).toBeNull();
+    expect(within(pestaña).getByLabelText("2 respuestas internas sin abrir")).toBeTruthy();
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/respuestas-internas?")).length).toBe(1);
+  });
+
+  it("no muestra un aviso global aunque falle la consulta de respuestas internas", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.startsWith("/api/respuestas-internas?")) return Promise.reject(new Error("Fallo de prueba del resumen"));
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    expect(screen.queryByRole("region", { name: "Avisos de respuestas internas" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Respuestas internas" }).textContent).not.toMatch(/nueva/);
     expect(screen.getByRole("tabpanel", { name: "Radicados" })).toBeTruthy();
   });
 
@@ -596,7 +611,7 @@ describe("consulta de radicados React", () => {
     }
   });
 
-  it("limpia vistas y recarga Consulta al perder autorización sobre el expediente", async () => {
+  it("mantiene el detalle abierto y muestra localmente un fallo parcial de documentos", async () => {
     const alertar = simularAlerta();
     const base = solicitarApi.getMockImplementation();
     solicitarApi.mockImplementation(async (ruta, opciones) => {
@@ -606,9 +621,11 @@ describe("consulta de radicados React", () => {
     await abrirConsulta();
     prepararDialogos();
     fireEvent.click(screen.getByRole("button", { name: "RAD-001" }));
-    await waitFor(() => expect(alertar).toHaveBeenCalledWith(expect.stringContaining("Fuera de tu dependencia")));
-    expect(document.querySelector("#modal-detalle").open).toBe(false);
-    await waitFor(() => expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?")).length).toBeGreaterThan(1));
+    const modal = document.querySelector("#modal-detalle");
+    await within(modal).findByText("Los documentos originales no están disponibles para esta dependencia.");
+    expect(modal.open).toBe(true);
+    expect(within(modal).getByRole("heading", { name: "Detalle del radicado: RAD-001" })).toBeTruthy();
+    expect(alertar).not.toHaveBeenCalled();
   });
 
   it("conserva columnas y acciones únicas en las tarjetas de radicados", async () => {
@@ -903,13 +920,23 @@ describe("consulta de radicados React", () => {
     for (const nombre of ["Redacción", "Adjuntos de la respuesta"]) {
       expect(consulta.getByRole("region", { name: nombre }).className).toContain("respuesta-grupo");
     }
+    const plantilla = consulta.getByLabelText("Plantilla institucional");
+    expect(Array.from(plantilla.options).map((opcion) => opcion.textContent)).toEqual([
+      "Sin plantilla",
+      "Respuesta general",
+      "Entrega de información",
+    ]);
+    expect(consulta.getByText(/Las plantillas solo preparan el texto/)).toBeTruthy();
+    expect(plantilla.getAttribute("aria-describedby")).toBe("ayuda-plantilla-respuesta");
+    await user.selectOptions(plantilla, "informacion");
+    expect(consulta.getByLabelText(/Contenido de la respuesta/).value).toContain("adjuntamos la información requerida");
     const nombreLargo = `${"documento-institucional-".repeat(12)}.pdf`;
     await user.upload(selector, crearPdf(nombreLargo, 1024));
     const nombre = consulta.getByText(nombreLargo);
     expect(nombre.className).toBe("detalle-archivo-nombre");
     expect(nombre.closest("li").querySelector(".detalle-archivo-tamano").textContent).toBe("0.0 MB");
     expect(pie.getByRole("button", { name: "Cancelar" }).className).not.toContain("respuesta-enviar");
-    await user.selectOptions(consulta.getByLabelText("Plantilla institucional"), "general");
+    await user.selectOptions(plantilla, "general");
     expect(enviar.disabled).toBe(false);
   });
 
@@ -1447,6 +1474,9 @@ describe("consulta de radicados React", () => {
     await abrirRespuesta();
     prepararDialogos();
     const modal = document.querySelector(".respuesta-dialog");
+    expect(modal.querySelector(".respuesta-contexto")).toBeTruthy();
+    expect(modal.querySelector(".respuesta-grupo--redaccion")).toBeTruthy();
+    expect(modal.querySelector(".respuesta-grupo--adjuntos")).toBeTruthy();
     const cerrar = within(modal.querySelector(".modal-header")).getByRole("button", { name: "Cerrar" });
     const cancelar = within(modal.querySelector(".modal-footer")).getByRole("button", { name: "Cancelar" });
     const plantilla = within(modal).getByLabelText("Plantilla institucional");

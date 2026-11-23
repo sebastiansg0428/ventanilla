@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   convertirFechaBogota, obtenerFechaBogota, obtenerDiaRadicacion, formatearFechaRadicacion,
+  formatearFechaHoraLocalBogota,
 } from "../../src/servicios/fechas";
 
 describe("fechas de radicacion en Bogota", () => {
@@ -40,5 +41,14 @@ describe("fechas de radicacion en Bogota", () => {
       expect(formatearFechaRadicacion(datos)).toBe("Fecha no válida");
     }
     expect(formatearFechaRadicacion({})).toBe("Fecha no disponible");
+  });
+
+  it("formatea la hora civil de radicación sin convertirla nuevamente desde UTC", () => {
+    const valor = "2026-11-23 15:15:31";
+    expect(formatearFechaHoraLocalBogota(valor)).toBe(new Intl.DateTimeFormat("es-CO", {
+      timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short",
+    }).format(new Date("2026-11-23T20:15:31Z")));
+    expect(formatearFechaHoraLocalBogota("2026-02-30 15:15:31")).toBe("Fecha no válida");
+    expect(formatearFechaHoraLocalBogota(null)).toBe("Fecha no disponible");
   });
 });

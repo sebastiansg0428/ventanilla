@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { solicitarApi } from "../servicios/api";
+import { formatearFechaHoraLocalBogota } from "../servicios/fechas.js";
 
 const fecha = valor => valor ? new Intl.DateTimeFormat("es-CO", {
   timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short",
@@ -89,7 +90,7 @@ function useApertura(recepcion, usuario, alConfirmar) {
       usuario.dependencia_id === recepcion.dependencia_origen_id
       ? <p role="status">Confirmando primera apertura en el servidor…</p> : null;
 }
-export function TrazabilidadInterna({ radicado, usuario }) {
+export function TrazabilidadInterna({ radicado, usuario, alRecepcionActualizada }) {
   const auto = usuario.rol === "funcionario" && usuario.dependencia_id === radicado.dependencia_remitente_id;
   const canal = canalRecepcion(radicado.tipo_recepcion);
   const [abierto, setAbierto] = useState(auto);
@@ -107,7 +108,11 @@ export function TrazabilidadInterna({ radicado, usuario }) {
       }).catch(e => { if (vigente) setError(e.message); });
     return () => { vigente = false; };
   }, [abierto, radicado.numero_radicado, revision]);
-  const falloApertura = useApertura(abierto && auto ? recepcion : null, usuario, setRecepcion);
+  const confirmarApertura = (datos) => {
+    setRecepcion(datos);
+    alRecepcionActualizada?.(datos);
+  };
+  const falloApertura = useApertura(abierto && auto ? recepcion : null, usuario, confirmarApertura);
   return <section className="detalle-seccion respuesta-grupo entregas-panel">
     <h3>Recepción {canal} interna</h3>
     <p>{canal === "física" ? "Entrega registrada por Ventanilla para la dependencia de origen." : "Disponible dentro del sistema, sin evidencia física de envío."}</p>
@@ -263,6 +268,14 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
   }
   const errorApertura = useApertura(activa ? detalle?.recepcion : null, usuario, recepcion => {
     setDetalle(prev => prev ? { ...prev, recepcion } : prev);
+    const estado = recepcion.radicado_estado || "Entregado";
+    const numeroRadicado = seleccionEnviada?.numero || recepcion.numero_radicado;
+    setEnviados(prev => prev ? {
+      ...prev,
+      radicados: prev.radicados.map(r => r.numero_radicado === numeroRadicado
+        ? { ...r, estado }
+        : r),
+    } : prev);
     setRevision(n => n + 1);
   });
   return <section className="detalle-seccion entregas-panel internas-bandeja" aria-label="Respuestas y radicados internos">
@@ -315,7 +328,7 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
               <div className="internas-tarjeta-cabecera"><h3>{r.numero_radicado}</h3><span className={`internas-enviado-estado ${entregado ? "internas-enviado-estado--entregado" : respondido ? "internas-enviado-estado--respondido" : "internas-enviado-estado--pendiente"}`}>
                 {entregado ? "Entregado · respuesta abierta" : respondido ? "Respondido · respuesta disponible" : "Enviado · pendiente de respuesta"}
               </span></div>
-              <dl className="internas-datos"><div><dt>Dependencia destinataria</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div><div><dt>Tipo de recepción</dt><dd>{canalRecepcion(r.tipo_recepcion)}</dd></div><div><dt>Radicación</dt><dd>{r.fecha_hora_recepcion ? fecha(r.fecha_hora_recepcion) : "No registrada"}</dd></div>{r.fecha_respuesta && <div><dt>Respuesta disponible</dt><dd>{fecha(r.fecha_respuesta)}</dd></div>}</dl>
+              <dl className="internas-datos"><div><dt>Dependencia destinataria</dt><dd>{r.dependencia_destino?.trim() || "No registrada"}</dd></div><div><dt>Tipo de recepción</dt><dd>{canalRecepcion(r.tipo_recepcion)}</dd></div><div><dt>Radicación</dt><dd>{formatearFechaHoraLocalBogota(r.fecha_hora_recepcion)}</dd></div>{r.fecha_respuesta && <div><dt>Respuesta disponible</dt><dd>{fecha(r.fecha_respuesta)}</dd></div>}</dl>
               <div className="internas-enviado-acciones">
                 {respondido && <button type="button" className="entregas-boton internas-boton-primario" aria-busy={respuestaEnviadaCargando === r.numero_radicado}
                   aria-expanded={seleccionEnviada?.numero === r.numero_radicado}

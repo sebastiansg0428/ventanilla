@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prepararEstilosDom } from "./helpers/estilos-dom.js";
 import { RespuestasInternas, TrazabilidadInterna } from "../../src/componentes/RespuestasInternas";
 import { solicitarApi } from "../../src/servicios/api";
+import { formatearFechaHoraLocalBogota } from "../../src/servicios/fechas.js";
 
 vi.mock("../../src/servicios/api", () => ({ solicitarApi: vi.fn() }));
 
@@ -80,6 +81,10 @@ describe("respuestas internas digitales", () => {
       const boton = await screen.findByRole("button", { name: "Ver respuesta de Oficina de Planeación" });
       const tarjeta = boton.closest("li");
       expect(screen.getAllByRole("tab")).toHaveLength(1);
+      expect(within(tarjeta).getByText("Respondido · respuesta disponible")).toBeTruthy();
+      expect(tarjeta.textContent.replace(/\u00a0/g, " ")).toContain(
+        formatearFechaHoraLocalBogota(radicadoEnviado.fecha_hora_recepcion).replace(/\u00a0/g, " "),
+      );
       expect(boton.getAttribute("aria-expanded")).toBe("false");
       expect(boton.getAttribute("aria-controls")).toBe("respuesta-interna-enviada-RAD-INTERNO-0015");
 
@@ -94,6 +99,8 @@ describe("respuestas internas digitales", () => {
       expect(solicitarApi).toHaveBeenCalledWith("/api/radicados/RAD-INTERNO-0015/recepcion-interna", undefined);
       expect(solicitarApi).toHaveBeenCalledWith("/api/respuestas-internas/1", undefined);
       expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(true);
+      await waitFor(() => expect(within(tarjeta).getByText("Entregado · respuesta abierta")).toBeTruthy());
+      expect(within(tarjeta).queryByText("Respondido · respuesta disponible")).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
       expect(screen.queryByRole("article", { name: "Respuesta interna abierta" })).toBeNull();
@@ -102,6 +109,21 @@ describe("respuestas internas digitales", () => {
       HTMLElement.prototype.scrollIntoView = anteriorScroll;
       focus.mockRestore();
     }
+  });
+
+  it("conserva Respondido si falla el registro de la primera apertura", async () => {
+    solicitarApi.mockImplementation((ruta, opciones) => {
+      if (ruta.startsWith("/api/radicados?")) return listaEnviados;
+      if (opciones?.method === "POST") return Promise.reject(new Error("Apertura no disponible."));
+      return json({ recepcion, documentos: [] });
+    });
+    render(<RespuestasInternas usuario={usuario} directa />);
+    await abrirBandeja();
+    const boton = await abrirRespuestaEnviada();
+    const tarjeta = boton.closest("li");
+    await within(tarjeta).findByRole("alert");
+    expect(within(tarjeta).getByText("Respondido · respuesta disponible")).toBeTruthy();
+    expect(within(tarjeta).queryByText("Entregado · respuesta abierta")).toBeNull();
   });
 
   it("muestra únicamente la trazabilidad para un radicado sin respuesta", async () => {

@@ -305,12 +305,8 @@ function PanelConsulta({ habilitado, id, actual, children }) {
 function VistaConsultaRadicados({ usuario }) {
   const esDependencia = usuario.rol === "funcionario";
   const [pestanaConsulta, setPestanaConsulta] = useState("radicados");
-  const [estadoInternas, setEstadoInternas] = useState({
-    resumen: null,
-    error: "",
-    cargando: true,
-  });
-  const [revisionInternas, setRevisionInternas] = useState(0);
+  const [resumenRespuestasInternas, setResumenRespuestasInternas] =
+    useState(null);
   const botonesPestanas = useRef({});
   const [solicitudTraslado, setSolicitudTraslado] = useState(null);
   const [mensajeTraslado, setMensajeTraslado] = useState("");
@@ -935,11 +931,13 @@ function VistaConsultaRadicados({ usuario }) {
       });
     } catch (error) {
       if (solicitud !== solicitudDetalle.current) return;
-      if (retirarVistasSinAcceso(error)) return;
       setArchivoAdjunto({
         url: "",
         documentos: [],
-        estado: `No se pudo abrir el soporte. ${error.message}`,
+        estado:
+          error.status === 403 || error.status === 404
+            ? "Los documentos originales no están disponibles para esta dependencia."
+            : `No se pudo abrir el soporte. ${error.message}`,
       });
     }
   }
@@ -1010,7 +1008,6 @@ function VistaConsultaRadicados({ usuario }) {
       await confirmarEnteradoInformativo(radicadoSeleccionado || {});
     } catch (error) {
       if (solicitud !== solicitudDocumento.current) return;
-      if (retirarVistasSinAcceso(error)) return;
       setArchivoAdjunto((actual) => ({
         ...actual,
         estado: `No se pudo abrir el documento. ${error.message}`,
@@ -1293,63 +1290,31 @@ function VistaConsultaRadicados({ usuario }) {
                   onKeyDown={(evento) => navegarPestanas(evento, indice)}
                 >
                   {nombre}
+                  {id === "respuestas" &&
+                    !resumenRespuestasInternas?.cargando &&
+                    !resumenRespuestasInternas?.error &&
+                    Number.isSafeInteger(
+                      resumenRespuestasInternas?.resumen?.pendientes,
+                    ) &&
+                    resumenRespuestasInternas.resumen.pendientes > 0 && (
+                      <span
+                        className="consulta-pestana-insignia"
+                        aria-label={`${resumenRespuestasInternas.resumen.pendientes} ${resumenRespuestasInternas.resumen.pendientes === 1 ? "respuesta interna sin abrir" : "respuestas internas sin abrir"}`}
+                      >
+                        {resumenRespuestasInternas.resumen.pendientes} nueva
+                        {resumenRespuestasInternas.resumen.pendientes === 1 ? "" : "s"}
+                      </span>
+                    )}
                 </button>
               ))}
             </nav>
-            {pestanaConsulta !== "respuestas" && (
-              <section
-                className="consulta-aviso"
-                aria-label="Avisos de respuestas internas"
-              >
-                {estadoInternas.cargando ? (
-                  <p role="status">Comprobando respuestas internas…</p>
-                ) : estadoInternas.error ? (
-                  <div role="alert">
-                    <p>
-                      No se pudo comprobar si hay respuestas sin abrir.{" "}
-                      {estadoInternas.error}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setRevisionInternas((n) => n + 1)}
-                    >
-                      Reintentar resumen de respuestas
-                    </button>
-                  </div>
-                ) : (
-                  estadoInternas.resumen?.pendientes > 0 && (
-                    <div role="status">
-                      <p>
-                        <strong>
-                          {estadoInternas.resumen.pendientes}{" "}
-                          {estadoInternas.resumen.pendientes === 1
-                            ? "respuesta interna sin abrir"
-                            : "respuestas internas sin abrir"}
-                        </strong>{" "}
-                        para tu dependencia.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPestanaConsulta("respuestas");
-                          botonesPestanas.current.respuestas?.focus();
-                        }}
-                      >
-                        Ver respuestas internas
-                      </button>
-                    </div>
-                  )
-                )}
-              </section>
-            )}
             <PanelConsulta habilitado id="respuestas" actual={pestanaConsulta}>
               <RespuestasInternas
                 key={usuario.id}
                 usuario={usuario}
                 directa
                 activa={pestanaConsulta === "respuestas"}
-                alResumen={setEstadoInternas}
-                revisionExterna={revisionInternas}
+                alResumen={setResumenRespuestasInternas}
                 alVerTrazabilidad={abrirDetalle}
               />
             </PanelConsulta>
@@ -1835,6 +1800,13 @@ function VistaConsultaRadicados({ usuario }) {
                                 Responder
                               </button>
                             )}
+                          {usuario.rol === "funcionario" &&
+                            usuario.dependencia_id === radicado.dependencia_remitente_id &&
+                            radicado.respuesta_interna_pendiente && (
+                            <small role="status">
+                              Nueva respuesta interna sin abrir
+                            </small>
+                          )}
                           {["Respondido", "Entregado"].includes(
                             radicado.estado,
                           ) && (
@@ -2818,6 +2790,25 @@ function VistaConsultaRadicados({ usuario }) {
                         key={`${respuestaConsultada.id}:${usuario.id}`}
                         radicado={respuestaConsultada.radicado}
                         usuario={usuario}
+                        alRecepcionActualizada={(recepcion) => {
+                          const estado = recepcion.radicado_estado || "Entregado";
+                          setRadicados((actual) => actual.map((fila) =>
+                            fila.numero_radicado === respuestaConsultada.radicado.numero_radicado
+                              ? { ...fila, estado, respuesta_interna_pendiente: false }
+                              : fila,
+                          ));
+                          setRespuestaConsultada((actual) => actual
+                            ? {
+                                ...actual,
+                                radicado: {
+                                  ...actual.radicado,
+                                  estado,
+                                  respuesta_interna_pendiente: false,
+                                },
+                              }
+                            : actual);
+                          setRevisionConsulta((valor) => valor + 1);
+                        }}
                       />
                     )}
                 </>
@@ -2857,7 +2848,7 @@ function VistaConsultaRadicados({ usuario }) {
             </div>
             <div className="modal-content">
               <section
-                className="detalle-resumen"
+                className="detalle-resumen respuesta-contexto"
                 aria-label="Radicado a responder"
               >
                 <CampoDetalle
@@ -2871,7 +2862,7 @@ function VistaConsultaRadicados({ usuario }) {
                 />
               </section>
               <section
-                className="detalle-seccion respuesta-grupo"
+                className="detalle-seccion respuesta-grupo respuesta-grupo--redaccion"
                 aria-labelledby="respuesta-redaccion-titulo"
               >
                 <h3 id="respuesta-redaccion-titulo">Redacción</h3>
@@ -2880,6 +2871,7 @@ function VistaConsultaRadicados({ usuario }) {
                 </label>
                 <select
                   id="plantilla-respuesta"
+                  aria-describedby="ayuda-plantilla-respuesta"
                   disabled={enviandoRespuesta}
                   value={plantillaRespuesta}
                   onChange={(e) => {
@@ -2893,17 +2885,15 @@ function VistaConsultaRadicados({ usuario }) {
                       setTextoRespuesta(
                         "En atención a su solicitud, adjuntamos la información requerida. ",
                       );
-                    else if (plantilla === "traslado")
-                      setTextoRespuesta(
-                        "De acuerdo con nuestras competencias, su solicitud fue trasladada a la dependencia correspondiente. ",
-                      );
                   }}
                 >
                   <option value="">Sin plantilla</option>
                   <option value="general">Respuesta general</option>
                   <option value="informacion">Entrega de información</option>
-                  <option value="traslado">Traslado por competencia</option>
                 </select>
+                <p id="ayuda-plantilla-respuesta" className="respuesta-plantilla-ayuda">
+                  Las plantillas solo preparan el texto y puedes editarlo antes de enviarlo. Los traslados se gestionan desde la bandeja de traslados.
+                </p>
                 <label htmlFor="contenido-respuesta">
                   Contenido de la respuesta *
                 </label>
@@ -2929,7 +2919,7 @@ function VistaConsultaRadicados({ usuario }) {
                 </p>
               </section>
               <section
-                className="detalle-seccion respuesta-grupo"
+                className="detalle-seccion respuesta-grupo respuesta-grupo--adjuntos"
                 aria-labelledby="respuesta-adjuntos-titulo"
               >
                 <h3 id="respuesta-adjuntos-titulo">Adjuntos de la respuesta</h3>

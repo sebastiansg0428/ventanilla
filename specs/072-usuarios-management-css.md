@@ -1,6 +1,6 @@
 # Spec 072 — Gestión de usuarios CSS
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -29,7 +29,15 @@ permanecen en sus módulos actuales.
 - No aparece overflow horizontal en 320, 375, 440 px ni escritorio.
 - Pasan las pruebas React, build, suite legacy y `git diff --check`.
 
-## Revisión visual pendiente
+## Revisión visual aprobada
 
-Validar gestión de usuarios, registro, edición, estados, acciones, teclado,
-foco y responsive con rol Administrador.
+- Listado de usuarios legible, bien espaciado y sin encimamientos.
+- Registro y edición con campos, etiquetas y botones claros y alineados.
+- Drawer con apertura, cierre y desplazamiento sin romper el layout.
+- Navegación con Tab/Shift+Tab funcional y foco visible.
+- `scrollWidth <= clientWidth` con menús nativos cerrados:
+  - 320 px: `true`;
+  - 375 px: `true`;
+  - 440 px: `true`;
+  - escritorio: `true`.
+- Resultado: revisión visual aprobada sin regresiones.

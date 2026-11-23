@@ -37,4 +37,12 @@
 
 @import "./pages/usuarios-management.css";
 
+@import "./pages/consulta-legacy.css";
+
+@import "./pages/registro-legacy.css";
+
+@import "./components/institutional-response.css";
+
+@import "./pages/consulta-legacy-general.css";
+
 @import "./compatibility/legacy.css";

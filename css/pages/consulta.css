@@ -41,6 +41,25 @@
   font-weight: 700;
   cursor: pointer;
 }
+.consulta-dependencia .consulta-pestana-insignia {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45rem;
+  min-height: 1.35rem;
+  margin-left: 0.4rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.consulta-dependencia .consulta-pestanas button[aria-selected="true"] .consulta-pestana-insignia {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
 .consulta-dependencia .consulta-pestanas button:hover {
   background: #eff6ff;
 }
