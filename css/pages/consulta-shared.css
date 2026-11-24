@@ -1,0 +1,237 @@
+/* Estilos compartidos de la consulta React. */
+.app-page .consult-main {
+  width: min(100% - 2rem, 72rem);
+  max-width: none;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.consult-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.consult-heading h1 {
+  color: #1e293b;
+  font-size: 1.5rem;
+}
+
+.consult-heading a,
+.consult-filters button {
+  padding: 0.6rem 0.85rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: #1d4ed8;
+  color: white;
+  cursor: pointer;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-card {
+  min-height: 7.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2563eb;
+  border-radius: 0.8rem;
+  background: #fff;
+  color: #475569;
+  text-align: left;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 5%);
+}
+
+button.dashboard-card {
+  cursor: pointer;
+}
+
+.dashboard-card strong {
+  color: #1e293b;
+  font-size: 1.6rem;
+}
+
+.dashboard-card small {
+  color: #64748b;
+}
+
+.dashboard-card select {
+  margin-top: 0.5rem;
+  padding: 0.45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.4rem;
+}
+
+.dashboard-card.filtro-activo {
+  outline: 2px solid #2563eb;
+  background: #eff6ff;
+}
+
+.filtros-activos-resumen {
+  min-height: 2.2rem;
+  margin-bottom: 1rem;
+}
+
+.filtros-activos-resumen > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.filtros-activos-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filtro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.filtro-badge strong {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.consult-filters {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.consult-filters > input {
+  min-width: 0;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.7rem;
+  background: #fff;
+}
+
+.consult-filters > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.consult-filters button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#tabla-radicados {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+#tabla-radicados th,
+#tabla-radicados td {
+  padding: 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+#tabla-radicados th {
+  color: #64748b;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+@media (min-width: 768px) {
+  #tabla-radicados td:last-child:not([colspan]) {
+    min-width: 10rem;
+  }
+
+  #tabla-radicados td:last-child .tarjeta-valor {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+}
+
+#tabla-radicados td small {
+  display: block;
+  margin-top: 0.3rem;
+  color: #64748b;
+}
+
+#tabla-radicados td[colspan] {
+  padding: 1.5rem;
+  color: #64748b;
+  text-align: center;
+}
+
+#tabla-radicados .ver-detalle {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#tabla-radicados select {
+  max-width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+}
+
+@media (max-width: 767px) {
+  .app-page .consult-main {
+    width: calc(100% - 1rem);
+    padding: 1rem 0;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .consult-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consult-filters > div {
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+}
+
+@media (max-width: 700px) {
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .consult-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

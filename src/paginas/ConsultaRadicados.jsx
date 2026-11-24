@@ -1036,6 +1036,20 @@ function VistaConsultaRadicados({ usuario }) {
     );
   }
 
+  function actualizarRadicadoTrasApertura(actualizacion) {
+    if (!actualizacion?.numero_radicado) return;
+    actualizarRadicadoEnVista(
+      {
+        numero_radicado: actualizacion.numero_radicado,
+        radicado_dependencia_id: actualizacion.radicado_dependencia_id,
+      },
+      {
+        estado: actualizacion.estado || "Entregado",
+        respuesta_interna_pendiente: false,
+      },
+    );
+  }
+
   async function confirmarEnteradoInformativo(radicado) {
     if (
       usuario.rol !== "funcionario" ||
@@ -1316,6 +1330,7 @@ function VistaConsultaRadicados({ usuario }) {
                 activa={pestanaConsulta === "respuestas"}
                 alResumen={setResumenRespuestasInternas}
                 alVerTrazabilidad={abrirDetalle}
+                alRadicadoActualizado={actualizarRadicadoTrasApertura}
               />
             </PanelConsulta>
           </>

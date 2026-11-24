@@ -110,7 +110,7 @@ export function SolicitudTraslado({ radicado, alCerrar, alGuardar }) {
   return (
     <dialog ref={dialogo} className="respuesta-dialog" aria-labelledby="solicitud-traslado-titulo"
       onCancel={(evento) => { evento.preventDefault(); cerrar(); }}>
-      <form className="modal-dialog" onSubmit={enviar}>
+      <form className="modal-dialog" onSubmit={enviar} aria-busy={enProceso}>
         <div className="modal-header">
           <h2 id="solicitud-traslado-titulo">Solicitar traslado · {radicado.numero_radicado}</h2>
           <button type="button" className="modal-close" aria-label="Cerrar" onClick={cerrar} disabled={enProceso}>×</button>
@@ -132,6 +132,7 @@ export function SolicitudTraslado({ radicado, alCerrar, alGuardar }) {
               onChange={(e) => setMotivo(e.target.value)} disabled={enProceso || bloqueado} />
           </div>
           {error && <p role="alert">{error}</p>}
+          {enProceso && <p role="status" aria-live="polite">Enviando solicitud de traslado a Ventanilla…</p>}
           {bloqueado && <p role="status">Confirmación pendiente. Reintenta sin cambiar los datos. Si cierras el formulario o recargas, consulta primero la bandeja de traslados antes de iniciar otra solicitud.</p>}
         </div>
         <div className="modal-footer">

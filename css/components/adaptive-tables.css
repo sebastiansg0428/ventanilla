@@ -1,0 +1,99 @@
+/* Tablas adaptables compartidas por consulta, usuarios y catálogos. */
+@media (max-width: 767px) {
+  .table-card:has(> .table-scroll > .tabla-adaptable) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .table-scroll:has(> .tabla-adaptable) {
+    background: transparent;
+  }
+
+  :is(
+    #tabla-radicados,
+    #tabla-usuarios,
+    #tabla-catalogos,
+    #tabla-terminos-legales
+  ).tabla-adaptable {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+  }
+
+  .tabla-adaptable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tabla-adaptable tbody {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .tabla-adaptable tbody tr {
+    display: grid;
+    min-width: 0;
+    padding: 0.25rem 0.85rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.85rem;
+    background: #fff;
+  }
+
+  :is(
+      #tabla-radicados,
+      #tabla-usuarios,
+      #tabla-catalogos,
+      #tabla-terminos-legales
+    ).tabla-adaptable
+    td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    padding: 0.7rem 0;
+    gap: 0.3rem;
+    text-align: left;
+  }
+
+  .tabla-adaptable td:last-child {
+    border-bottom: 0;
+  }
+
+  .tabla-adaptable .tarjeta-etiqueta {
+    display: block;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .tabla-adaptable .tarjeta-valor {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  #tabla-radicados .tarjeta-valor > small {
+    flex-basis: 100%;
+  }
+
+  .tabla-adaptable :is(button, select, .users-table-actions) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tabla-adaptable .users-table-actions {
+    flex: 1 1 100%;
+  }
+}

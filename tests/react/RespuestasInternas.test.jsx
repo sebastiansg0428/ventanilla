@@ -71,12 +71,13 @@ beforeEach(() => {
 
 describe("respuestas internas digitales", () => {
   it("muestra una sola vista de radicados enviados y abre una respuesta inline", async () => {
+    const alRadicadoActualizado = vi.fn();
     const scrollIntoView = vi.fn();
     const focus = vi.spyOn(HTMLElement.prototype, "focus");
     const anteriorScroll = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
     try {
-      render(<RespuestasInternas usuario={usuario} directa alVerTrazabilidad={vi.fn()} />);
+      render(<RespuestasInternas usuario={usuario} directa alVerTrazabilidad={vi.fn()} alRadicadoActualizado={alRadicadoActualizado} />);
       await abrirBandeja();
       const boton = await screen.findByRole("button", { name: "Ver respuesta de Oficina de Planeación" });
       const tarjeta = boton.closest("li");
@@ -101,6 +102,12 @@ describe("respuestas internas digitales", () => {
       expect(solicitarApi.mock.calls.some(([, opciones]) => opciones?.method === "POST")).toBe(true);
       await waitFor(() => expect(within(tarjeta).getByText("Entregado · respuesta abierta")).toBeTruthy());
       expect(within(tarjeta).queryByText("Respondido · respuesta disponible")).toBeNull();
+      expect(alRadicadoActualizado).toHaveBeenCalledWith({
+        numero_radicado: "RAD-INTERNO-0015",
+        radicado_dependencia_id: undefined,
+        estado: "Entregado",
+        respuesta_interna_pendiente: false,
+      });
 
       fireEvent.click(screen.getByRole("button", { name: "Cerrar respuesta interna" }));
       expect(screen.queryByRole("article", { name: "Respuesta interna abierta" })).toBeNull();
@@ -112,18 +119,20 @@ describe("respuestas internas digitales", () => {
   });
 
   it("conserva Respondido si falla el registro de la primera apertura", async () => {
+    const alRadicadoActualizado = vi.fn();
     solicitarApi.mockImplementation((ruta, opciones) => {
       if (ruta.startsWith("/api/radicados?")) return listaEnviados;
       if (opciones?.method === "POST") return Promise.reject(new Error("Apertura no disponible."));
       return json({ recepcion, documentos: [] });
     });
-    render(<RespuestasInternas usuario={usuario} directa />);
+    render(<RespuestasInternas usuario={usuario} directa alRadicadoActualizado={alRadicadoActualizado} />);
     await abrirBandeja();
     const boton = await abrirRespuestaEnviada();
     const tarjeta = boton.closest("li");
     await within(tarjeta).findByRole("alert");
     expect(within(tarjeta).getByText("Respondido · respuesta disponible")).toBeTruthy();
     expect(within(tarjeta).queryByText("Entregado · respuesta abierta")).toBeNull();
+    expect(alRadicadoActualizado).not.toHaveBeenCalled();
   });
 
   it("muestra únicamente la trazabilidad para un radicado sin respuesta", async () => {

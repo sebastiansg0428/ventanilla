@@ -193,6 +193,71 @@ describe("consulta de radicados React", () => {
     });
   });
 
+  it("sincroniza la tabla principal después de abrir una respuesta interna", async () => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], {
+      tipo_comunicacion: "Interna",
+      estado: "Respondido",
+      dependencia_remitente_id: 7,
+      dependencia_destino_id: 3,
+      dependencia_destino: "Oficina de Planeación",
+      tipo_recepcion: "Digital",
+      fecha_hora_recepcion: "2026-11-05 12:00:00",
+      fecha_respuesta: "2026-11-05 15:00:00",
+    });
+    const recepcion = {
+      id: 1,
+      respuesta_id: 10,
+      dependencia_origen_id: 7,
+      numero_radicado: "RAD-001",
+      contenido: "Respuesta interna confirmada.",
+      dependencia_destino: "Oficina de Planeación",
+      tipo_recepcion: "Digital",
+      radicado_estado: "Respondido",
+      disponible_en_utc: "2026-11-05 15:00:00.000000",
+      primera_apertura_utc: null,
+      actor_nombre: null,
+    };
+    const confirmada = {
+      ...recepcion,
+      primera_apertura_utc: "2026-11-05 15:10:00.000000",
+      actor_nombre: "Ana Pérez",
+      radicado_estado: "Entregado",
+    };
+    confirmarSesion.mockResolvedValue({
+      id: 7,
+      nombre: "Ana Pérez",
+      rol: "funcionario",
+      dependencia_id: 7,
+      dependencia_nombre: "Talento Humano",
+    });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?") && !ruta.includes("vista=generados")) return paginaRadicados(radicados, ruta);
+      if (ruta.includes("vista=generados")) return respuestaJson({ success: true, radicados: [radicados[0]], pagina: 1, paginas: 1, total: 1 });
+      if (ruta.startsWith("/api/alertas?")) return respuestaJson({
+        success: true, total: 0, pagina: 1, paginas: 0,
+        alertas: [], porVencer: [], vencidos: [],
+      });
+      if (ruta === "/api/respuestas-internas?pagina=1&estado=todas") return respuestaJson({
+        success: true, registros: [recepcion], pagina: 1, paginas: 1, total: 1,
+        resumen: { total: 1, pendientes: 1, leidas: 0 },
+      });
+      if (ruta === "/api/radicados/RAD-001/recepcion-interna") return respuestaJson({ success: true, recepcion });
+      if (ruta === "/api/respuestas-internas/1") return respuestaJson({ success: true, recepcion, documentos: [] });
+      if (ruta.endsWith("/apertura") && opciones.method === "POST") return respuestaJson({ success: true, recepcion: confirmada });
+      return base(ruta, opciones);
+    });
+    await abrirConsulta();
+    fireEvent.click(screen.getByRole("tab", { name: /Respuestas internas/ }));
+    const boton = await screen.findByRole("button", { name: "Ver respuesta de Oficina de Planeación" });
+    fireEvent.click(boton);
+    await screen.findByRole("article", { name: "Respuesta interna abierta" });
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    await waitFor(() => expect(within(fila).getByText("Entregado")).toBeTruthy());
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?") && !ruta.includes("vista=generados"))).toHaveLength(1);
+  });
+
   it.each(["Interna", "Externa"])("muestra autor, dependencia y fecha solo en Ver respuesta %s", async (tipo) => {
     const radicados = crearRadicados();
     radicados[0].tipo_comunicacion = tipo;

@@ -146,6 +146,8 @@ describe("solicitud de traslado", () => {
     const formulario = formularioSolicitud();
     fireEvent.submit(formulario); fireEvent.submit(formulario);
     expect(peticionesOperacion()).toHaveLength(1);
+    expect(screen.getByText("Enviando solicitud de traslado a Ventanilla…")).toBeTruthy();
+    expect(formulario.getAttribute("aria-busy")).toBe("true");
     const datos = JSON.parse(peticionesOperacion()[0][1].body);
     expect(datos).toEqual({ clave_solicitud: expect.stringMatching(/^[a-f0-9-]{36}$/), destino_sugerido_id: 4, motivo: "Revisar competencia de prueba." });
     expect(screen.getByLabelText("Dependencia sugerida").disabled).toBe(true);

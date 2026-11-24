@@ -45,4 +45,12 @@
 
 @import "./pages/consulta-legacy-general.css";
 
+@import "./pages/catalogos-legacy.css";
+
+@import "./components/modal-legacy.css";
+
+@import "./components/adaptive-tables.css";
+
+@import "./pages/consulta-shared.css";
+
 @import "./compatibility/legacy.css";

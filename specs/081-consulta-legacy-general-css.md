@@ -1,6 +1,6 @@
 # Spec 081 — Consulta legacy general CSS
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -35,9 +35,14 @@ No se modifican JSX, JavaScript, APIs, permisos, payloads, contratos, datos,
 - `git diff --check`.
 - Confirmar ausencia de selectores trasladados duplicados.
 
-## Revisión visual pendiente
+## Revisión visual aprobada
 
-Validar filtros, búsqueda, tarjetas, tabla, semáforos, estados vacíos y
-errores; detalle y comprobante; teclado, foco y responsive en roles
-Administrador, Ventanilla y Funcionario; 320, 375, 440 px y escritorio; y
-`scrollWidth <= clientWidth` con menús nativos cerrados.
+- Filtros, búsqueda, tarjetas, tabla y semáforos validados sin cortes ni
+  solapamientos.
+- Estados vacíos y errores comprobados sin romper el layout.
+- Detalle, comprobante y respuestas revisados y contenidos dentro de la vista.
+- Navegación con `Tab`/`Shift+Tab` y foco visible verificados.
+- Responsive validado en 320, 375, 440 px y escritorio.
+- Con menús nativos cerrados, `scrollWidth <= clientWidth` fue `true` en todos
+  los tamaños revisados.
+- Resultado: revisión visual aprobada, sin regresiones.

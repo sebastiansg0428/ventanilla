@@ -125,7 +125,7 @@ export function TrazabilidadInterna({ radicado, usuario, alRecepcionActualizada 
       {recepcion && <EstadoRecepcion recepcion={recepcion} />}{falloApertura}</>}
   </section>;
 }
-export function RespuestasInternas({ usuario, directa = false, activa = true, alResumen, revisionExterna = 0, alVerTrazabilidad }) {
+export function RespuestasInternas({ usuario, directa = false, activa = true, alResumen, revisionExterna = 0, alVerTrazabilidad, alRadicadoActualizado }) {
   const [desplegada, setAbierto] = useState(false);
   const abierto = directa || desplegada;
   const [pagina, setPagina] = useState(1);
@@ -250,14 +250,14 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
   async function abrirRespuestaEnviada(radicado) {
     const numero = radicado.numero_radicado;
     cerrarDetalle(false);
-    setSeleccionEnviada({ numero, id: null });
+    setSeleccionEnviada({ numero, id: null, radicado_dependencia_id: radicado.radicado_dependencia_id });
     setCargandoDetalle(true);
     setErrorDetalle("");
     setRespuestaEnviadaCargando(numero);
     try {
       const datos = await datosApi(`/api/radicados/${encodeURIComponent(numero)}/recepcion-interna`);
       if (!recepcionValida(datos.recepcion)) throw new Error("Recepción interna inválida.");
-      setSeleccionEnviada({ numero, id: datos.recepcion.id });
+      setSeleccionEnviada({ numero, id: datos.recepcion.id, radicado_dependencia_id: radicado.radicado_dependencia_id });
       await abrirRespuesta(datos.recepcion.id, numero, { conservarSeleccionEnviada: true });
     } catch (e) {
       setErrorDetalle(e.message);
@@ -276,6 +276,12 @@ export function RespuestasInternas({ usuario, directa = false, activa = true, al
         ? { ...r, estado }
         : r),
     } : prev);
+    alRadicadoActualizado?.({
+      numero_radicado: numeroRadicado,
+      radicado_dependencia_id: seleccionEnviada?.radicado_dependencia_id,
+      estado,
+      respuesta_interna_pendiente: false,
+    });
     setRevision(n => n + 1);
   });
   return <section className="detalle-seccion entregas-panel internas-bandeja" aria-label="Respuestas y radicados internos">
