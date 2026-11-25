@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test:react": "vitest run --config vitest.config.js",
     "test:legacy": "node --test tests/auth.test.cjs tests/consultar.test.cjs tests/main.test.cjs",
-    "test:visual": "playwright test"
+    "test:visual": "playwright test",
+    "lint:css": "stylelint \"css/**/*.css\""
   },
   "keywords": [],
   "author": "",

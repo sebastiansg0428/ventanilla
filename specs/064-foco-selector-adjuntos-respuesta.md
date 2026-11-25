@@ -69,7 +69,8 @@ frontend; no cambia la carga de adjuntos ni el contrato de respuesta.
 - No se generan llamadas HTTP adicionales.
 - Pasan la prueba React relacionada, el build, la suite legacy y
   `git diff --check`.
-- La spec permanece en `implementing` hasta la revisión visual humana.
+- La spec queda en `completed` porque la implementación, las pruebas y la
+  revisión visual humana ya fueron confirmadas.
 
 # Plan de pruebas
 

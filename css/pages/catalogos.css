@@ -48,6 +48,14 @@
   background: #e2e8f0;
   color: #475569;
 }
+
+@media (max-width: 767px) {
+  .catalog-tabs button {
+    flex: 1 1 auto;
+    padding: 0.65rem;
+  }
+}
+
 .catalog-header {
   margin-bottom: 1.75rem;
 }

@@ -305,6 +305,7 @@ function PanelConsulta({ habilitado, id, actual, children }) {
 function VistaConsultaRadicados({ usuario }) {
   const esDependencia = usuario.rol === "funcionario";
   const [pestanaConsulta, setPestanaConsulta] = useState("radicados");
+  const pestanaAnterior = useRef("radicados");
   const [resumenRespuestasInternas, setResumenRespuestasInternas] =
     useState(null);
   const botonesPestanas = useRef({});
@@ -399,6 +400,23 @@ function VistaConsultaRadicados({ usuario }) {
   const solicitudRespuesta = useRef(0);
   const respuestaEnProceso = useRef(false);
   const urlsRespuestaEnCarga = useRef(new Set());
+
+  useEffect(() => {
+    if (pestanaConsulta === "radicados" && pestanaAnterior.current !== "radicados") {
+      setRevisionConsulta((valor) => valor + 1);
+    }
+    pestanaAnterior.current = pestanaConsulta;
+  }, [pestanaConsulta]);
+
+  useEffect(() => {
+    const actualizarAlVolver = () => {
+      if (document.visibilityState === "visible") {
+        setRevisionConsulta((valor) => valor + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", actualizarAlVolver);
+    return () => document.removeEventListener("visibilitychange", actualizarAlVolver);
+  }, []);
 
   function liberarUrlsRespuestaEnCarga() {
     urlsRespuestaEnCarga.current.forEach((url) => URL.revokeObjectURL(url));

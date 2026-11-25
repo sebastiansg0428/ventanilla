@@ -258,6 +258,59 @@ describe("consulta de radicados React", () => {
     expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?") && !ruta.includes("vista=generados"))).toHaveLength(1);
   });
 
+  it("vuelve a consultar Radicados al regresar desde Respuestas internas", async () => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { tipo_comunicacion: "Interna", estado: "Respondido" });
+    confirmarSesion.mockResolvedValue({
+      id: 7, nombre: "Ana Pérez", rol: "funcionario", dependencia_id: 7,
+      dependencia_nombre: "Talento Humano",
+    });
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?") && ruta.includes("vista=generados")) {
+        return respuestaJson({ success: true, radicados: [], pagina: 1, paginas: 0, total: 0 });
+      }
+      if (ruta.startsWith("/api/radicados?") && !opciones.method) return paginaRadicados(radicados, ruta);
+      if (ruta.startsWith("/api/respuestas-internas?")) return respuestaJson({
+        success: true, registros: [], pagina: 1, paginas: 0, total: 0,
+        resumen: { total: 0, pendientes: 0, leidas: 0 },
+      });
+      return respuestaJson({ success: true, traslados: [], total: 0, paginas: 0, pendientes: 0 });
+    });
+    await abrirConsulta();
+    const consultasIniciales = solicitarApi.mock.calls.filter(([ruta]) =>
+      ruta.startsWith("/api/radicados?") && !ruta.includes("vista=generados"),
+    ).length;
+    expect(within(screen.getByText("RAD-001", { selector: "button" }).closest("tr")).getByText("Respondido")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Respuestas internas" }));
+    radicados[0].estado = "Entregado";
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Radicados" })));
+
+    const fila = (await screen.findByText("RAD-001", { selector: "button" })).closest("tr");
+    await waitFor(() => expect(within(fila).getByText("Entregado")).toBeTruthy());
+    expect(solicitarApi.mock.calls.filter(([ruta]) =>
+      ruta.startsWith("/api/radicados?") && !ruta.includes("vista=generados"),
+    )).toHaveLength(consultasIniciales + 1);
+  });
+
+  it("actualiza la bandeja de Ventanilla al volver a una ventana visible", async () => {
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], { tipo_comunicacion: "Interna", estado: "Respondido" });
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "ventanilla" });
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?") && !opciones.method) return paginaRadicados(radicados, ruta);
+      return respuestaJson({ success: true, dependencias: [], traslados: [], total: 0, paginas: 0, pendientes: 0 });
+    });
+    await abrirConsulta();
+    const consultasIniciales = solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?")).length;
+    radicados[0].estado = "Entregado";
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    await waitFor(() => expect(within(fila).getByText("Entregado")).toBeTruthy());
+    expect(solicitarApi.mock.calls.filter(([ruta]) => ruta.startsWith("/api/radicados?")).length).toBe(consultasIniciales + 1);
+  });
+
   it.each(["Interna", "Externa"])("muestra autor, dependencia y fecha solo en Ver respuesta %s", async (tipo) => {
     const radicados = crearRadicados();
     radicados[0].tipo_comunicacion = tipo;
@@ -1824,6 +1877,7 @@ describe("consulta de radicados React", () => {
     const total = resumen.getByRole("button", { name: /Total/ });
 
     await user.click(registradosHoy);
+    await waitFor(() => expect(screen.getByText("Mostrando 2 de 3. Hay filtros activos.")).toBeTruthy());
     expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
     expect(screen.queryByText("RAD-002", { selector: "button" })).toBeNull();
     expect(screen.getByText("RAD-003", { selector: "button" })).toBeTruthy();
@@ -1832,6 +1886,7 @@ describe("consulta de radicados React", () => {
     ).toBeTruthy();
     expect(screen.getByLabelText("Quitar filtro Fecha: hoy")).toBeTruthy();
     await user.click(registradosHoy);
+    await waitFor(() => expect(screen.getByText("Mostrando 3 de 3. Sin filtros activos.")).toBeTruthy());
 
     await user.click(screen.getByLabelText("Buscar radicados"));
     await user.paste("garcia");
@@ -1840,6 +1895,7 @@ describe("consulta de radicados React", () => {
       "externa",
     );
     await user.click(criticos);
+    await waitFor(() => expect(screen.getByText("Mostrando 1 de 3. Hay filtros activos.")).toBeTruthy());
 
     expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
     expect(screen.queryByText("RAD-002", { selector: "button" })).toBeNull();
@@ -1856,10 +1912,12 @@ describe("consulta de radicados React", () => {
     await user.click(
       screen.getByLabelText("Quitar filtro Búsqueda: garcia"),
     );
+    await waitFor(() => expect(screen.getByText("Mostrando 1 de 3. Hay filtros activos.")).toBeTruthy());
     expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
     expect(screen.queryByText("RAD-003", { selector: "button" })).toBeNull();
 
     await user.click(total);
+    await waitFor(() => expect(screen.getByText("Mostrando 3 de 3. Sin filtros activos.")).toBeTruthy());
 
     expect(screen.getByText("RAD-001", { selector: "button" })).toBeTruthy();
     expect(screen.getByText("RAD-002", { selector: "button" })).toBeTruthy();

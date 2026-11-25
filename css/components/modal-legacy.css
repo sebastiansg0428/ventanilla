@@ -56,6 +56,20 @@
   font-size: 0.875rem;
 }
 
+.modal-field {
+  padding: 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-field strong {
+  color: #475569;
+  font-size: 0.75rem;
+}
+
+.modal-field p {
+  overflow-wrap: anywhere;
+}
+
 .modal-summary,
 .modal-grid {
   display: grid;

@@ -1,6 +1,6 @@
 # Modularización CSS de respuestas internas
 
-**Estado:** completed
+**Estado:** implementing
 
 ## Objetivo
 

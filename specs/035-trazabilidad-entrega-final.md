@@ -1,7 +1,7 @@
 ---
 id: FEAT-TRAZABILIDAD-ENTREGA-FINAL
 title: Trazabilidad clara de la entrega final
-status: completed
+status: implementing
 risk: low
 repositories:
   - ventanilla

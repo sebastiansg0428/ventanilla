@@ -1,0 +1,5 @@
+/*
+ * Punto de compatibilidad para reglas legacy aún compartidas.
+ * Los selectores con cascada no confirmada permanecen en legacy.css;
+ * este módulo se conserva como frontera explícita para la extracción final.
+ */

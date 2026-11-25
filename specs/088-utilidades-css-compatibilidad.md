@@ -56,7 +56,8 @@ generan como evidencia de fallo.
 La suite automatizada quedó preparada para ejecutar autenticación, registro,
 usuarios, catálogos, sesión no disponible, consulta, detalle, comprobante,
 insignia, estados vacío/error y llamadas HTTP esperadas en los cuatro tamaños.
-La ejecución completa final pasó 40 casos, cuatro por cada viewport y flujo
+La ejecución completa final pasó 44 casos: 11 escenarios en cada uno de los
+cuatro viewports configurados
 automatizado previsto.
 
 ## Revisión visual humana aprobada

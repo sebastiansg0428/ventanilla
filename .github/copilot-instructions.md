@@ -39,11 +39,20 @@ Ejecuta desde la raíz del frontend:
 npm run test:react -- tests/react/<archivo>
 npm run build
 npm run test:legacy
+npm run test:visual -- --list
+npm run test:visual
+npm run lint:css
 git diff --check
 ```
 
-No documentes ni ejecutes comandos de lint, CI, Docker u otros que no existan
-en `package.json`.
+Playwright usa Microsoft Edge con mocks HTTP, Vite en `127.0.0.1:5173` y no
+depende del backend, MariaDB ni datos persistentes. `--list` solo descubre
+pruebas; la ejecución requiere loopback y Edge disponibles. Si aparece
+`EACCES`, `EPERM`, `fetch failed`, puerto ocupado o un servicio local no
+disponible, conserva la evidencia y clasifica el problema como infraestructura
+solo si no existen aserciones funcionales fallidas. No desactives TLS.
+
+Stylelint se ejecuta con `npm run lint:css` sobre `css/**/*.css`.
 
 ## Interfaz, accesibilidad y límites
 

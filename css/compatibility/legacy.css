@@ -16,12 +16,6 @@ footer {
   text-align: center;
 }
 
-@media (max-width: 640px) {
-  #radicadoForm {
-    padding: 1.25rem;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -36,18 +30,6 @@ footer {
   }
 }
 
-.alerts-controls button {
-  padding: 0.6rem 0.85rem;
-  border: 0;
-  border-radius: 0.55rem;
-  background: #1d4ed8;
-  color: white;
-  cursor: pointer;
-}
-.alerts-controls button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 .tabla-ayuda {
   margin: 0;
   padding: 0.6rem 0.8rem;
@@ -55,6 +37,15 @@ footer {
   color: #475569;
   font-size: 0.8rem;
 }
+
+.respuesta-dialog {
+  max-height: 90vh;
+  padding: 0;
+  border: 0;
+  border-radius: 0.8rem;
+  box-shadow: 0 20px 60px rgb(15 23 42 / 30%);
+}
+
 @media (min-width: 1200px) {
   .tabla-ayuda {
     display: none;
@@ -65,15 +56,6 @@ footer {
   max-width: none;
   margin: 0 auto;
   padding: 2rem 0;
-}
-.catalog-term-panel .users-table-toolbar > button {
-  padding: 0.55rem 0.8rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.45rem;
-  background: #fff;
-  color: #334155;
-  font: inherit;
-  cursor: pointer;
 }
 @media (max-width: 640px) {
   .users-management-main {
@@ -86,49 +68,7 @@ footer {
   }
 }
 
-.modal-field {
-  padding: 0.6rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-.modal-field strong {
-  color: #475569;
-  font-size: 0.75rem;
-}
-.modal-field p {
-  overflow-wrap: anywhere;
-}
-.receipt-dialog,
-.respuesta-dialog {
-  max-height: 90vh;
-  padding: 0;
-  border: 0;
-  border-radius: 0.8rem;
-  box-shadow: 0 20px 60px rgb(15 23 42 / 30%);
-}
-.receipt-dialog::backdrop {
-  background: rgb(15 23 42 / 60%);
-}
-.comprobante-cabecera {
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid #e2e8f0;
-}
-.receipt-dialog iframe {
-  width: 100%;
-  min-height: 28rem;
-  border: 1px solid #e2e8f0;
-}
-.receipt-dialog iframe {
-  display: block;
-  min-height: 0;
-  height: min(70vh, calc(100dvh - 9rem));
-}
-
 @media (max-width: 767px) {
-  .app-page .radicar-main,
   .users-management-main {
     width: calc(100% - 1rem);
     padding: 1rem 0;
@@ -137,41 +77,12 @@ footer {
     width: calc(100% - 1rem);
     padding: 1rem 0;
   }
-  .radicar-form,
   .users-management-card {
     padding: 1rem;
-  }
-  #radicadoForm {
-    padding: 0.85rem;
-  }
-  .radicar-form .form-section {
-    padding: 0.85rem;
-  }
-  .radicar-titulo {
-    flex-direction: column;
-    padding: 1rem;
-  }
-  .auth-form--grid,
-  .radicar-form .form-grid-2,
-  .radicar-form .form-grid-3,
-  .alerts-columns {
-    grid-template-columns: minmax(0, 1fr);
   }
   .users-table-toolbar {
     flex-direction: column;
     align-items: stretch;
-  }
-  .alerts-card {
-    padding: 0.85rem;
-  }
-  .alerts-controls > select {
-    flex: 1 1 100%;
-    width: 100%;
-    min-width: 0;
-  }
-  .catalog-tabs button {
-    flex: 1 1 auto;
-    padding: 0.65rem;
   }
   .app-page :is(input, select, textarea),
   .page-auth :is(input, select, textarea) {
@@ -183,13 +94,5 @@ footer {
   }
   .tabla-ayuda {
     display: none;
-  }
-}
-
-@media (max-width: 700px) {
-  .radicar-form .form-grid-2,
-  .radicar-form .form-grid-3,
-  .alerts-columns {
-    grid-template-columns: 1fr;
   }
 }

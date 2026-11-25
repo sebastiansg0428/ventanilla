@@ -47,8 +47,6 @@ comportamiento actuales.
   `git diff --check`.
 - La spec queda en `completed` únicamente después de la revisión visual humana.
 
-# Revisión visual pendiente
-
 # Revisión visual manual aprobada
 
 Se revisó como Administrador el editor de términos legales en las pestañas

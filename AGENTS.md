@@ -5,6 +5,9 @@ entradas HTML históricas. Los contratos compartidos de API, base de datos y
 reglas de negocio se definen en `../backend/specs/` durante el desarrollo local
 y deben consultarse antes de modificar un flujo integrado.
 
+La línea base de herramientas usa Node.js 22.22.2 o una versión compatible
+con las dependencias instaladas y npm con el lockfile vigente.
+
 ## Fuente de verdad y ubicación de specs
 
 - `AGENTS.md` contiene reglas permanentes del frontend.
@@ -31,6 +34,60 @@ repositorio. No dupliques specs.
 - Las instrucciones de Copilot complementan este documento y no pueden
   contradecirlo ni inventar contratos.
 
+## Comunicación, mentoría y documentación
+
+Antes de modificar código:
+
+1. Explica brevemente el problema, el objetivo y el concepto de interfaz o
+   estado relevante en lenguaje sencillo.
+2. Identifica los componentes React, servicios API, estilos, specs y pruebas
+   que probablemente cambiarán.
+3. Evalúa los riesgos para accesibilidad, foco, responsive, llamadas HTTP
+   duplicadas, rendimiento, XSS y compatibilidad con las páginas existentes.
+4. Propón la solución más pequeña, reversible y compatible con los contratos
+   del backend.
+5. Indica qué pruebas y documentación deben actualizarse. Si falta una decisión
+   funcional que cambie el flujo o el contrato, pregunta antes de editar.
+
+Durante la implementación:
+
+- Mantén cambios pequeños, enfocados y fáciles de revertir.
+- Usa exclusivamente el servicio API centralizado y no inventes rutas, campos,
+  estados ni payloads.
+- No concedas permisos desde el cliente; refleja únicamente la autorización y
+  los estados confirmados por el backend.
+- Conserva rutas, payloads, clases, IDs, estructura HTML y comportamiento
+  público salvo que una spec aprobada autorice cambiarlos.
+- Evita duplicar lógica, estilos, llamadas HTTP u objetos temporales; libera
+  `ObjectURL` cuando ya no se necesite.
+- Explica los supuestos y las decisiones que puedan afectar accesibilidad,
+  responsive o compatibilidad con la interfaz legacy.
+
+Después de modificar código:
+
+- Actualiza la spec relacionada y `README.md`, `TESTING.md` o la documentación
+  visual cuando el cambio afecte su contenido, sin duplicar instrucciones sin
+  necesidad.
+- Ejecuta las pruebas pertinentes: React, legacy, `npm run lint:css`, build,
+  Playwright y `git diff --check` cuando correspondan al alcance.
+- Distingue fallos funcionales de bloqueos de Vite, loopback, Edge o Playwright;
+  conserva la evidencia concreta y no reportes éxito solo porque las pruebas
+  fueron descubiertas con `--list`.
+- Informa archivos modificados, comandos ejecutados, resultados, limitaciones y
+  revisión manual pendiente.
+- No marques una spec como `completed` sin implementación, pruebas y revisión
+  humana.
+
+Modo mentor:
+
+- Explica con ejemplos sencillos la diferencia entre estado React y datos del
+  servidor, entre renderizar una vista y autorizar una acción, y entre un mock
+  HTTP y una integración real.
+- Relaciona cada cambio con su beneficio práctico y menciona ventajas,
+  desventajas y dudas pendientes.
+- No ocultes incertidumbres ni presentes una revisión visual o prueba no
+  ejecutada como aprobada.
+
 ## Comandos oficiales
 
 Ejecuta los comandos desde la raíz del frontend:
@@ -39,6 +96,7 @@ Ejecuta los comandos desde la raíz del frontend:
 npm run test:react -- tests/react/<archivo>
 npm run build
 npm run test:legacy
+npm run lint:css
 npm run test:visual -- --list
 npm run test:visual
 git diff --check

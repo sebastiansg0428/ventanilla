@@ -1,5 +1,11 @@
 # Ventanilla Única — interfaz React + Vite
 
+## Requisitos de desarrollo
+
+Usa Node.js 22.22.2 o una versión compatible con las dependencias actuales y
+ejecuta `npm install` desde esta carpeta. Las pruebas visuales requieren
+Microsoft Edge instalado; Playwright lo usa mediante su canal Chromium local.
+
 ## Estado de los radicados
 
 El selector de Consulta conserva `Recibido` mientras sea el estado inicial.
@@ -297,9 +303,11 @@ bandeja interna si la lista reemplazó el botón original.
 Las fechas históricas siguen identificándose como disponibilidad anterior
 desconocida; una primera apertura ausente no significa respuesta no disponible.
 Los estilos nuevos están acotados a la bandeja, sin rediseñar el modal
-institucional, Traslados ni seguimiento de entrega. Validación: 28 pruebas
-dirigidas, regresiones de Consulta/Traslados/SeguimientoEntrega, build y 39
-escenarios en Edge aislado a 320/390/1440 px, además de apertura por teclado.
+institucional, Traslados ni seguimiento de entrega. La validación histórica de
+esta fase incluyó 28 pruebas dirigidas, regresiones de
+Consulta/Traslados/SeguimientoEntrega, build y 39 escenarios en Edge aislado a
+320/390/1440 px, además de apertura por teclado. La suite visual vigente se
+documenta en la sección de pruebas al final de este README.
 No requiere cambios de backend o migraciones.
 
 Requiere **027 aplicada y verificada en desarrollo**, con respaldo restaurado y
@@ -407,7 +415,8 @@ El aviso recuerda que el plazo no se suspende ni reinicia.
 Estilos locales `traslados-seguimiento` y `traslados-aviso`, con texto y estado
 accesible, no solo color. Backend y frontend deben actualizarse juntos.
 No requiere migracion adicional ni cambios de datos reales.
-Validacion dirigida: 138 pruebas React entre ResumenTraslados, Traslados y
+La validación histórica de esta fase incluyó 138 pruebas React entre
+ResumenTraslados, Traslados y
 ConsultaRadicados, build de produccion y Edge aislado con fixtures a
 390/768/1440 px. Avisos sin desbordamiento horizontal, contraste 8.74:1,
 cambio de destino y rechazo comprobados; ningun POST real en la validacion visual.
@@ -477,7 +486,8 @@ El formulario independiente Solicitar traslado conserva su comportamiento.
 
 Los estilos del redisenio estan acotados al panel: no cambian los paneles de
 recepcion interna o seguimiento de entrega que comparten `traslados-datos`.
-Validacion: 29 casos en `tests\react\Traslados.test.jsx`, regresiones de Consulta,
+La validación histórica de esta fase incluyó 29 casos en
+`tests\react\Traslados.test.jsx`, regresiones de Consulta,
 RespuestasInternas y SeguimientoEntrega, build y navegador Edge aislado con
 fixtures a 320/390/1440 px. No requiere migraciones ni cambios de backend.
 
@@ -508,7 +518,7 @@ originales. Desde 768px se conservan las tablas; cuando no caben, su contenedor
 permite desplazamiento horizontal y acceso por teclado, sin ensanchar la pagina.
 Los modales conservan desplazamiento interno y acciones alcanzables.
 
-La validacion visual se realiza con datos ficticios en Edge aislado y anchos
+La validación histórica se realizó con datos ficticios en Edge aislado y anchos
 de 320, 360, 440, 768, 1024, 1366 y 1920px, incluyendo poca altura y nombres PDF
 largos. Es emulacion de navegador, no una certificacion en dispositivos fisicos.
 Estos ajustes no modifican permisos, operaciones del backend ni MySQL.
@@ -604,8 +614,9 @@ movil y foco visible, sin cambiar la paginacion de radicados ni paneles vecinos.
 Las tarjetas no conceden acceso a expedientes ni incorporan acciones de gestion.
 Se verifican seleccion inicial, vacio/error/carga, fechas ausentes, grupos,
 conteos, paginacion y descarte de respuestas tardias, incluida seleccion vacia.
-Navegador Edge aislado: 45 escenarios a 320/390/1440 px con tres roles y
-datos ficticios, sin escrituras; navegacion por teclado comprobada.
+La validación histórica de esta fase usó Edge aislado: 45 escenarios a
+320/390/1440 px con tres roles y datos ficticios, sin escrituras; navegación por
+teclado comprobada.
 
 Reinicia el backend actualizado antes de usar esta interfaz: necesita los campos
 de paginacion y resumen nuevos de `/api/radicados` y `/api/alertas`. No requiere
@@ -669,8 +680,28 @@ legado y sus pruebas, separado del generador React.
 ```powershell
 npm run test:react
 npm run test:legacy
+npm run lint:css
+npm run test:visual -- --list
+npm run test:visual
 npm run build
+git diff --check
 ```
+
+La configuración visual vigente usa Microsoft Edge mediante Playwright,
+respuestas HTTP simuladas y Vite en `127.0.0.1:5173`. No inicia el backend, no
+usa MariaDB ni depende de usuarios o datos persistentes. Hay 11 escenarios en
+los viewports 320, 375, 440 y 1280 px: 44 ejecuciones en total.
+
+`--list` solo descubre pruebas; no demuestra que se hayan ejecutado. Si la
+suite no inicia, comprueba el puerto 5173, los procesos `node` y `msedge`, y
+que `/login.html` responda. Clasifica como infraestructura únicamente errores
+con evidencia como `EACCES`, `EPERM`, `fetch failed`, puerto ocupado, servicio
+local no disponible o Edge no disponible. No desactives TLS.
+
+Stylelint se ejecuta con `npm run lint:css` sobre `css/**/*.css`. Las capturas
+y trazas visuales solo se conservan cuando una prueba falla. La revisión
+humana de responsive, foco y ausencia de overflow sigue siendo necesaria para
+marcar una spec como `completed`.
 
 En las pruebas de Consulta, los helpers completan con `act` el render y los mocks
 inmediatos antes de consultar sus resultados. Los escenarios de solicitudes

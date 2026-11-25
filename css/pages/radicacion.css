@@ -764,3 +764,45 @@
     transform: none;
   }
 }
+
+@media (max-width: 640px) {
+  #radicadoForm {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-page .radicar-main {
+    width: calc(100% - 1rem);
+    padding: 1rem 0;
+  }
+
+  .radicar-form {
+    padding: 1rem;
+  }
+
+  #radicadoForm {
+    padding: 0.85rem;
+  }
+
+  .radicar-form .form-section {
+    padding: 0.85rem;
+  }
+
+  .radicar-titulo {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .radicar-form .form-grid-2,
+  .radicar-form .form-grid-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .radicar-form .form-grid-2,
+  .radicar-form .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

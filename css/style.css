@@ -59,4 +59,6 @@
 
 @import "./foundations/compatibility-utilities.css";
 
+@import "./components/legacy-compatibility.css";
+
 @import "./compatibility/legacy.css";
