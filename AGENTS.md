@@ -39,11 +39,26 @@ Ejecuta los comandos desde la raíz del frontend:
 npm run test:react -- tests/react/<archivo>
 npm run build
 npm run test:legacy
+npm run test:visual -- --list
+npm run test:visual
 git diff --check
 ```
 
 Usa la suite React enfocada para el cambio y ejecuta el build cuando se
 modifiquen componentes, servicios o estilos compartidos.
+
+La suite visual usa Microsoft Edge mediante Playwright y mocks HTTP estables;
+no depende de usuarios reales, MariaDB ni datos persistentes. `--list` solo
+descubre y enumera pruebas: no equivale a ejecutarlas ni a aprobarlas.
+
+Para diagnosticar una ejecución visual bloqueada, comprueba primero la versión
+local de Playwright y Edge, inicia Vite en `127.0.0.1:5173`, verifica que
+`/login.html` responda y ejecuta un caso aislado antes de repetir la suite
+completa. Revisa el puerto y los procesos `node`/`msedge`. Si aparece
+`EACCES`, `EPERM`, `fetch failed`, puerto ocupado o Edge no disponible sin
+aserciones de la aplicación, clasifica el resultado como infraestructura y
+registra la evidencia; no lo reportes como éxito. No desactives TLS para
+resolverlo.
 
 ## Flujo SDD
 
@@ -90,6 +105,8 @@ pueden romper un contrato ni contradecir una spec existente.
 - No implementar autorización en el cliente.
 - Liberar `ObjectURL` y evitar llamadas duplicadas al cargar documentos o
   actualizar estados.
+- Las pruebas visuales deben comprobar estados de carga, error, éxito y vacío
+  con mocks, además de foco, teclado y `scrollWidth <= clientWidth`.
 
 ## Validación responsive
 
@@ -152,6 +169,8 @@ un navegador, se debe dejar registrada esa limitación.
   históricas o el código legacy relacionado.
 - La revisión manual confirma accesibilidad, responsive y estados de error
   cuando corresponda.
+- Las pruebas visuales automatizadas fueron ejecutadas, o la limitación de
+  infraestructura quedó clasificada con evidencia; descubrir pruebas no basta.
 - Se confirma que no cambiaron rutas, payloads ni contratos del backend.
 - Las specs usan únicamente `proposed`, `implementing` o `completed`;
   `completed` requiere implementación y revisión humana. No usar `implemented`.

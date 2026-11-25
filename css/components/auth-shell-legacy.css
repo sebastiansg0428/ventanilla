@@ -1,0 +1,44 @@
+/* Contenedor legacy de autenticación y estado de sesión. */
+body[data-sesion-pendiente] > :not(#sesion-estado) {
+  display: none !important;
+}
+
+#sesion-estado {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+[data-cerrar-sesion] {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+/* Pantallas de autenticación */
+.page-auth {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(37 99 235 / 12%), transparent 32rem),
+    linear-gradient(145deg, #f8fafc 0%, #edf3fa 100%);
+}
+
+.page-auth main.auth-shell {
+  width: min(100% - 2rem, 29rem);
+  margin: auto;
+  padding: 2rem 0;
+  display: grid;
+  place-items: center;
+}
+
+.page-auth main.auth-shell--wide {
+  width: min(100% - 2rem, 39rem);
+}
+
+@media (max-width: 36rem) {
+  .page-auth main.auth-shell,
+  .page-auth main.auth-shell--wide {
+    width: min(100% - 1.25rem, 29rem);
+    padding: 0.75rem 0;
+  }
+}

@@ -267,8 +267,9 @@ describe("bandeja de traslados", () => {
   });
 
   it.each(["ventanilla", "administrador"])("permite a %s aprobar con destino confirmado y refresca", async (rol) => {
+    let lecturas = 0;
     simularApi(async (ruta, opciones) => opciones
-      ? json({ success: true, traslado: { ...traslado, estado: "aprobada" } }) : bandeja(), undefined,
+      ? json({ success: true, traslado: { ...traslado, estado: "aprobada" } }) : (++lecturas <= 2 ? bandeja() : bandeja([])), undefined,
     () => json({ success: true, resumen: { total_aprobados: 2, umbral_reiteracion: 3, dependencias_visitadas_ids: [3, 5] } }));
     const alGuardar = vi.fn();
     render(<BandejaTraslados usuario={{ rol }} revision={0} alGuardar={alGuardar} />);
@@ -292,6 +293,9 @@ describe("bandeja de traslados", () => {
     expect(peticion[0]).toBe("/api/traslados/1/decision");
     expect(JSON.parse(peticion[1].body)).toEqual({ decision: "aprobada", destino_id: 5, motivo: "Se cambia destino por competencia." });
     await waitFor(() => expect(peticionesOperacion().filter(([, opciones]) => !opciones)).toHaveLength(3));
+    expect(screen.getByText("Decisión confirmada para RAD-001: Aprobada.")).toBeTruthy();
+    expect(screen.getByText("Sin traslados pendientes")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ocultar traslados" })).toBeTruthy();
   });
 
   it("no presenta devolución a un destino sugerido inactivo que no está seleccionado", async () => {

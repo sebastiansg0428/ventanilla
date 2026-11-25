@@ -1,6 +1,6 @@
 # Spec 083 — Modales genéricos CSS
 
-**Estado:** implementing
+**Estado:** completed
 
 ## Objetivo
 
@@ -39,9 +39,10 @@ timeline, detalle específico ni drawers.
 - `git diff --check`.
 - Confirmar ausencia de duplicación innecesaria de los selectores trasladados.
 
-## Revisión visual pendiente
+## Revisión visual humana aprobada
 
-Validar detalle de radicado, solicitud de traslado y modales genéricos de
-consulta; encabezado, contenido, resumen y footer; cierre, foco, teclado,
-textos largos y responsive en 320, 375, 440 px y escritorio; y
-`scrollWidth <= clientWidth` con menús nativos cerrados.
+El usuario confirmó la revisión de los modales de detalle, solicitud de
+traslado y consulta, incluyendo encabezado, contenido, resumen, footer, cierre,
+foco, teclado y textos largos. También confirmó la validación responsive en
+320, 375, 440 px y escritorio, con `scrollWidth <= clientWidth` y menús
+nativos cerrados, sin regresiones visuales.

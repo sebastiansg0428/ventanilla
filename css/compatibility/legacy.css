@@ -1,46 +1,5 @@
-[hidden],
-body[data-sesion-pendiente] > :not(#sesion-estado) {
+[hidden] {
   display: none !important;
-}
-
-#sesion-estado {
-  padding: 1.5rem;
-  text-align: center;
-}
-
-[data-cerrar-sesion] {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  cursor: pointer;
-}
-
-/* Pantallas de autenticación */
-.page-auth {
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse at 12% 8%, rgb(37 99 235 / 12%), transparent 32rem),
-    linear-gradient(145deg, #f8fafc 0%, #edf3fa 100%);
-}
-
-.page-auth main.auth-shell {
-  width: min(100% - 2rem, 29rem);
-  margin: auto;
-  padding: 2rem 0;
-  display: grid;
-  place-items: center;
-}
-
-.page-auth main.auth-shell--wide {
-  width: min(100% - 2rem, 39rem);
-}
-
-@media (max-width: 36rem) {
-  .page-auth main.auth-shell,
-  .page-auth main.auth-shell--wide {
-    width: min(100% - 1.25rem, 29rem);
-    padding: 0.75rem 0;
-  }
 }
 
 main {
@@ -55,22 +14,6 @@ footer {
   color: #64748b;
   font-size: 0.75rem;
   text-align: center;
-}
-
-.form-ayuda {
-  display: block;
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 0.35rem;
-}
-
-.contador-caracteres {
-  display: flex;
-  justify-content: flex-end;
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 0.35rem;
-  font-weight: 500;
 }
 
 @media (max-width: 640px) {
@@ -93,17 +36,6 @@ footer {
   }
 }
 
-.auth-form > *,
-.dashboard-cards > *,
-.alerts-columns > * {
-  min-width: 0;
-}
-.auth-form :is(input, select, textarea) {
-  max-width: 100%;
-}
-.app-page :is(h1, h2, h3, p, label, small, li) {
-  overflow-wrap: anywhere;
-}
 .alerts-controls button {
   padding: 0.6rem 0.85rem;
   border: 0;

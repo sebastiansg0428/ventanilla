@@ -667,7 +667,7 @@ describe("consulta de radicados React", () => {
       const aviso = await screen.findByText("Solicitud de traslado confirmada para RAD-20261110-0003. Consulta Traslados para ver su estado.");
       expect(aviso.getAttribute("role")).toBe("status");
       expect(aviso.getAttribute("data-state")).toBe("success");
-      expect(screen.getByLabelText("Estado de RAD-001").disabled).toBe(true);
+      expect((await screen.findByLabelText("Estado de RAD-001")).disabled).toBe(true);
       expect(screen.getByRole("tab", { name: "Radicados" }).getAttribute("aria-selected")).toBe("true");
       expect(screen.getByRole("tab", { name: "Traslados" }).getAttribute("aria-selected")).toBe("false");
     } finally {
@@ -1806,6 +1806,7 @@ describe("consulta de radicados React", () => {
     }));
     const recibo = document.querySelector(".receipt-dialog");
     expect(recibo.open).toBe(true);
+    expect(within(recibo).getByRole("button", { name: "Cerrar" }).className).toContain("comprobante-cerrar");
     fireEvent.click(within(recibo).getByRole("button", { name: "Cerrar" }));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:fecha");
     const filaInvalida = screen.getByText("RAD-003", { selector: "button" }).closest("tr");

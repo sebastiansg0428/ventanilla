@@ -1233,7 +1233,11 @@ function VistaConsultaRadicados({ usuario }) {
     setFiltroComunicacion("");
   }
 
-  function trasladoGuardado() {
+  function trasladoAprobado() {
+    setRevisionConsulta((valor) => valor + 1);
+  }
+
+  function solicitudTrasladoGuardada() {
     setSolicitudTraslado(null);
     botonTraslado.current?.focus();
     cerrarDetalle();
@@ -1340,7 +1344,7 @@ function VistaConsultaRadicados({ usuario }) {
             <BandejaTraslados
               usuario={usuario}
               revision={revisionConsulta}
-              alGuardar={trasladoGuardado}
+              alGuardar={trasladoAprobado}
               directa={esDependencia}
               activa={pestanaConsulta === "traslados"}
             />
@@ -1378,7 +1382,7 @@ function VistaConsultaRadicados({ usuario }) {
             <BandejaTraslados
               usuario={usuario}
               revision={revisionConsulta}
-              alGuardar={trasladoGuardado}
+              alGuardar={trasladoAprobado}
             />
           )}
           {mensajeTraslado && (
@@ -1396,7 +1400,7 @@ function VistaConsultaRadicados({ usuario }) {
                 setMensajeTraslado(
                   `Solicitud de traslado confirmada para ${resultado.numero_radicado}. Consulta Traslados para ver su estado.`,
                 );
-                trasladoGuardado();
+                solicitudTrasladoGuardada();
               }}
             />
           )}
@@ -3170,7 +3174,7 @@ function VistaConsultaRadicados({ usuario }) {
       >
         <div className="comprobante-cabecera">
           <h2>Comprobante de recepción</h2>
-          <button type="button" onClick={cerrarComprobante}>
+          <button className="comprobante-cerrar" type="button" onClick={cerrarComprobante}>
             Cerrar
           </button>
         </div>

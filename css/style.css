@@ -39,6 +39,8 @@
 
 @import "./pages/consulta-legacy.css";
 
+@import "./components/receipt-dialog.css";
+
 @import "./pages/registro-legacy.css";
 
 @import "./components/institutional-response.css";
@@ -52,5 +54,9 @@
 @import "./components/adaptive-tables.css";
 
 @import "./pages/consulta-shared.css";
+
+@import "./components/auth-shell-legacy.css";
+
+@import "./foundations/compatibility-utilities.css";
 
 @import "./compatibility/legacy.css";

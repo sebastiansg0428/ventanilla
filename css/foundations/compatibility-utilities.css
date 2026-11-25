@@ -1,0 +1,30 @@
+/* Utilidades legacy compartidas por formularios y páginas protegidas. */
+.form-ayuda {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+}
+
+.contador-caracteres {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+  font-weight: 500;
+}
+
+.auth-form > *,
+.dashboard-cards > *,
+.alerts-columns > * {
+  min-width: 0;
+}
+
+.auth-form :is(input, select, textarea) {
+  max-width: 100%;
+}
+
+.app-page :is(h1, h2, h3, p, label, small, li) {
+  overflow-wrap: anywhere;
+}
