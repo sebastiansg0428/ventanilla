@@ -109,10 +109,15 @@ La suite visual usa Microsoft Edge mediante Playwright y mocks HTTP estables;
 no depende de usuarios reales, MariaDB ni datos persistentes. `--list` solo
 descubre y enumera pruebas: no equivale a ejecutarlas ni a aprobarlas.
 
+`npm run test:visual` pasa por un preflight que comprueba Edge, el loopback y
+el puerto 5173 antes de iniciar Playwright. No mata procesos ni borra reportes;
+ante `EACCES`, `EPERM` o un puerto ocupado debe terminar con evidencia clara y
+pedir una terminal con acceso permitido a `127.0.0.1`. `--list` omite el
+preflight porque solo enumera casos.
+
 Para diagnosticar una ejecución visual bloqueada, comprueba primero la versión
-local de Playwright y Edge, inicia Vite en `127.0.0.1:5173`, verifica que
-`/login.html` responda y ejecuta un caso aislado antes de repetir la suite
-completa. Revisa el puerto y los procesos `node`/`msedge`. Si aparece
+local de Playwright y Edge, revisa el puerto y los procesos `node`/`msedge`, y
+ejecuta primero un caso aislado antes de repetir la suite completa. Si aparece
 `EACCES`, `EPERM`, `fetch failed`, puerto ocupado o Edge no disponible sin
 aserciones de la aplicación, clasifica el resultado como infraestructura y
 registra la evidencia; no lo reportes como éxito. No desactives TLS para

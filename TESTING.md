@@ -32,16 +32,22 @@ real requiere que Playwright pueda iniciar Vite en `127.0.0.1:5173` y abrir
 Edge. La configuración actual ejecuta 11 escenarios en cuatro viewports:
 320, 375, 440 y 1280 px, para un total de 44 ejecuciones.
 
+`npm run test:visual` ejecuta primero un preflight. Comprueba Edge, el
+loopback y que el puerto 5173 esté libre; no mata procesos ni borra reportes.
+Si detecta `EACCES`, `EPERM` o un puerto ocupado, termina antes de iniciar
+Playwright y pide volver a ejecutar la terminal con acceso permitido a
+`127.0.0.1`. `--list` omite ese preflight porque solo enumera casos.
+
 ## Diagnóstico de Playwright y loopback
 
 Cuando la suite visual no inicia:
 
-1. Comprueba `node --version`, `npx playwright --version` y que Edge abra.
-2. Inicia Vite manualmente con
-   `npm run dev -- --host 127.0.0.1 --port 5173`.
-3. Confirma que `http://127.0.0.1:5173/login.html` responde en el navegador.
-4. Revisa el puerto 5173 y los procesos `node` y `msedge`.
-5. Ejecuta primero un proyecto y un caso aislado; después repite la suite.
+1. Ejecuta `npm run test:visual -- --list` para confirmar el descubrimiento.
+2. Ejecuta `npm run test:visual`; el preflight comprobará Node, Edge, loopback
+   y el puerto 5173.
+3. Si aparece `EACCES`, comprueba los procesos `node`/`msedge`, permite el
+   loopback en la terminal y vuelve a ejecutar el comando completo.
+4. Ejecuta primero un proyecto y un caso aislado; después repite la suite.
 
 Solo se clasifica como infraestructura un bloqueo con evidencia concreta,
 como `EACCES`, `EPERM`, `fetch failed`, puerto ocupado, servicio local no

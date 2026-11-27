@@ -443,6 +443,158 @@ describe("consulta de radicados React", () => {
     expect(solicitarApi.mock.calls.some(([ruta]) => ruta.includes("/respuesta/resumen"))).toBe(false);
   });
 
+  it("no renderiza el cero de respuesta_disponible en un global externo pendiente para Administrador", async () => {
+    Object.assign(registrosSimulados[0], {
+      tipo_comunicacion: "Externa",
+      destino_todas_dependencias: 1,
+      dependencia_responsable_id: 3,
+      estado: "Pendiente",
+      requiere_respuesta: 1,
+      respuesta_disponible: 0,
+    });
+
+    await abrirConsulta();
+
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const celdas = fila.querySelectorAll(".tarjeta-valor");
+    expect(celdas[celdas.length - 1].textContent.trim()).toBe("Ver comprobante");
+  });
+
+  it("muestra el resumen numérico del seguimiento externo", async () => {
+    const asignaciones = [
+      { radicado_dependencia_id: 1, dependencia_id: 4, dependencia_nombre: "Planeación", estado: "Respondido" },
+      { radicado_dependencia_id: 2, dependencia_id: 5, dependencia_nombre: "SEDAM", estado: "Enterado" },
+      ...Array.from({ length: 22 }, (_, indice) => ({
+        radicado_dependencia_id: indice + 3,
+        dependencia_id: indice + 6,
+        dependencia_nombre: `Dependencia ${indice + 6}`,
+        estado: "Recibido",
+      })),
+    ];
+    const global = {
+      numero_radicado: "RAD-GLOBAL-001",
+      fecha_creacion: new Date().toISOString(),
+      tipo_comunicacion: "Externa",
+      remitente_nombre: "Sebastian Sánchez",
+      remitente_documento: "0000000000",
+      estado: "Respondido",
+      destino_todas_dependencias: 1,
+      requiere_respuesta: 1,
+      dependencia_responsable_id: 4,
+      respuesta_disponible: 1,
+      global_agrupado: true,
+      asignaciones,
+      resumen_global: {
+        total_dependencias: 24,
+        estado_global: "Respondido",
+        respuesta_disponible: true,
+        respondidas: 1,
+        enteradas: 1,
+        recibidas: 22,
+        en_tramite: 0,
+        pendientes: 0,
+      },
+    };
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) =>
+      ruta.startsWith("/api/radicados?") ? paginaRadicados([global], ruta) : base(ruta, opciones));
+
+    render(<PaginaConsultaRadicados />);
+    const fila = await screen.findByText("RAD-GLOBAL-001", { selector: "button" });
+    const seguimiento = within(fila.closest("tr")).getByText("Ver seguimiento de 24 dependencias").closest("details");
+    const contador = (texto) => within(seguimiento).getByText((_contenido, elemento) =>
+      elemento?.textContent?.replace(/\s+/g, " ").trim() === texto,
+    );
+    expect(contador("Respondidas: 1")).toBeTruthy();
+    expect(contador("Enteradas: 1")).toBeTruthy();
+    expect(contador("Recibidas: 22")).toBeTruthy();
+    expect(within(seguimiento).queryByText(/En trámite/)).toBeNull();
+    expect(within(seguimiento).queryByText(/Pendientes/)).toBeNull();
+  });
+
+  it("limita al no responsable a Recibido y confirma Enterado al abrir el PDF", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], {
+      tipo_comunicacion: "Externa",
+      destino_todas_dependencias: 1,
+      dependencia_responsable_id: 4,
+      radicado_dependencia_id: 303,
+      estado: "Recibido",
+      requiere_respuesta: 1,
+    });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "original.pdf", ruta_archivo: "original.pdf" },
+      ] });
+      if (ruta === "/uploads/original.pdf") return { blob: async () => new Blob(["PDF"]) };
+      if (ruta.endsWith("/estado") && opciones.method === "PUT") {
+        return respuestaJson({ success: true, estado: "Enterado", semaforo: { nivel: "completado", texto: "Enterado" }, fecha_enterado: "2026-11-26 15:00:00" });
+      }
+      return base(ruta, opciones);
+    });
+
+    await abrirConsulta();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    const estado = within(fila).getByLabelText("Estado de RAD-001");
+    expect(Array.from(estado.options).map((opcion) => opcion.textContent)).toEqual(["Recibido"]);
+    expect(within(fila).queryByRole("button", { name: "Responder" })).toBeNull();
+
+    prepararDialogos();
+    fireEvent.click(screen.getByRole("button", { name: "RAD-001" }));
+    const detalle = document.querySelector("#modal-detalle");
+    const documento = await within(detalle).findByRole("button", { name: "Ver original.pdf" });
+    fireEvent.click(documento);
+    await waitFor(() => expect(solicitarApi.mock.calls.some(([ruta, opciones]) =>
+      ruta.endsWith("/estado") && opciones?.method === "PUT" &&
+      JSON.parse(opciones.body).estado === "Enterado" &&
+      JSON.parse(opciones.body).radicado_dependencia_id === 303,
+    )).toBe(true));
+    await waitFor(() => expect(within(fila).getByLabelText("Estado de RAD-001: Enterado")).toBeTruthy());
+  });
+
+  it("mantiene Recibido si falla la apertura del documento del no responsable", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 3 });
+    const radicados = crearRadicados();
+    Object.assign(radicados[0], {
+      tipo_comunicacion: "Externa", destino_todas_dependencias: 1,
+      dependencia_responsable_id: 4, radicado_dependencia_id: 304,
+      estado: "Recibido", requiere_respuesta: 1,
+    });
+    const base = solicitarApi.getMockImplementation();
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados(radicados, ruta);
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "original.pdf", ruta_archivo: "original.pdf" },
+      ] });
+      if (ruta === "/uploads/original.pdf") throw new Error("PDF no disponible");
+      return base(ruta, opciones);
+    });
+
+    await abrirConsulta();
+    prepararDialogos();
+    fireEvent.click(screen.getByRole("button", { name: "RAD-001" }));
+    const detalle = document.querySelector("#modal-detalle");
+    fireEvent.click(await within(detalle).findByRole("button", { name: "Ver original.pdf" }));
+    await within(detalle).findByText(/No se pudo abrir el documento/);
+    expect(solicitarApi.mock.calls.some(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toBe(false);
+    expect(within(screen.getByText("RAD-001", { selector: "button" }).closest("tr")).getByText("Recibido", { exact: true })).toBeTruthy();
+  });
+
+  it("solo ofrece responder al funcionario de la dependencia responsable", async () => {
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 4 });
+    Object.assign(registrosSimulados[0], {
+      tipo_comunicacion: "Externa", destino_todas_dependencias: 1,
+      dependencia_responsable_id: 4, radicado_dependencia_id: 305,
+      estado: "Recibido", requiere_respuesta: 1,
+    });
+    await abrirConsulta();
+    const fila = screen.getByText("RAD-001", { selector: "button" }).closest("tr");
+    expect(within(fila).getByRole("button", { name: "Responder" })).toBeTruthy();
+  });
+
   it.each(["Oficina histórica", null])("muestra y regenera origen interno %s sin deducirlo del destino", async (origen) => {
     const radicados = crearRadicados();
     Object.assign(radicados[1], {
@@ -2447,6 +2599,51 @@ describe("consulta de radicados React", () => {
     fireEvent.click(within(modal).getByText("Ver informativo.pdf"));
     await within(modal).findByText(/No se pudo abrir el documento/);
     expect(solicitarApi.mock.calls.some(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toBe(false);
+  });
+
+  it("muestra la apertura del documento para la dependencia responsable sin marcar Enterado", async () => {
+    const filas = crearRadicados();
+    const global = {
+      ...filas[0],
+      destino_todas_dependencias: 1,
+      requiere_respuesta: 1,
+      dependencia_responsable_id: 8,
+      radicado_dependencia_id: 808,
+      seguimiento_dependencia_id: 8,
+      seguimiento_dependencia_nombre: "Oficina de Planeación",
+      estado: "Recibido",
+    };
+    confirmarSesion.mockResolvedValue({ ...usuario, rol: "funcionario", dependencia_id: 8 });
+    const base = solicitarApi.getMockImplementation();
+    let historial = [];
+    solicitarApi.mockImplementation(async (ruta, opciones = {}) => {
+      if (ruta.startsWith("/api/radicados?")) return paginaRadicados([global], ruta);
+      if (ruta.endsWith("/documentos")) return respuestaJson({ documentos: [
+        { id: 1, nombre_archivo: "global.pdf", ruta_archivo: "global.pdf" },
+      ] });
+      if (ruta === "/uploads/global.pdf") {
+        historial = [{ id: 12, event_type: "documento_original_abierto",
+          actor_name: "Ana Pérez", actor_role: "funcionario",
+          dependencia_nombre: "Oficina de Planeación", radicado_dependencia_id: 808,
+          ocurrido_en_utc: "2026-11-26 15:00:00.000000" }];
+        return { blob: async () => new Blob(["PDF"]) };
+      }
+      if (ruta.includes("/historial?")) return respuestaJson({ success: true, historial, has_more: false });
+      return base(ruta, opciones);
+    });
+    simularUrlsBlob("blob:global");
+    render(<PaginaConsultaRadicados />);
+    const fila = await screen.findByText("RAD-001", { selector: "button" });
+    expect(within(fila.closest("tr")).getByRole("button", { name: "Responder" })).toBeTruthy();
+    prepararDialogos();
+    fireEvent.click(fila);
+    const modal = document.querySelector("#modal-detalle");
+    await within(modal).findByText("Ver global.pdf");
+    fireEvent.click(within(modal).getByText("Ver global.pdf"));
+    await within(modal).findByRole("heading", { name: "Documento original abierto" });
+    expect(within(modal).getByText("La dependencia abrió correctamente el documento original.")).toBeTruthy();
+    expect(solicitarApi.mock.calls.some(([ruta, opciones]) => ruta.endsWith("/estado") && opciones?.method === "PUT")).toBe(false);
+    expect(within(fila.closest("tr")).getByLabelText("Estado de RAD-001").value).toBe("Recibido");
   });
 
   it("mantiene Respondido final y no ofrece cierre Enterado para una solicitud", async () => {

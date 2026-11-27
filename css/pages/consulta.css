@@ -746,3 +746,97 @@
     transition: none;
   }
 }
+/* Seguimiento compacto de globales: una fila principal, detalle bajo demanda. */
+.seguimiento-global {
+  margin-top: 0.55rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  background: #f8fafc;
+  max-width: 32rem;
+}
+
+.seguimiento-global summary {
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.seguimiento-global__estado,
+.seguimiento-global__responsable {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.55rem 0;
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.seguimiento-global__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.55rem 0;
+}
+
+.seguimiento-global__contador {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.seguimiento-global__contador--respondidas {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.seguimiento-global__contador--enteradas {
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.seguimiento-global__contador--recibidas {
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.seguimiento-global__responsable select {
+  min-width: 12rem;
+}
+
+.seguimiento-global__lista {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seguimiento-global__lista li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.seguimiento-estado {
+  color: #475569;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.seguimiento-estado--enterado { color: #166534; }
+.seguimiento-estado--respondido { color: #1d4ed8; }
+.estado-global { font-weight: 700; color: #172554; }
+
+@media (max-width: 440px) {
+  .seguimiento-global { max-width: 100%; }
+  .seguimiento-global__contador { flex: 1 1 8rem; }
+  .seguimiento-global__lista li { grid-template-columns: 1fr auto; }
+  .seguimiento-global__lista li strong { grid-column: 1 / -1; }
+}

@@ -31,9 +31,17 @@ function FormularioRadicacion({ usuario }) {
     useState("");
   const [dependencias, setDependencias] = useState([]);
   const [tipoComunicacion, setTipoComunicacion] = useState("");
+  const [dependenciaDestino, setDependenciaDestino] = useState("");
+  const [dependenciaResponsable, setDependenciaResponsable] = useState("");
   const [dependenciaRemitente, setDependenciaRemitente] = useState("");
   const [tipoPersona, setTipoPersona] = useState("");
   const esJuridica = tipoComunicacion === "Externa" && tipoPersona === "juridica";
+  useEffect(() => {
+    if (tipoComunicacion === "Externa" && dependenciaDestino === "todas" && dependencias.length && !dependenciaResponsable) {
+      setDependenciaResponsable(String(dependencias[0].id));
+    }
+    if (dependenciaDestino !== "todas" || tipoComunicacion !== "Externa") setDependenciaResponsable("");
+  }, [tipoComunicacion, dependenciaDestino, dependencias, dependenciaResponsable]);
   const [estadoCatalogos, setEstadoCatalogos] = useState({
     tiposTramite: "Cargando tipos de trámite…",
     dependencias: "Cargando dependencias…",
@@ -500,7 +508,8 @@ function FormularioRadicacion({ usuario }) {
                   <select
                     name="dependencia_destino_id"
                     required
-                    defaultValue=""
+                    value={dependenciaDestino}
+                    onChange={(evento) => setDependenciaDestino(evento.target.value)}
                     disabled={!dependencias.length}
                   >
                     <option value="" disabled>
@@ -518,6 +527,30 @@ function FormularioRadicacion({ usuario }) {
                     Reintentar dependencias
                   </button>
                 </CampoFormulario>
+                {tipoComunicacion === "Externa" && dependenciaDestino === "todas" && (
+                  <CampoFormulario etiqueta="Dependencia responsable del global">
+                    <select
+                      name="dependencia_responsable_id"
+                      required
+                      value={dependenciaResponsable}
+                      onChange={(evento) => setDependenciaResponsable(evento.target.value)}
+                      disabled={!dependencias.length}
+                    >
+                      <option value="" disabled>
+                        Selecciona quién responderá…
+                      </option>
+                      {dependencias.map((dep) => (
+                        <option key={dep.id} value={dep.id}>
+                          {dep.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <small>
+                      Solo esta dependencia podrá registrar la respuesta institucional.
+                      Ventanilla o Administrador podrán corregirla antes de responder.
+                    </small>
+                  </CampoFormulario>
+                )}
                 <CampoFormulario etiqueta="Número de folios">
                   <input
                     type="number"

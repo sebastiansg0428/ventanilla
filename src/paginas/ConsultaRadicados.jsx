@@ -31,7 +31,12 @@ const requiereRespuesta = (radicado) =>
   radicado.requiere_respuesta !== false && radicado.requiere_respuesta !== 0;
 const esFinal = (radicado) =>
   ["Respondido", "Entregado", "Enterado"].includes(radicado.estado);
-const estadosParaRadicado = (radicado, rol) => {
+const estadosParaRadicado = (radicado, usuario) => {
+  if (esGlobalExternoNoResponsable(radicado, usuario)) {
+    const estadoActual = radicado.estado || "Recibido";
+    return estadoActual === "Recibido" ? ["Recibido"] : [estadoActual];
+  }
+  const rol = usuario.rol;
   const restringirInformativo =
     ["funcionario", "ventanilla"].includes(rol) && !requiereRespuesta(radicado);
   const estadosBase = restringirInformativo ? ["Recibido"] : ESTADOS_POSIBLES;
@@ -73,10 +78,25 @@ const obtenerTipoComunicacion = (radicado) => {
       ? "externa"
       : "sin-tipo";
 };
+const esGlobal = (radicado) => Number(radicado?.destino_todas_dependencias) === 1;
+const esGlobalExterno = (radicado) =>
+  esGlobal(radicado) &&
+  obtenerTipoComunicacion(radicado) === "externa" &&
+  requiereRespuesta(radicado) &&
+  Number(radicado?.dependencia_responsable_id) > 0;
+const esGlobalExternoNoResponsable = (radicado, usuario) =>
+  usuario?.rol === "funcionario" &&
+  esGlobalExterno(radicado) &&
+  Number(usuario.dependencia_id) !== Number(radicado.dependencia_responsable_id);
+const puedeVerRespuestaGlobal = (radicado, usuario) =>
+  !esGlobalExterno(radicado) ||
+  ["administrador", "ventanilla"].includes(usuario.rol) ||
+  Number(usuario.dependencia_id) === Number(radicado.dependencia_responsable_id);
 const ETIQUETAS_EVENTO = {
   radicado_creado: "Radicado recibido",
   radicado_asignado: "Asignado a dependencia",
   documentos_radicado_adjuntados: "Documentos originales adjuntados",
+  documento_original_abierto: "Documento original abierto",
   estado_cambiado: "Cambio de estado",
   respuesta_enviada: "Respuesta institucional registrada",
   documentos_respuesta_adjuntados: "Documentos de respuesta adjuntados",
@@ -97,6 +117,8 @@ const DESCRIPCIONES_EVENTO = {
   radicado_asignado: "El expediente quedó asignado a la dependencia indicada.",
   documentos_radicado_adjuntados:
     "Se incorporaron documentos originales al expediente.",
+  documento_original_abierto:
+    "La dependencia abrió correctamente el documento original.",
   estado_cambiado: "Se actualizó el estado del expediente.",
   respuesta_enviada: "Se registró la respuesta institucional.",
   documentos_respuesta_adjuntados:
@@ -148,6 +170,7 @@ const CONTEXTO_DEPENDENCIA = {
   radicado_creado: "Dependencia destinataria",
   radicado_asignado: "Dependencia destinataria",
   documentos_radicado_adjuntados: "Dependencia destinataria",
+  documento_original_abierto: "Dependencia que abrió el documento",
   estado_cambiado: "Dependencia responsable",
   respuesta_enviada: "Dependencia que respondió",
   documentos_respuesta_adjuntados: "Dependencia que respondió",
@@ -498,6 +521,7 @@ function VistaConsultaRadicados({ usuario }) {
     criticos: soloCriticos ? "1" : "0",
     hoy: soloHoy ? "1" : "0",
     tipo_comunicacion: filtroComunicacion,
+    presentacion: esDependencia ? "detallada" : "agrupada",
   }).toString();
   const paginaConsulta =
     navegacion.filtros === filtrosConsulta ? navegacion.pagina : 1;
@@ -1023,7 +1047,12 @@ function VistaConsultaRadicados({ usuario }) {
           estado: `Vista previa: ${documento.nombre_archivo}`,
         };
       });
-      await confirmarEnteradoInformativo(radicadoSeleccionado || {});
+      const confirmoEnterado = await confirmarEnteradoInformativo(
+        radicadoSeleccionado || {},
+      );
+      if (!confirmoEnterado) {
+        await recargarHistorialTrasApertura(radicadoSeleccionado || {});
+      }
     } catch (error) {
       if (solicitud !== solicitudDocumento.current) return;
       setArchivoAdjunto((actual) => ({
@@ -1069,14 +1098,16 @@ function VistaConsultaRadicados({ usuario }) {
   }
 
   async function confirmarEnteradoInformativo(radicado) {
+    const puedeConfirmarEnterado =
+      !requiereRespuesta(radicado) || esGlobalExternoNoResponsable(radicado, usuario);
     if (
       usuario.rol !== "funcionario" ||
-      requiereRespuesta(radicado) ||
+      !puedeConfirmarEnterado ||
       esFinal(radicado)
     )
-      return;
+      return false;
     const clave = claveEstado(radicado);
-    if (cierresInformativosEnProceso.current.has(clave)) return;
+    if (cierresInformativosEnProceso.current.has(clave)) return false;
     cierresInformativosEnProceso.current.add(clave);
     try {
       const respuesta = await solicitarApi(
@@ -1105,25 +1136,31 @@ function VistaConsultaRadicados({ usuario }) {
         estado: `${actual.estado} El radicado quedó Enterado.`,
       }));
       setRevisionConsulta((valor) => valor + 1);
-      const solicitud = ++solicitudHistorial.current;
-      setHistorial((actual) => ({
-        ...actual,
-        eventos: [],
-        cargando: true,
-        error: "",
-      }));
-      cargarHistorial({ ...radicado, ...cambios }, solicitud, null, false);
+      await recargarHistorialTrasApertura({ ...radicado, ...cambios });
+      return true;
     } catch (error) {
       cierresInformativosEnProceso.current.delete(clave);
       if (error.status === 409) {
         setRevisionConsulta((valor) => valor + 1);
-        return;
+        return false;
       }
       setArchivoAdjunto((actual) => ({
         ...actual,
         estado: `${actual.estado} No se pudo confirmar Enterado. ${error.message}`,
       }));
+      return false;
     }
+  }
+
+  async function recargarHistorialTrasApertura(radicado) {
+    const solicitud = ++solicitudHistorial.current;
+    setHistorial((actual) => ({
+      ...actual,
+      eventos: [],
+      cargando: true,
+      error: "",
+    }));
+    await cargarHistorial(radicado, solicitud, null, false);
   }
 
   async function cambiarEstado(radicado, nuevoEstado) {
@@ -1172,6 +1209,29 @@ function VistaConsultaRadicados({ usuario }) {
     } finally {
       estadosEnProceso.current.delete(clave);
       setGuardandoEstados((actual) => ({ ...actual, [clave]: false }));
+    }
+  }
+
+  async function corregirDependenciaResponsable(radicado, dependenciaId) {
+    if (!esGlobalExterno(radicado) || !["administrador", "ventanilla"].includes(usuario.rol)) return;
+    try {
+      const respuesta = await solicitarApi(
+        `/api/radicados/${encodeURIComponent(radicado.numero_radicado)}/dependencia-responsable`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dependencia_responsable_id: Number(dependenciaId) }),
+        },
+      );
+      const resultado = await respuesta.json();
+      if (!resultado.success) throw new Error(resultado.message || "No se pudo corregir el responsable.");
+      actualizarRadicadoEnVista(radicado, {
+        dependencia_responsable_id: resultado.dependencia_responsable_id,
+        dependencia_responsable: resultado.dependencia_responsable,
+      });
+      setRevisionConsulta((valor) => valor + 1);
+    } catch (error) {
+      window.alert(error.message);
     }
   }
 
@@ -1687,6 +1747,71 @@ function VistaConsultaRadicados({ usuario }) {
                                 {radicado.seguimiento_dependencia_nombre}
                               </small>
                             )}
+                          {radicado.global_agrupado && (
+                            <details className="seguimiento-global">
+                              <summary>
+                                Ver seguimiento de {radicado.resumen_global?.total_dependencias || radicado.asignaciones?.length || 0} dependencias
+                              </summary>
+                              {esGlobalExterno(radicado) ? (
+                                <>
+                                  <p className="seguimiento-global__estado">
+                                    Flujo: {radicado.resumen_global?.estado_global || (radicado.respuesta_disponible ? "Respondido" : "Pendiente")}
+                                    {radicado.resumen_global?.respuesta_disponible || radicado.respuesta_disponible ? " · respuesta registrada" : " · sin respuesta"}
+                                  </p>
+                                  <div
+                                    className="seguimiento-global__resumen"
+                                    aria-label="Resumen numérico de dependencias"
+                                  >
+                                    <span className="seguimiento-global__contador seguimiento-global__contador--respondidas">
+                                      <strong>Respondidas:</strong>{" "}{Number(radicado.resumen_global?.respondidas || 0)}
+                                    </span>
+                                    <span className="seguimiento-global__contador seguimiento-global__contador--enteradas">
+                                      <strong>Enteradas:</strong>{" "}{Number(radicado.resumen_global?.enteradas || 0)}
+                                    </span>
+                                    <span className="seguimiento-global__contador seguimiento-global__contador--recibidas">
+                                      <strong>Recibidas:</strong>{" "}{Number(radicado.resumen_global?.recibidas || 0)}
+                                    </span>
+                                    {Number(radicado.resumen_global?.en_tramite || 0) > 0 && (
+                                      <span className="seguimiento-global__contador">
+                                        <strong>En trámite:</strong>{" "}{Number(radicado.resumen_global.en_tramite)}
+                                      </span>
+                                    )}
+                                    {Number(radicado.resumen_global?.pendientes || 0) > 0 && (
+                                      <span className="seguimiento-global__contador">
+                                        <strong>Pendientes:</strong>{" "}{Number(radicado.resumen_global.pendientes)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="seguimiento-global__estado">
+                                  Enteradas: {radicado.resumen_global?.progreso || "0 / 0"}
+                                </p>
+                              )}
+                              {esGlobalExterno(radicado) && ["administrador", "ventanilla"].includes(usuario.rol) && !radicado.respuesta_disponible && (
+                                <label className="seguimiento-global__responsable">
+                                  Dependencia responsable
+                                  <select
+                                    value={radicado.dependencia_responsable_id || ""}
+                                    onChange={(evento) => corregirDependenciaResponsable(radicado, evento.target.value)}
+                                  >
+                                    {dependencias.map((dep) => <option key={dep.id} value={dep.id}>{dep.nombre}</option>)}
+                                  </select>
+                                </label>
+                              )}
+                              <ul className="seguimiento-global__lista">
+                                {(radicado.asignaciones || []).map((asignacion) => (
+                                  <li key={asignacion.radicado_dependencia_id}>
+                                    <span>{asignacion.dependencia_nombre}</span>
+                                    <span className={`seguimiento-estado seguimiento-estado--${normalizarTexto(asignacion.estado).replace(/\s+/g, "-")}`}>
+                                      {asignacion.estado}
+                                    </span>
+                                    {Number(asignacion.dependencia_id) === Number(radicado.dependencia_responsable_id) && <strong>Responsable</strong>}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
                         </CeldaAdaptable>
                         <CeldaAdaptable etiqueta="Tipo / fecha">
                           <span
@@ -1716,7 +1841,11 @@ function VistaConsultaRadicados({ usuario }) {
                           </span>
                         </CeldaAdaptable>
                         <CeldaAdaptable etiqueta="Estado">
-                          {esFinal(radicado) &&
+                          {radicado.global_agrupado ? (
+                            <span className="estado-global" aria-label={`Estado global de ${radicado.numero_radicado}`}>
+                              {radicado.resumen_global?.estado_global || radicado.estado || "Pendiente"}
+                            </span>
+                          ) : esFinal(radicado) &&
                           !guardandoEstados[claveEstado(radicado)] ? (
                             <span
                               className="estado-final"
@@ -1739,7 +1868,7 @@ function VistaConsultaRadicados({ usuario }) {
                                 cambiarEstado(radicado, evento.target.value)
                               }
                             >
-                              {estadosParaRadicado(radicado, usuario.rol).map(
+                              {estadosParaRadicado(radicado, usuario).map(
                                 (estadoPosible) => (
                                   <option
                                     key={estadoPosible}
@@ -1818,6 +1947,10 @@ function VistaConsultaRadicados({ usuario }) {
                             Ver comprobante
                           </button>
                           {usuario.rol !== "ventanilla" &&
+                            (!esGlobalExterno(radicado) ||
+                              (usuario.rol === "funcionario" &&
+                                Number(usuario.dependencia_id) ===
+                                  Number(radicado.dependencia_responsable_id))) &&
                             !(
                               usuario.rol === "administrador" &&
                               String(radicado.tipo_comunicacion)
@@ -1846,7 +1979,7 @@ function VistaConsultaRadicados({ usuario }) {
                           )}
                           {["Respondido", "Entregado"].includes(
                             radicado.estado,
-                          ) && (
+                          ) && puedeVerRespuestaGlobal(radicado, usuario) && (
                             <button
                               type="button"
                               className="generar-comprobante"
@@ -1855,6 +1988,11 @@ function VistaConsultaRadicados({ usuario }) {
                               Ver respuesta
                             </button>
                           )}
+                          {esGlobalExterno(radicado) &&
+                            Boolean(radicado.respuesta_disponible) &&
+                            !puedeVerRespuestaGlobal(radicado, usuario) && (
+                              <small role="status">Respuesta recibida; contenido reservado.</small>
+                            )}
                         </CeldaAdaptable>
                       </tr>
                     ))

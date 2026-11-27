@@ -692,6 +692,12 @@ respuestas HTTP simuladas y Vite en `127.0.0.1:5173`. No inicia el backend, no
 usa MariaDB ni depende de usuarios o datos persistentes. Hay 11 escenarios en
 los viewports 320, 375, 440 y 1280 px: 44 ejecuciones en total.
 
+`npm run test:visual` ejecuta un preflight que verifica Edge, el acceso al
+loopback y que el puerto 5173 esté libre antes de levantar Vite. Si detecta
+`EACCES`, `EPERM` o un puerto ocupado, termina sin matar procesos ni borrar
+reportes y muestra cómo repetir la ejecución con acceso permitido a
+`127.0.0.1`. El modo `--list` solo enumera pruebas y omite ese preflight.
+
 `--list` solo descubre pruebas; no demuestra que se hayan ejecutado. Si la
 suite no inicia, comprueba el puerto 5173, los procesos `node` y `msedge`, y
 que `/login.html` responda. Clasifica como infraestructura únicamente errores

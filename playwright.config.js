@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webServer = process.env.VISUAL_SERVER_MANAGED === "1" ? undefined : {
+  command: "node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173",
+  url: "http://127.0.0.1:5173/login.html",
+  reuseExistingServer: false,
+  timeout: 120_000,
+};
+
 export default defineConfig({
   testDir: "./tests/visual",
   timeout: 30_000,
@@ -15,12 +22,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5173",
-    url: "http://127.0.0.1:5173/login.html",
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
+  webServer,
   projects: [
     {
       name: "mobile-320",
